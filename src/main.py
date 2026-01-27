@@ -28,7 +28,7 @@ try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
-    from logger import log
+    from utils.logger import log
 except ImportError:
     # logger를 import할 수 없으면 기본 print 사용
     import logging
@@ -111,7 +111,7 @@ def main():
         
         # main_window 모듈은 여기서 import하여 순환 참조 방지
         try:
-            from main_window import YTDownloaderPyQt5
+            from gui.windows.main_window import YTDownloaderPyQt5
         except ImportError as e:
             show_error_message(
                 "오류",

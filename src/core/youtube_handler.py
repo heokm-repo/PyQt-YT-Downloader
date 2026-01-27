@@ -1,8 +1,8 @@
 import os
 import yt_dlp
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-from utils import get_ffmpeg_path
-from logger import log
+from utils.utils import get_ffmpeg_path
+from utils.logger import log
 from constants import (
     ERROR_INVALID_URL, MSG_DOWNLOAD_COMPLETE, MSG_PAUSED_BY_USER, DEFAULT_VIDEO_QUALITY,
     MSG_NOT_PLAYLIST_URL, MSG_CANNOT_FETCH_INFO,

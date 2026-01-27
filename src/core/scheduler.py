@@ -8,8 +8,8 @@ import queue
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from workers import DownloadWorker
-from logger import log
+from core.workers import DownloadWorker
+from utils.logger import log
 from constants import WORKER_CLEANUP_WAIT_MS
 
 

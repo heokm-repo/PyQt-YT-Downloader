@@ -8,13 +8,13 @@ from typing import Optional, List, TYPE_CHECKING
 
 from PyQt5.QtWidgets import QMessageBox
 
-from logger import log
+from utils.logger import log
 from constants import TaskStatus
 
 if TYPE_CHECKING:
-    from models import DownloadTask
-    from ui.task_item import TaskWidget
-    from scheduler import DownloadScheduler
+    from data.models import DownloadTask
+    from gui.widgets.task_item import TaskWidget
+    from core.scheduler import DownloadScheduler
 
 
 class TaskActions:

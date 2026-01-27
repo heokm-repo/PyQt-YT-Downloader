@@ -8,17 +8,17 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent
 from PyQt5.QtGui import QFont, QKeySequence
 
-from settings_dialog import SettingsDialog, load_settings, save_settings
-from workers import PlaylistAnalysisWorker
-from utils import validate_url
-from url_processor import UrlProcessor
-from managers import HistoryManager, TaskManager, DuplicateChecker
-from selection_manager import SelectionManager
-from context_menu import ContextMenuBuilder
-from task_actions import TaskActions
-from ui.task_item import TaskWidget
-from ui.toggle_button import ToggleButton
-from logger import log
+from gui.windows.settings_dialog import SettingsDialog, load_settings, save_settings
+from core.workers import PlaylistAnalysisWorker
+from utils.utils import validate_url
+from core.url_processor import UrlProcessor
+from data.managers import HistoryManager, TaskManager, DuplicateChecker
+from gui.selection_manager import SelectionManager
+from gui.context_menu import ContextMenuBuilder
+from gui.task_actions import TaskActions
+from gui.widgets.task_item import TaskWidget
+from gui.widgets.toggle_button import ToggleButton
+from utils.logger import log
 import constants  # 동적 언어 문자열을 항상 최신 값으로 사용하기 위해 모듈 자체도 임포트
 from constants import (
     TaskStatus,
@@ -50,8 +50,8 @@ from constants import (
     DIALOG_RESUME_DOWNLOAD_TITLE, DIALOG_RESUME_DOWNLOAD_MESSAGE,
     DIALOG_NO_NEW_VIDEOS_TITLE, WARNING_PLAYLIST_WORKER_TIMEOUT
 )
-from models import DownloadTask
-from scheduler import DownloadScheduler
+from data.models import DownloadTask
+from core.scheduler import DownloadScheduler
 from resources.styles import (
     MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, TITLE_BAR_STYLE,
     MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, URL_INPUT_CONTAINER_STYLE, URL_INPUT_STYLE,

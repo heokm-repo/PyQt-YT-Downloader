@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont, QColor
 
-from utils import get_user_data_path, get_base_path
+from utils.utils import get_user_data_path, get_base_path
 from constants import (
     KEY_DOWNLOAD_FOLDER, KEY_VIDEO_QUALITY, KEY_AUDIO_QUALITY, KEY_FORMAT,
     KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
@@ -37,7 +37,7 @@ from resources.styles import (
     SETTINGS_INPUT_STYLE, SETTINGS_COMBO_STYLE, SETTINGS_CHECKBOX_STYLE,
     SETTINGS_CANCEL_BUTTON_STYLE, SETTINGS_SAVE_BUTTON_STYLE
 )
-from logger import log
+from utils.logger import log
 
 
 # ===== 설정 로드/저장 함수 =====

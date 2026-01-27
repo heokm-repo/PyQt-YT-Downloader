@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
-from utils import get_user_data_path
+from utils.utils import get_user_data_path
 
 def setup_logger():
     """로깅 설정: AppData 폴더에 app.log 파일 생성"""

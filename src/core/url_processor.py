@@ -7,8 +7,8 @@ from urllib.parse import urlparse, parse_qs
 
 from PyQt5.QtWidgets import QMessageBox
 
-from utils import validate_url
-from youtube_handler import _sanitize_url, has_video_and_list
+from utils.utils import validate_url
+from core.youtube_handler import _sanitize_url, has_video_and_list
 
 
 class UrlProcessResult:

@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QUrl
 from PyQt5.QtGui import QFont, QPixmap, QFontMetrics
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
-from logger import log
+from utils.logger import log
 from resources.styles import (
     COLOR_WAITING, COLOR_DOWNLOADING, COLOR_FINISHED, COLOR_ERROR, COLOR_PAUSED,
     get_card_style, THUMBNAIL_LABEL_STYLE, TITLE_LABEL_STYLE, UPLOADER_LABEL_STYLE,
@@ -18,7 +18,7 @@ from resources.styles import (
     STATUS_LABEL_ERROR_STYLE, STATUS_LABEL_WARNING_STYLE, SIZE_LABEL_STYLE,
     get_action_button_style
 )
-from utils import format_bytes
+from utils.utils import format_bytes
 from constants import (
     TaskStatus,
     CARD_HEIGHT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,

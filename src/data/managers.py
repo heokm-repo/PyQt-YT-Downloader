@@ -8,8 +8,8 @@ import sqlite3
 import datetime
 from PyQt5.QtWidgets import QMessageBox
 
-from utils import get_user_data_path
-from logger import log
+from utils.utils import get_user_data_path
+from utils.logger import log
 from constants import (
     TaskStatus, DEFAULT_FORMAT,
     HISTORY_DB_FILENAME, TASKS_JSON_FILENAME, HISTORY_TABLE_NAME, DATE_FORMAT,
@@ -17,7 +17,7 @@ from constants import (
     DUPLICATE_MSG_IN_QUEUE, DUPLICATE_MSG_ASK_OVERWRITE,
     STATUS_TEXT_WAITING, STATUS_TEXT_DOWNLOADING, STATUS_TEXT_PAUSED, STATUS_TEXT_IN_PROGRESS
 )
-from models import DownloadTask
+from data.models import DownloadTask
 
 
 class HistoryManager:

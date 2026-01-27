@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional, Tuple
 import yt_dlp
 from PyQt5.QtCore import QThread, pyqtSignal
 
-import youtube_handler
-from logger import log
+from core import youtube_handler
+from utils.logger import log
 from constants import (
     MSG_PAUSED_BY_USER, MEDIA_EXTENSIONS, QUEUE_TIMEOUT_SEC,
     BYTES_PER_KB, BYTES_PER_MB

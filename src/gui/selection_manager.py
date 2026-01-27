@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, TYPE_CHECKING
 from PyQt5.QtCore import Qt
 
 if TYPE_CHECKING:
-    from ui.task_item import TaskWidget
+    from gui.widgets.task_item import TaskWidget
 
 
 class SelectionManager:

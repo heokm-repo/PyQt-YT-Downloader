@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QMenu, QAction
 from constants import TaskStatus
 
 if TYPE_CHECKING:
-    from models import DownloadTask
+    from data.models import DownloadTask
 
 
 class ContextMenuBuilder:
