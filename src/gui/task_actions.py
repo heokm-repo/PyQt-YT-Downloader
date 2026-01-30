@@ -95,6 +95,10 @@ class TaskActions:
         
         # 2. 큐에 작업 다시 추가 (저장된 settings와 meta 사용)
         settings = task.settings if task.settings else self._settings.copy()
+        
+        # 이어받기 플래그 추가 (덮어쓰기 방지)
+        settings['is_resume'] = True
+        
         meta = task.meta
         url = task.url
         
@@ -113,12 +117,37 @@ class TaskActions:
         if not task: 
             return
 
-        self.main_window.remove_task_from_list(task_id)
-        
         url = task.url
-        if url:
-            self.main_window.url_input.setText(url)
-            self.main_window.start_download()
+        if not url:
+            return
+        
+        # video_id가 있을 때만 중복 체크
+        if task.video_id:
+            current_settings = self.main_window.settings.copy()
+            target_format = current_settings.get('format', 'mp4')
+            
+            # 중복 체크 (사용자 확인 포함)
+            from data.managers import DuplicateChecker
+            dup_checker = DuplicateChecker(
+                self.main_window.history_manager,
+                self.main_window
+            )
+            
+            is_cancelled = dup_checker.check_duplicate(
+                task.video_id, task_id, self.main_window.tasks[:], target_format
+            )
+            
+            if is_cancelled:
+                # 사용자가 재다운로드를 거부 -> 카드 유지
+                return
+            
+            # 사용자가 Yes를 선택 -> history에서 제거하여 start_download에서 중복 체크 안뜨게 함
+            self.main_window.history_manager.remove_from_history(task.video_id, target_format)
+        
+        # 기존 카드 제거 후 새로 다운로드
+        self.main_window.remove_task_from_list(task_id)
+        self.main_window.url_input.setText(url)
+        self.main_window.start_download()
         
         self.main_window.update_progress_ui()
 

@@ -48,7 +48,6 @@ def check_dependencies():
     """
     try:
         import requests
-        import yt_dlp
         return True, None
     except ImportError as e:
         missing_module = str(e).split("'")[1] if "'" in str(e) else str(e)
@@ -106,6 +105,73 @@ def main():
                 "오류",
                 f"필수 라이브러리 '{missing_module}'를 찾을 수 없습니다.",
                 "프로그램을 실행하려면 'pip install -r requirements.txt' 명령어를 실행하여 필요한 라이브러리를 설치해주세요."
+            )
+            sys.exit(1)
+        
+        # 바이너리 초기화 (yt-dlp, ffmpeg)
+        try:
+            from utils.bin_manager import check_binaries_exist, check_updates_available
+            from PyQt5.QtWidgets import QMessageBox
+            
+            if not check_binaries_exist():
+                # 첫 실행: 바이너리 다운로드
+                log.info("Binaries not found. Starting initial download...")
+                from gui.widgets.download_progress_dialog import DownloadProgressDialog
+                
+                dialog = DownloadProgressDialog()
+                result = dialog.exec_()
+                
+                if not dialog.download_success:
+                    show_error_message(
+                        "초기화 실패",
+                        "필수 구성 요소 다운로드에 실패했습니다.",
+                        "인터넷 연결을 확인하고 다시 시도해주세요."
+                    )
+                    sys.exit(1)
+                
+                log.info("Initial binary download completed successfully")
+            else:
+                # 바이너리가 이미 존재: 업데이트 확인
+                log.info("Checking for updates...")
+                updates = check_updates_available()
+                
+                if updates:
+                    # 업데이트 가능한 항목 표시
+                    update_msg = "다음 구성 요소의 업데이트가 있습니다:\n\n"
+                    for name, info in updates.items():
+                        update_msg += f"• {name}: {info['current']} → {info['latest']}\n"
+                    update_msg += "\n지금 업데이트하시겠습니까?"
+                    
+                    reply = QMessageBox.question(
+                        None,
+                        "업데이트 확인",
+                        update_msg,
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.Yes
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        log.info("User chose to update binaries")
+                        from gui.widgets.download_progress_dialog import DownloadProgressDialog
+                        
+                        dialog = DownloadProgressDialog(update_mode=True, updates=updates)
+                        dialog.exec_()
+                        
+                        if dialog.download_success:
+                            log.info("Update completed successfully")
+                        else:
+                            log.warning("Update failed or cancelled")
+                    else:
+                        log.info("User skipped updates")
+                else:
+                    log.info("All binaries are up to date")
+                    
+        except Exception as e:
+            log.error(f"Binary initialization error: {e}", exc_info=True)
+            show_error_message(
+                "초기화 오류",
+                "프로그램 초기화 중 오류가 발생했습니다.",
+                f"오류: {str(e)}"
             )
             sys.exit(1)
         

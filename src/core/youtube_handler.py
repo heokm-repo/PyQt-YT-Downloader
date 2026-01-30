@@ -1,7 +1,8 @@
 import os
-import yt_dlp
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from utils.utils import get_ffmpeg_path
+from utils.bin_manager import get_ytdlp_path
+from core.ytdlp_wrapper import YtDlpWrapper
 from utils.logger import log
 from constants import (
     ERROR_INVALID_URL, MSG_DOWNLOAD_COMPLETE, MSG_PAUSED_BY_USER, DEFAULT_VIDEO_QUALITY,
@@ -78,21 +79,33 @@ def extract_playlist_video_ids(url):
     if not is_playlist:
         return [], False, MSG_NOT_PLAYLIST_URL
     
-    ydl_opts = {
-        'quiet': True,
-        'extract_flat': True, # 메타데이터 없이 ID만 빠르게 추출
-        'ignoreerrors': True,
-    }
+    ytdlp_path = get_ytdlp_path()
+    if not ytdlp_path:
+        return [], False, "yt-dlp not found"
     
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            data = ydl.extract_info(clean_url, download=False)
-            if not data or 'entries' not in data:
-                return [], False, MSG_CANNOT_FETCH_INFO
-            
-            # 유효한 ID만 필터링
-            ids = [e['id'] for e in data['entries'] if e and e.get('id')]
-            return ids, True, ""
+        wrapper = YtDlpWrapper(ytdlp_path)
+        
+        # --flat-playlist 옵션으로 빠르게 ID만 추출
+        info, success = wrapper.extract_info(clean_url, download=False, options={'extract_flat': True})
+        
+        if not success or not info:
+            return [], False, MSG_CANNOT_FETCH_INFO
+        
+        # 플레이리스트 처리
+        if '_type' in info and info['_type'] == 'playlist':
+            entries = info.get('entries', [])
+        elif 'entries' in info:
+            entries = info['entries']
+        else:
+            # 단일 영상
+            return [], False, MSG_NOT_PLAYLIST_URL
+        
+        # 유효한 ID만 필터링
+        ids = [e.get('id') or e.get('url', '').split('=')[-1] for e in entries if e]
+        ids = [vid for vid in ids if vid]
+        
+        return ids, True, ""
             
     except Exception as e:
         log.error(f"Playlist Error: {e}")
@@ -103,77 +116,81 @@ def fetch_metadata(url, settings=None):
     clean_url, is_playlist = _sanitize_url(url)
     if not clean_url: return {}, False
 
-    ydl_opts = {
-        'quiet': True,
-        'extract_flat': 'in_playlist',
-        'noplaylist': not is_playlist,
-    }
-    
-    # 설정이 있으면 실제 다운로드 시 사용할 포맷 옵션 적용
-    if settings:
-        format_opts = _build_format_options(settings)
-        ydl_opts.update(format_opts)
-    else:
-        # 설정이 없으면 기본값 사용
-        default_quality = DEFAULT_VIDEO_QUALITY
-        ydl_opts['format'] = f'{default_quality}video+{default_quality}audio/best'
+    ytdlp_path = get_ytdlp_path()
+    if not ytdlp_path:
+        return {}, False
     
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(clean_url, download=False)
-            if not info: return {}, False
-            
-            # 플레이리스트 메타데이터
-            if is_playlist:
-                return {
-                    'title': info.get('title', DEFAULT_PLAYLIST_TITLE),
-                    'uploader': info.get('uploader', DEFAULT_UPLOADER),
-                    'is_playlist': True,
-                    'video_count': len(info.get('entries', []))
-                }, True
-
-            # 단일 영상 (플레이리스트 내부 항목일 경우 첫 번째 항목 사용)
-            if 'entries' in info:
-                info = info['entries'][0]
-
-            # 실제 다운로드 시 사용될 포맷의 크기 추정
-            video_size = 0
-            audio_size = 0
-            
-            # requested_formats에 실제 선택된 포맷 정보가 있음
-            if 'requested_formats' in info:
-                for f in info['requested_formats']:
-                    size = f.get('filesize', 0) or f.get('filesize_approx', 0)
-                    if f.get('vcodec') != 'none':
-                        video_size = size
-                    elif f.get('acodec') != 'none':
-                        audio_size = size
-            else:
-                # 단일 파일인 경우 (requested_formats가 없는 경우)
-                size = info.get('filesize', 0) or info.get('filesize_approx', 0)
-                if info.get('vcodec') != 'none':
-                    video_size = size
-                elif info.get('acodec') != 'none':
-                    audio_size = size
-            
-            # requested_formats가 없거나 크기를 알 수 없는 경우 fallback
-            if video_size == 0 and audio_size == 0:
-                formats = info.get('formats', [])
-                video_size = max([f.get('filesize', 0) or f.get('filesize_approx', 0) 
-                                for f in formats if f.get('vcodec') != 'none'], default=0)
-                audio_size = max([f.get('filesize', 0) or f.get('filesize_approx', 0) 
-                                for f in formats if f.get('acodec') != 'none'], default=0)
-
+        wrapper = YtDlpWrapper(ytdlp_path)
+        
+        # 메타데이터 추출 옵션
+        options = {
+            'extract_flat': 'in_playlist',
+            'noplaylist': not is_playlist
+        }
+        
+        # settings가 있으면 실제 다운로드 포맷 적용 (크기 추정을 위해)
+        if settings:
+            format_opts = _build_format_options(settings)
+            options.update(format_opts)
+        
+        info, success = wrapper.extract_info(clean_url, download=False, options=options)
+        
+        if not success or not info:
+            return {}, False
+        
+        # 플레이리스트 메타데이터
+        if is_playlist or info.get('_type') == 'playlist':
             return {
-                'title': info.get('title', DEFAULT_VIDEO_TITLE),
-                'uploader': info.get('uploader', info.get('channel', DEFAULT_UPLOADER)),
-                'duration': info.get('duration', 0),
-                'thumbnail': info.get('thumbnail'),
-                'id': info.get('id'),
-                'webpage_url': info.get('webpage_url', clean_url),
-                'video_size': video_size,
-                'audio_size': audio_size
+                'title': info.get('title', DEFAULT_PLAYLIST_TITLE),
+                'uploader': info.get('uploader', DEFAULT_UPLOADER),
+                'is_playlist': True,
+                'video_count': len(info.get('entries', []))
             }, True
+
+        # 단일 영상 (플레이리스트 내부 항목일 경우 첫 번째 항목 사용)
+        if 'entries' in info:
+            info = info['entries'][0]
+
+        # 실제 다운로드 시 사용될 포맷의 크기 추정
+        video_size = 0
+        audio_size = 0
+        
+        # requested_formats에 실제 선택된 포맷 정보가 있음
+        if 'requested_formats' in info:
+            for f in info['requested_formats']:
+                size = f.get('filesize', 0) or f.get('filesize_approx', 0)
+                if f.get('vcodec') != 'none':
+                    video_size = size
+                elif f.get('acodec') != 'none':
+                    audio_size = size
+        else:
+            # 단일 파일인 경우 (requested_formats가 없는 경우)
+            size = info.get('filesize', 0) or info.get('filesize_approx', 0)
+            if info.get('vcodec') != 'none':
+                video_size = size
+            elif info.get('acodec') != 'none':
+                audio_size = size
+        
+        # requested_formats가 없거나 크기를 알 수 없는 경우 fallback
+        if video_size == 0 and audio_size == 0:
+            formats = info.get('formats', [])
+            video_size = max([f.get('filesize', 0) or f.get('filesize_approx', 0) 
+                            for f in formats if f.get('vcodec') != 'none'], default=0)
+            audio_size = max([f.get('filesize', 0) or f.get('filesize_approx', 0) 
+                            for f in formats if f.get('acodec') != 'none'], default=0)
+
+        return {
+            'title': info.get('title', DEFAULT_VIDEO_TITLE),
+            'uploader': info.get('uploader', info.get('channel', DEFAULT_UPLOADER)),
+            'duration': info.get('duration', 0),
+            'thumbnail': info.get('thumbnail'),
+            'id': info.get('id'),
+            'webpage_url': info.get('webpage_url', clean_url),
+            'video_size': video_size,
+            'audio_size': audio_size
+        }, True
+        
     except Exception as e:
         log.error(f"Metadata Error: {e}")
         return {}, False
@@ -203,8 +220,12 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
         'quiet': True,
         'no_warnings': True,
         'keepvideo': False,  # [중요] 병합 후 원본(임시 파일) 삭제
-        'overwrites': True,
     }
+    
+    # 이어받기(resume)가 아닐 때만 덮어쓰기 허용
+    # resume일 때는 .part 파일을 유지하며 이어받기
+    if settings and not settings.get('is_resume', False):
+        opts['overwrites'] = True
     
     if ffmpeg_path:
         opts['ffmpeg_location'] = ffmpeg_path
@@ -355,12 +376,17 @@ def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_h
 def download_video(url, settings, progress_hook):
     """
     영상 다운로드 핵심 로직
-    - keepvideo: False 설정으로 임시 파일 삭제 문제 해결
+    - YtDlpWrapper를 사용하여 subprocess로 실행
     """
     if not url: 
         return False, ERROR_INVALID_URL
 
     clean_url, is_playlist = _sanitize_url(url)
+    
+    # 경로 확인
+    ytdlp_path = get_ytdlp_path()
+    if not ytdlp_path:
+        return False, "yt-dlp not found. Please restart the application."
     
     # 저장 경로 설정
     save_path = settings.get('download_folder') or settings.get('save_path') or os.getcwd()
@@ -369,14 +395,22 @@ def download_video(url, settings, progress_hook):
     # 모든 옵션 조립
     ydl_opts = _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook)
 
-    # 다운로드 실행
+    # YtDlpWrapper로 다운로드 실행
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([clean_url])
-        return True, MSG_DOWNLOAD_COMPLETE
+        wrapper = YtDlpWrapper(ytdlp_path, ffmpeg_path)
+        success, message = wrapper.download(clean_url, ydl_opts, progress_hook)
+        
+        if success:
+            return True, MSG_DOWNLOAD_COMPLETE
+        else:
+            # 일시정지 체크
+            if MSG_PAUSED_BY_USER in message:
+                return False, MSG_PAUSED_BY_USER
+            return False, message
+            
     except Exception as e:
         error_msg = str(e)
-        # 사용자가 일시정지 버튼을 누른 경우 (workers.py에서 발생시킨 예외)
+        # 사용자가 일시정지 버튼을 누른 경우
         if MSG_PAUSED_BY_USER in error_msg:
             return False, MSG_PAUSED_BY_USER
             

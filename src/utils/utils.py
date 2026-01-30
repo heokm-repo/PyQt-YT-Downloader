@@ -41,24 +41,11 @@ def get_user_data_path() -> str:
 
 def get_ffmpeg_path() -> Optional[str]:
     """
-    FFmpeg 실행 파일 경로 찾기
-    1. PyInstaller --onefile로 실행 중일 때: 임시 압축 해제 폴더(sys._MEIPASS) 확인
-    2. 개발 환경일 때: 프로젝트 루트 확인
+    FFmpeg 실행 파일 경로 반환
+    - bin_manager에서 관리하는 외부 바이너리 사용
     """
-    filename = 'ffmpeg.exe' if sys.platform == 'win32' else 'ffmpeg'
-    
-    # PyInstaller 패키징 환경 (--onefile)
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, filename)
-    
-    # 로컬 개발 환경 (프로젝트 루트)
-    base_path = get_base_path()
-    local_path = os.path.join(base_path, filename)
-    
-    if os.path.exists(local_path):
-        return local_path
-        
-    return None
+    from utils.bin_manager import get_ffmpeg_path as get_bin_ffmpeg
+    return get_bin_ffmpeg()
 
 def validate_url(url: str) -> bool:
     """

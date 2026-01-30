@@ -88,6 +88,23 @@ class HistoryManager:
         except Exception as e:
             log.error(f"DB 저장 오류 (video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
     
+    def remove_from_history(self, video_id, fmt=DEFAULT_FORMAT):
+        """기록 제거 (retry 시 사용)"""
+        if not video_id:
+            return
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"DELETE FROM {HISTORY_TABLE_NAME} WHERE video_id = ? AND format = ?",
+                    (video_id, fmt)
+                )
+                conn.commit()
+                log.info(f"Removed from history: {video_id} (format={fmt})")
+        except Exception as e:
+            log.error(f"DB 삭제 오류 (video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
+    
     # 하위 호환성을 위한 메서드 (기존 코드에서 사용 중일 수 있음)
     def is_video_downloaded(self, video_id):
         """다운로드 히스토리에 있는지 확인 (확장자 무관) - 하위 호환성"""
