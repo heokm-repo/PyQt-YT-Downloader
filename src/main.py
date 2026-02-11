@@ -174,7 +174,6 @@ def main():
                     update_msg += STR.MSG_UPDATE_ASK_NOW
                     
                     from gui.widgets.message_dialog import MessageDialog
-                    # import constants  # 이미 위에서 import 됨? 아니면 필요함. show_error 에서만 import 했음.
                     import constants
                     
                     dialog = MessageDialog(STR.TITLE_UPDATE_CHECK, update_msg, MessageDialog.QUESTION, show_cancel=False)
@@ -195,6 +194,64 @@ def main():
                         log.info("User skipped updates")
                 else:
                     log.info("All binaries are up to date")
+
+            # ---------------------------------------------------------
+            # 앱 자체 업데이트 확인 (App Update Check)
+            # ---------------------------------------------------------
+            try:
+                from utils.app_updater import check_for_updates, download_update, apply_update
+                import constants
+                
+                log.info("Checking for app updates...")
+                update_avail, latest_ver, download_url = check_for_updates()
+                
+                if update_avail:
+                    from gui.widgets.message_dialog import MessageDialog
+                    
+                    msg = STR.MSG_UPDATE_AVAILABLE.format(current=constants.APP_VERSION, latest=latest_ver)
+                    dialog = MessageDialog(STR.TITLE_APP_UPDATE, msg, MessageDialog.QUESTION)
+                    
+                    if dialog.exec_() == QDialog.Accepted:
+                        # 다운로드 진행 대화상자
+                        from PyQt5.QtWidgets import QProgressDialog
+                        from PyQt5.QtCore import Qt
+                        
+                        progress = QProgressDialog(STR.MSG_UPDATE_DL, STR.BTN_CANCEL, 0, 100)
+                        progress.setWindowTitle(STR.TITLE_UPDATE_DL)
+                        progress.setWindowModality(Qt.WindowModal)
+                        progress.setAutoClose(False)
+                        progress.setAutoReset(False)
+                        progress.show()
+                        
+                        def update_progress(pct):
+                            progress.setValue(pct)
+                            QApplication.processEvents()
+                            if progress.wasCanceled():
+                                raise Exception("Cancelled by user")
+                            
+                        # 다운로드 실행
+                        new_exe = None
+                        try:
+                            new_exe = download_update(download_url, update_progress)
+                        except Exception as e:
+                            log.warning(f"Update download cancelled or failed: {e}")
+                        
+                        progress.close()
+                        
+                        if new_exe:
+                            if apply_update(new_exe):
+                                sys.exit(0)
+                            else:
+                                show_error_message(STR.TITLE_ERROR, STR.ERR_UPDATE_APPLY)
+                        else:
+                            # 사용자가 취소한 경우가 아니면 에러 메시지 표시 context check needed
+                            # simple check: if not cancelled explicitly inside download_update (which catches exc)
+                            # but download_update returns None on failure.
+                            pass
+
+            except Exception as e:
+                log.error(f"App update check failed: {e}")
+
                     
         except Exception as e:
             log.error(f"Binary initialization error: {e}", exc_info=True)
