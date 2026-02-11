@@ -13,7 +13,7 @@ SUPPORTED_LANGUAGES = {
 }
 
 # 기본 언어
-DEFAULT_LANGUAGE = 'ko'
+DEFAULT_LANGUAGE = 'en'
 
 # 현재 언어 (런타임에 설정됨)
 _current_language = DEFAULT_LANGUAGE

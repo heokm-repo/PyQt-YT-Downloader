@@ -17,7 +17,7 @@ KEY_COOKIES_BROWSER = 'cookies_browser'
 KEY_LANGUAGE = 'language'
 
 # 기본값 (Defaults)
-APP_VERSION = 'v1.2.0'  # 앱 버전
+APP_VERSION = 'v1.2.1'  # 앱 버전
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
