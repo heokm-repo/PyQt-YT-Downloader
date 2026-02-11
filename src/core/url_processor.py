@@ -5,10 +5,11 @@ URL 검증, 정제, 플레이리스트/비디오 구분 등의 로직을 담당
 from typing import Optional, Tuple
 from urllib.parse import urlparse, parse_qs
 
-from PyQt5.QtWidgets import QMessageBox
+
 
 from utils.utils import validate_url
 from core.youtube_handler import _sanitize_url, has_video_and_list
+import constants
 
 
 class UrlProcessResult:
@@ -45,7 +46,7 @@ class UrlProcessor:
                 return qs.get('v', [None])[0]
 
             # youtu.be 단축 URL (https://youtu.be/VIDEO_ID)
-            if parsed.netloc.endswith('youtu.be') and parsed.path:
+            if parsed.netloc.endswith(constants.DOMAIN_YOUTU_BE) and parsed.path:
                 video_id = parsed.path.strip('/')
                 return video_id or None
 
@@ -62,34 +63,38 @@ class UrlProcessor:
             parent: 부모 위젯 (QMainWindow)
             
         Returns:
-            True: 플레이리스트 선택
-            False: 단일 영상 선택
-            None: 취소
+            True: 플레이리스트 선택 (1)
+            False: 단일 영상 선택 (2)
+            None: 취소 (0)
         """
-        msg_box = QMessageBox(parent)
-        msg_box.setWindowTitle('다운로드 선택')
-        msg_box.setText('이 URL은 비디오와 플레이리스트 정보를 모두 포함하고 있습니다.')
-        msg_box.setInformativeText('어떻게 다운로드하시겠습니까?')
-        msg_box.setIcon(QMessageBox.Question)
+        from gui.widgets.message_dialog import MessageDialog
+        from locales.strings import STR
         
-        # 버튼 추가 및 텍스트 설정
-        btn_playlist = msg_box.addButton('플레이리스트 전체', QMessageBox.YesRole)
-        btn_video = msg_box.addButton('이 영상만', QMessageBox.NoRole)
-        btn_cancel = msg_box.addButton('취소', QMessageBox.RejectRole)
+        # 버튼 순서: [0: 플레이리스트, 1: 단일 영상, 2: 취소]
+        # MessageDialog의 custom_buttons 인덱스와 매핑됨
+        buttons = [
+            {'text': STR.BTN_CHOICE_ALL, 'role': 'action'},
+            {'text': STR.BTN_CHOICE_VIDEO, 'role': 'action'},
+            {'text': STR.BTN_CANCEL, 'role': 'reject'}
+        ]
         
-        msg_box.setDefaultButton(btn_video)  # 기본 선택: 이 영상만
-        msg_box.exec_()
+        dialog = MessageDialog(STR.TITLE_CHOICE, 
+                               STR.MSG_CHOICE,
+                               MessageDialog.QUESTION, parent, buttons=buttons)
+                               
+        dialog.exec_()
         
-        clicked_button = msg_box.clickedButton()
-        if clicked_button == btn_cancel:
-            return None
-        elif clicked_button == btn_playlist:
+        # clicked_button_index는 누른 버튼의 리스트 내 인덱스
+        # 0: 플레이리스트, 1: 단일 영상, 그 외: 취소/닫기
+        if dialog.clicked_button_index == 0:
             return True
-        else:
+        elif dialog.clicked_button_index == 1:
             return False
+        else: # Cancel or closed
+            return None
     
     @staticmethod
-    def process_url(url: str, parent) -> Optional[UrlProcessResult]:
+    def process_url(url: str, parent) -> Optional['UrlProcessResult']:
         """
         URL을 처리하고 결과 반환
         
@@ -100,9 +105,11 @@ class UrlProcessor:
         Returns:
             UrlProcessResult 또는 None (취소/실패 시)
         """
-        # URL 검증
+        from locales.strings import STR
         if not url or not validate_url(url):
-            QMessageBox.warning(parent, "오류", "유효한 YouTube URL을 입력해주세요.")
+            from gui.widgets.message_dialog import MessageDialog
+            MessageDialog(STR.TITLE_ERROR, STR.ERR_INVALID_URL, 
+                          MessageDialog.WARNING, parent).exec_()
             return None
         
         # URL에 v(영상ID)와 list(플레이리스트ID)가 함께 있는지 확인

@@ -6,10 +6,11 @@ import os
 import subprocess
 from typing import Optional, List, TYPE_CHECKING
 
-from PyQt5.QtWidgets import QMessageBox
+
 
 from utils.logger import log
 from constants import TaskStatus
+from locales.strings import STR
 
 if TYPE_CHECKING:
     from data.models import DownloadTask
@@ -89,7 +90,7 @@ class TaskActions:
         widget = self._get_widget(task_id)
         if widget:
             widget.set_status('waiting')
-            widget.status_label.setText("대기 중...")
+            widget.status_label.setText(STR.STATUS_WAITING_DOTS)
         
         task.status = TaskStatus.WAITING
         
@@ -153,16 +154,30 @@ class TaskActions:
 
     # --- 파일 관련 액션 메서드 ---
 
+    def copy_url(self, task_id: int) -> None:
+        """작업 URL을 클립보드에 복사"""
+        task = self._get_task(task_id)
+        if task and task.url:
+            from PyQt5.QtWidgets import QApplication
+            clipboard = QApplication.clipboard()
+            clipboard.setText(task.url)
+            log.info(f"URL 복사됨: {task.url}")
+    
     def play_file(self, task_id: int) -> None:
         """파일 실행"""
         task = self._get_task(task_id)
+        from gui.widgets.message_dialog import MessageDialog
+        import constants
+        
         if not task:
-            QMessageBox.warning(self.main_window, "오류", "작업을 찾을 수 없습니다.")
+            MessageDialog(STR.TITLE_ERROR, STR.ERR_TASK_NOT_FOUND, 
+                          MessageDialog.WARNING, self.main_window).exec_()
             return
         
         path = task.output_path
         if not path:
-            QMessageBox.warning(self.main_window, "오류", "파일 경로가 저장되지 않았습니다.")
+            MessageDialog(STR.TITLE_ERROR, STR.ERR_NO_FILE_PATH, 
+                          MessageDialog.WARNING, self.main_window).exec_()
             return
         
         # 절대 경로로 변환 (PyInstaller 환경 대응)
@@ -174,11 +189,12 @@ class TaskActions:
             try:
                 os.startfile(path)
             except Exception as e:
-                QMessageBox.warning(self.main_window, "오류", f"파일을 실행할 수 없습니다:\n{str(e)}")
+                MessageDialog(STR.TITLE_ERROR, STR.ERR_EXECUTE_FILE.format(error=str(e)), 
+                              MessageDialog.WARNING, self.main_window).exec_()
         else:
-            QMessageBox.warning(self.main_window, "오류", 
-                              f"파일을 찾을 수 없습니다.\n\n경로: {path}\n\n"
-                              f"파일이 이동되었거나 삭제되었을 수 있습니다.")
+            MessageDialog(STR.TITLE_ERROR, 
+                          STR.ERR_FILE_NOT_FOUND_PATH.format(path=path),
+                          MessageDialog.WARNING, self.main_window).exec_()
 
     def open_folder(self, task_id: int) -> None:
         """파일이 있는 폴더 열기"""
@@ -189,7 +205,9 @@ class TaskActions:
                 try:
                     subprocess.Popen(f'explorer /select,"{path}"')
                 except Exception as e:
-                    QMessageBox.warning(self.main_window, "오류", f"폴더를 열 수 없습니다: {e}")
+                    from gui.widgets.message_dialog import MessageDialog
+                    MessageDialog(STR.TITLE_ERROR, STR.ERR_OPEN_FOLDER.format(error=e), 
+                                  MessageDialog.WARNING, self.main_window).exec_()
             else:
                 folder = os.path.dirname(path)
                 if os.path.exists(folder):
@@ -200,14 +218,15 @@ class TaskActions:
         task = self._get_task(task_id)
         if not task: 
             return
+        
+        from gui.widgets.message_dialog import MessageDialog
+        from PyQt5.QtWidgets import QDialog
 
         if confirm:
-            reply = QMessageBox.question(
-                self.main_window, '삭제 확인', 
-                '파일을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-            )
-            if reply == QMessageBox.No:
+            dialog = MessageDialog(STR.TITLE_DELETE_CONFIRM, 
+                                   STR.MSG_DELETE_CONFIRM,
+                                   MessageDialog.QUESTION, self.main_window, show_cancel=False)
+            if dialog.exec_() != QDialog.Accepted:
                 return
 
         output_path = task.output_path
@@ -221,14 +240,15 @@ class TaskActions:
                 try:
                     os.remove(output_path)
                 except PermissionError as e:
-                    QMessageBox.warning(
-                        self.main_window, "삭제 실패", 
-                        f"파일이 사용 중이거나 권한이 없습니다:\n{str(e)}\n\n"
-                        f"파일이 다른 프로그램에서 열려있는지 확인해주세요."
-                    )
+                    MessageDialog(
+                        STR.TITLE_DELETE_FAILED, 
+                        STR.ERR_DELETE_PERMISSION.format(path=str(e)),
+                        MessageDialog.WARNING, self.main_window
+                    ).exec_()
                     log.warning(f"파일 삭제 실패 (권한, task_id={task_id}): {e}")
                 except Exception as e:
-                    QMessageBox.warning(self.main_window, "삭제 실패", f"파일을 삭제할 수 없습니다:\n{str(e)}")
+                    MessageDialog(STR.TITLE_DELETE_FAILED, STR.ERR_DELETE_ERROR.format(error=str(e)), 
+                                  MessageDialog.WARNING, self.main_window).exec_()
                     log.error(f"파일 삭제 실패 (task_id={task_id}): {e}", exc_info=True)
             elif not os.path.exists(output_path):
                 # 파일이 이미 없는 경우 경고 메시지 없이 목록에서만 제거
@@ -282,12 +302,15 @@ class TaskActions:
         if count == 0:
             return False
         
-        reply = QMessageBox.question(
-            self.main_window, '삭제 확인',
-            f'{count}개의 파일을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
-        if reply == QMessageBox.No:
+        from gui.widgets.message_dialog import MessageDialog
+        from PyQt5.QtWidgets import QDialog
+        
+        
+        dialog = MessageDialog(STR.TITLE_DELETE_CONFIRM,
+                               STR.MSG_DELETE_CONFIRM_MANY.format(count=count),
+                               MessageDialog.QUESTION, self.main_window, show_cancel=False)
+                               
+        if dialog.exec_() != QDialog.Accepted:
             return False
         
         for task_id in selected_ids:
@@ -309,12 +332,15 @@ class TaskActions:
             return False
         
         if count > 1:
-            reply = QMessageBox.question(
-                self.main_window, '제거 확인',
-                f'{count}개의 항목을 목록에서 제거하시겠습니까?',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-            )
-            if reply == QMessageBox.No:
+            from gui.widgets.message_dialog import MessageDialog
+            from PyQt5.QtWidgets import QDialog
+            
+            
+            dialog = MessageDialog(STR.TITLE_REMOVE_CONFIRM,
+                                   STR.MSG_REMOVE_CONFIRM.format(count=count),
+                                   MessageDialog.QUESTION, self.main_window, show_cancel=False)
+                                   
+            if dialog.exec_() != QDialog.Accepted:
                 return False
         
         for task_id in selected_ids:

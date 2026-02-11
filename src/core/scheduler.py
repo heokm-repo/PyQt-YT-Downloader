@@ -10,7 +10,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 from core.workers import DownloadWorker
 from utils.logger import log
-from constants import WORKER_CLEANUP_WAIT_MS
+from constants import WORKER_CLEANUP_WAIT_MS, SCHEDULER_PRIORITY_NORMAL
 
 
 class DownloadScheduler(QObject):
@@ -147,7 +147,7 @@ class DownloadScheduler(QObject):
         
         # 워커에게 종료 신호 전송 (큐에 종료 마커 추가)
         for _ in self.workers:
-            self.download_queue.put((0, None))
+            self.download_queue.put((SCHEDULER_PRIORITY_NORMAL, None))
         
         # 워커들이 정리할 시간을 줌
         for worker in self.workers:

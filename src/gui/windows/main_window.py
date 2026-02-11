@@ -3,7 +3,7 @@ from typing import Optional
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLineEdit, QPushButton, QLabel, QFrame,
-                             QMessageBox, QSlider, QDialog, QScrollArea,
+                             QSlider, QDialog, QScrollArea,
                              QApplication, QShortcut)
 from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent
 from PyQt5.QtGui import QFont, QKeySequence
@@ -20,35 +20,17 @@ from gui.widgets.task_item import TaskWidget
 from gui.widgets.toggle_button import ToggleButton
 from utils.logger import log
 import constants  # 동적 언어 문자열을 항상 최신 값으로 사용하기 위해 모듈 자체도 임포트
+from locales import DEFAULT_LANGUAGE
+from locales.strings import STR
 from constants import (
     TaskStatus,
     WORKER_TERMINATE_WAIT_MS, WORKER_SHUTDOWN_WAIT_MS,
-    MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT,
-    TITLE_BAR_BUTTON_SIZE, TOGGLE_BUTTON_SIZE, SETTINGS_BUTTON_SIZE,
-    APP_TITLE, APP_TITLE_COLOR, MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
-    TITLE_BAR_HEIGHT, TITLE_BAR_MARGINS, TITLE_BAR_SPACING,
-    TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE,
-    TITLE_BAR_MINIMIZE_BUTTON_TEXT, TITLE_BAR_CLOSE_BUTTON_TEXT,
-    KEY_LANGUAGE, DEFAULT_LANGUAGE, change_language,
-    URL_INPUT_SECTION_HEIGHT, URL_INPUT_CONTAINER_MARGINS, URL_INPUT_CONTAINER_SPACING,
-    URL_INPUT_PLACEHOLDER, URL_INPUT_HEIGHT, URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE,
-    DOWNLOAD_BUTTON_TEXT, DOWNLOAD_BUTTON_HEIGHT, DOWNLOAD_BUTTON_WIDTH,
-    DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE,
-    SETTINGS_BUTTON_TEXT, SETTINGS_BUTTON_FONT_FAMILY, SETTINGS_BUTTON_FONT_SIZE,
-    TASK_LIST_MARGINS, TASK_LIST_SPACING, EMPTY_STATE_MESSAGE,
-    EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE,
-    STATUS_BAR_HEIGHT, STATUS_BAR_MARGINS, STATUS_BAR_SPACING,
-    STATUS_BAR_DEFAULT_TEXT, STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE,
-    PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX, PROGRESS_SLIDER_DEFAULT,
-    STATUS_TEXT_WAITING, STATUS_TEXT_WAITING_DOTS, STATUS_TEXT_PAUSED_SAVED, STATUS_TEXT_PREVIOUS_FAILED,
-    MSG_READY, MSG_SMART_PASTE_STARTED, MSG_DOWNLOAD_ENABLED, MSG_DOWNLOAD_PAUSED,
-    MSG_DOWNLOAD_CANCELLED, MSG_ADDED_TO_QUEUE, MSG_PLAYLIST_ANALYZING,
-    MSG_PLAYLIST_REGISTERING, MSG_PLAYLIST_ADDED, MSG_ERROR_COUNT, MSG_COMPLETED_COUNT,
-    MSG_NO_NEW_VIDEOS, MSG_PLAYLIST_FETCH_ERROR,
-    PLAYLIST_VIDEO_URL_TEMPLATE, PLAYLIST_VIDEO_TITLE_TEMPLATE,
-    DIALOG_DUPLICATE_VIDEOS_TITLE, DIALOG_DUPLICATE_VIDEOS_MESSAGE,
-    DIALOG_RESUME_DOWNLOAD_TITLE, DIALOG_RESUME_DOWNLOAD_MESSAGE,
-    DIALOG_NO_NEW_VIDEOS_TITLE, WARNING_PLAYLIST_WORKER_TIMEOUT
+    APP_TITLE,
+    KEY_LANGUAGE, change_language,
+    APP_TITLE,
+    KEY_LANGUAGE, change_language,
+    PLAYLIST_VIDEO_URL_TEMPLATE,
+    BTN_MINIMIZE, BTN_TEXT_CLOSE_X
 )
 from data.models import DownloadTask
 from core.scheduler import DownloadScheduler
@@ -56,7 +38,23 @@ from resources.styles import (
     MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, TITLE_BAR_STYLE,
     MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, URL_INPUT_CONTAINER_STYLE, URL_INPUT_STYLE,
     DOWNLOAD_BUTTON_STYLE, SETTINGS_BUTTON_STYLE, STATUS_BAR_STYLE,
-    STATUS_LABEL_STYLE, PROGRESS_SLIDER_STYLE, EMPTY_LABEL_STYLE
+    STATUS_LABEL_STYLE, PROGRESS_SLIDER_STYLE, EMPTY_LABEL_STYLE,
+    # Moved Constants
+    MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT,
+    APP_TITLE_COLOR, MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
+    TITLE_BAR_HEIGHT, TITLE_BAR_MARGINS, TITLE_BAR_SPACING,
+    TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE, TITLE_BAR_BUTTON_SIZE,
+    URL_INPUT_SECTION_HEIGHT, URL_INPUT_CONTAINER_MARGINS, URL_INPUT_CONTAINER_SPACING,
+    URL_INPUT_HEIGHT, URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE,
+    TOGGLE_BUTTON_SIZE, SETTINGS_BUTTON_SIZE,
+    DOWNLOAD_BUTTON_HEIGHT, DOWNLOAD_BUTTON_WIDTH,
+    DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE,
+    SETTINGS_BUTTON_TEXT, SETTINGS_BUTTON_FONT_FAMILY, SETTINGS_BUTTON_FONT_SIZE,
+    TASK_LIST_MARGINS, TASK_LIST_SPACING,
+    EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE,
+    STATUS_BAR_HEIGHT, STATUS_BAR_MARGINS, STATUS_BAR_SPACING,
+    STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE,
+    PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX, PROGRESS_SLIDER_DEFAULT
 )
 
 
@@ -167,9 +165,9 @@ class YTDownloaderPyQt5(QMainWindow):
             self.app_title_label.setText(constants.APP_TITLE)
         # URL 입력 섹션
         if hasattr(self, "url_input"):
-            self.url_input.setPlaceholderText(constants.URL_INPUT_PLACEHOLDER)
+            self.url_input.setPlaceholderText(STR.MAIN_URL_PLACEHOLDER)
         if hasattr(self, "download_btn"):
-            self.download_btn.setText(constants.DOWNLOAD_BUTTON_TEXT)
+            self.download_btn.setText(STR.BTN_DOWNLOAD)
             # 텍스트 길이에 맞춰 버튼 최소 너비를 재조정 (언어별 길이 대응)
             fm = self.download_btn.fontMetrics()
             text_width = fm.boundingRect(self.download_btn.text()).width()
@@ -177,10 +175,10 @@ class YTDownloaderPyQt5(QMainWindow):
             self.download_btn.setMinimumWidth(text_width + 30)
         # 빈 상태 메시지
         if hasattr(self, "empty_label"):
-            self.empty_label.setText(constants.EMPTY_STATE_MESSAGE)
+            self.empty_label.setText(STR.MAIN_EMPTY_STATE)
         # 상태바 기본 텍스트 (현재 작업이 없을 때만 갱신)
         if hasattr(self, "status_label") and not self.tasks:
-            self.status_label.setText(constants.STATUS_BAR_DEFAULT_TEXT)
+            self.status_label.setText(STR.MAIN_STATUS_READY)
 
     def create_custom_title_bar(self, layout):
         title_frame = QFrame()
@@ -200,7 +198,7 @@ class YTDownloaderPyQt5(QMainWindow):
         title_layout.addStretch(1)
         
         # 최소화 버튼
-        minimize_btn = QPushButton(TITLE_BAR_MINIMIZE_BUTTON_TEXT)
+        minimize_btn = QPushButton(BTN_MINIMIZE)
         minimize_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
         minimize_btn.setCursor(Qt.PointingHandCursor)
         minimize_btn.clicked.connect(self.showMinimized)
@@ -208,7 +206,7 @@ class YTDownloaderPyQt5(QMainWindow):
         title_layout.addWidget(minimize_btn)
         
         # 닫기 버튼
-        close_btn = QPushButton(TITLE_BAR_CLOSE_BUTTON_TEXT)
+        close_btn = QPushButton(BTN_TEXT_CLOSE_X)
         close_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.clicked.connect(self.close)
@@ -272,7 +270,7 @@ class YTDownloaderPyQt5(QMainWindow):
         container_layout.addWidget(self.toggle_btn)
         
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText(URL_INPUT_PLACEHOLDER)
+        self.url_input.setPlaceholderText(STR.MAIN_URL_PLACEHOLDER)
         self.url_input.setFixedHeight(URL_INPUT_HEIGHT)
         self.url_input.setFont(QFont(URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE))
         self.url_input.setStyleSheet(URL_INPUT_STYLE)
@@ -285,7 +283,7 @@ class YTDownloaderPyQt5(QMainWindow):
         btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_layout.setSpacing(0)
         
-        self.download_btn = QPushButton(DOWNLOAD_BUTTON_TEXT)
+        self.download_btn = QPushButton(STR.BTN_DOWNLOAD)
         self.download_btn.setFixedHeight(DOWNLOAD_BUTTON_HEIGHT)
         # 기본 최소 너비만 설정하고, 실제 너비는 텍스트 길이에 따라 동적으로 조정
         self.download_btn.setMinimumWidth(DOWNLOAD_BUTTON_WIDTH)
@@ -328,7 +326,7 @@ class YTDownloaderPyQt5(QMainWindow):
         layout.addWidget(self.scroll_area, 1)
         
         # 빈 상태 라벨
-        self.empty_label = QLabel(EMPTY_STATE_MESSAGE)
+        self.empty_label = QLabel(STR.ERR_START_FAIL)
         self.empty_label.setAlignment(Qt.AlignCenter)
         self.empty_label.setFont(QFont(EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE))
         self.empty_label.setStyleSheet(EMPTY_LABEL_STYLE)
@@ -349,7 +347,7 @@ class YTDownloaderPyQt5(QMainWindow):
         s_layout.setContentsMargins(*STATUS_BAR_MARGINS)
         s_layout.setSpacing(STATUS_BAR_SPACING)
         
-        self.status_label = QLabel(STATUS_BAR_DEFAULT_TEXT)
+        self.status_label = QLabel(STR.MAIN_STATUS_READY)
         self.status_label.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
         self.status_label.setStyleSheet(STATUS_LABEL_STYLE)
         s_layout.addWidget(self.status_label)
@@ -379,7 +377,7 @@ class YTDownloaderPyQt5(QMainWindow):
         if text and validate_url(text):
             self.url_input.setText(text)
             self.start_download()
-            self.status_label.setText(MSG_SMART_PASTE_STARTED)
+            self.status_label.setText(STR.MSG_SMART_PASTE)
 
     # --- 작업 제어 메서드 (TaskActions로 위임) ---
 
@@ -457,6 +455,7 @@ class YTDownloaderPyQt5(QMainWindow):
         callbacks = {
             'play': lambda: self.play_file(selected_ids[0]) if selected_ids else None,
             'open_folder': self._open_folders_for_selected,
+            'copy_url': lambda: self.task_actions.copy_url(selected_ids[0]) if selected_ids else None,
             'pause': self._pause_selected_tasks,
             'resume': self._resume_selected_tasks,
             'retry': self._retry_selected_tasks,
@@ -529,7 +528,7 @@ class YTDownloaderPyQt5(QMainWindow):
         self.update_toggle_button_style()
         
         if self.toggle_enabled:
-            self.status_label.setText(MSG_DOWNLOAD_ENABLED)
+            self.status_label.setText(STR.MSG_DL_ENABLED)
             self.scheduler.resume_all()  # 워커 재개
             
             # 전체 일시정지로 인해 일시정지된 작업들을 큐에 다시 추가
@@ -543,7 +542,7 @@ class YTDownloaderPyQt5(QMainWindow):
                     widget = self.task_widgets.get(task.id)
                     if widget:
                         widget.set_status('waiting')
-                        widget.status_label.setText(STATUS_TEXT_WAITING_DOTS)
+                        widget.status_label.setText(STR.STATUS_WAITING_DOTS)
                     
                     task.status = TaskStatus.WAITING
                     
@@ -556,7 +555,7 @@ class YTDownloaderPyQt5(QMainWindow):
             
             self.update_progress_ui()
         else:
-            self.status_label.setText(MSG_DOWNLOAD_PAUSED)
+            self.status_label.setText(STR.MSG_DL_PAUSED)
             
             # 다운로드 중인 작업들의 상태를 미리 PAUSED로 변경
             # (워커에서 예외 발생 시 올바른 상태로 처리되도록)
@@ -598,17 +597,24 @@ class YTDownloaderPyQt5(QMainWindow):
         Returns:
             생성된 DownloadTask 객체
         """
+        # DownloadTask 생성 (설정 복사)
+        current_settings = self.settings.copy()
+
         # TaskWidget 생성
-        task_widget = TaskWidget(task_id, url, self)
+        task_widget = TaskWidget(task_id, url, current_settings, self)
         if title_override:
-            task_widget.title_label.setText(title_override)
+            # 플레이리스트의 경우 타이틀 오버라이드를 할 때 포맷 정보도 포함
+            # 하지만 TaskWidget 내부에서 처리하도록 하는 것이 더 깔끔할 수 있음
+            # 일단 _get_formatted_title 메서드를 외부에서 호출할 수 없으므로(protected),
+            # setText를 직접 호출하되 포맷을 붙여줌
+            fmt = current_settings.get('format', 'mp4').upper()
+            task_widget.title_label.setText(f"[{fmt}] {title_override}")
+            
         self._connect_task_widget_signals(task_widget)
         
         self.task_layout.insertWidget(0, task_widget)
         self.task_widgets[task_id] = task_widget
         
-        # DownloadTask 생성
-        current_settings = self.settings.copy()
         task = DownloadTask(
             id=task_id,
             url=url,
@@ -635,7 +641,7 @@ class YTDownloaderPyQt5(QMainWindow):
             self.playlist_worker.terminate()
             self.playlist_worker.wait(WORKER_TERMINATE_WAIT_MS)
         
-        self.status_label.setText(MSG_PLAYLIST_ANALYZING)
+        self.status_label.setText(STR.MSG_ANALYZING_PLAYLIST)
         self.url_input.setEnabled(False)  # 분석 중 입력 비활성화
         self.download_btn.setEnabled(False)
         
@@ -652,7 +658,7 @@ class YTDownloaderPyQt5(QMainWindow):
         
         if video_id and self.duplicate_checker.check_duplicate(video_id, -1, self.tasks[:], target_format):
             # 사용자가 다시 다운로드하지 않기로 선택한 경우
-            self.status_label.setText(MSG_DOWNLOAD_CANCELLED)
+            self.status_label.setText(STR.MSG_DL_CANCELLED)
             return
         
         # 중복이 아니거나 사용자가 다시 다운로드하기로 선택한 경우
@@ -662,7 +668,7 @@ class YTDownloaderPyQt5(QMainWindow):
         # TaskWidget 생성 및 작업 등록
         self._create_and_register_task(task_id, clean_url, video_id)
         
-        self.status_label.setText(MSG_ADDED_TO_QUEUE)
+        self.status_label.setText(STR.MSG_ADDED_QUEUE)
         self.update_progress_ui()
 
     def start_download(self):
@@ -724,7 +730,7 @@ class YTDownloaderPyQt5(QMainWindow):
                 task_format = task.settings.get('format', 'mp4')
                 self.history_manager.add_to_history(task.video_id, task.meta, task_format)
         else:
-            if message == "일시정지됨":
+            if message == STR.STATUS_PAUSED:
                 # 이미 PAUSED 상태인 경우 (전체 일시정지로 미리 처리됨) - 중복 처리 방지
                 if task and task.status == TaskStatus.PAUSED:
                     log.debug(f"Task {task_id}: 이미 일시정지 상태, 중복 처리 스킵")
@@ -748,7 +754,7 @@ class YTDownloaderPyQt5(QMainWindow):
     def update_progress_ui(self):
         """상태별 작업 수를 계산하여 UI 업데이트"""
         if not self.tasks:
-            self.status_label.setText(MSG_READY)
+            self.status_label.setText(STR.MSG_READY)
             return
         
         # 상태별 카운트
@@ -767,10 +773,10 @@ class YTDownloaderPyQt5(QMainWindow):
         
         # 오류가 있으면 오류 메시지 표시
         if failed_count > 0:
-            msg = MSG_ERROR_COUNT.format(count=failed_count)
+            msg = STR.MSG_ERROR_COUNT.format(count=failed_count)
         else:
             # 정상 상태: 완료된 작업 수 / 전체 작업 수
-            msg = MSG_COMPLETED_COUNT.format(finished=finished_count, total=total_tasks)
+            msg = STR.MSG_COMPLETED_COUNT.format(finished=finished_count, total=total_tasks)
         
         self.status_label.setText(msg)
 
@@ -836,9 +842,12 @@ class YTDownloaderPyQt5(QMainWindow):
 
     def _handle_playlist_error(self, error_msg: str):
         """플레이리스트 에러 처리"""
-        error_text = error_msg if error_msg else MSG_PLAYLIST_FETCH_ERROR
-        QMessageBox.warning(self, "플레이리스트 오류", error_text)
-        self.status_label.setText(MSG_READY)
+        from gui.widgets.message_dialog import MessageDialog
+        
+        error_text = error_msg if error_msg else STR.ERR_PLAYLIST_FETCH
+        MessageDialog("플레이리스트 오류", error_text, 
+                      MessageDialog.WARNING, self).exec_()
+        self.status_label.setText(STR.MSG_READY)
 
     def _filter_duplicate_videos(self, video_ids: list) -> tuple[list, int]:
         """
@@ -874,14 +883,18 @@ class YTDownloaderPyQt5(QMainWindow):
         Returns:
             True: 중복 제외, False: 모두 포함
         """
-        reply = QMessageBox.question(
+        from gui.widgets.message_dialog import MessageDialog
+        from PyQt5.QtWidgets import QDialog
+        
+        dialog = MessageDialog(
+            STR.TITLE_DUPLICATE,
+            STR.MSG_DUPLICATE_FOUND.format(total=total_count, duplicate=duplicate_count),
+            MessageDialog.QUESTION,
             self,
-            DIALOG_DUPLICATE_VIDEOS_TITLE,
-            DIALOG_DUPLICATE_VIDEOS_MESSAGE.format(total=total_count, duplicate=duplicate_count),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
+            show_cancel=False
         )
-        return reply == QMessageBox.Yes
+        # Yes -> Accepted (중복 제외)
+        return dialog.exec_() == QDialog.Accepted
 
     def _register_playlist_tasks(self, video_ids: list):
         """플레이리스트 작업들을 등록"""
@@ -889,7 +902,7 @@ class YTDownloaderPyQt5(QMainWindow):
         self._show_task_list()
         
         # 각 비디오 ID로 카드 생성 (메타데이터 없이)
-        self.status_label.setText(MSG_PLAYLIST_REGISTERING.format(count=len(video_ids)))
+        self.status_label.setText(STR.MSG_REGISTERING_PLAYLIST.format(count=len(video_ids)))
         QApplication.processEvents()
         
         for video_id in video_ids:
@@ -904,10 +917,10 @@ class YTDownloaderPyQt5(QMainWindow):
                 task_id, 
                 video_url, 
                 video_id,
-                title_override=PLAYLIST_VIDEO_TITLE_TEMPLATE.format(video_id=video_id)
+                title_override=STR.TPL_VIDEO_TITLE.format(video_id=video_id)
             )
         
-        self.status_label.setText(MSG_PLAYLIST_ADDED.format(count=len(video_ids)))
+        self.status_label.setText(STR.MSG_ADDED_PLAYLIST.format(count=len(video_ids)))
         self.update_progress_ui()
 
     @pyqtSlot(str, list, bool, str)
@@ -932,8 +945,10 @@ class YTDownloaderPyQt5(QMainWindow):
                 filtered_ids = video_ids
         
         if not filtered_ids:
-            QMessageBox.information(self, DIALOG_NO_NEW_VIDEOS_TITLE, MSG_NO_NEW_VIDEOS)
-            self.status_label.setText(MSG_READY)
+            from gui.widgets.message_dialog import MessageDialog
+            MessageDialog(STR.TITLE_NO_NEW_VIDEOS, STR.MSG_NO_NEW_ITEMS, 
+                          MessageDialog.INFO, self).exec_()
+            self.status_label.setText(STR.MSG_READY)
             return
         
         # 작업 등록
@@ -962,7 +977,9 @@ class YTDownloaderPyQt5(QMainWindow):
                 max_id = task.id
             
             # TaskWidget 생성 및 신호 연결
-            task_widget = TaskWidget(task.id, task.url, self)
+            # 저장된 작업의 경우, 저장 당시의 설정이 있다면 그것을 사용해야 하지만,
+            # 현재 구조상 Task 객체에 settings가 포함되어 있음
+            task_widget = TaskWidget(task.id, task.url, task.settings, self)
             self._connect_task_widget_signals(task_widget)
             
             self.task_layout.insertWidget(0, task_widget)
@@ -977,10 +994,10 @@ class YTDownloaderPyQt5(QMainWindow):
                 task_widget.set_finished()
             elif task.status == TaskStatus.PAUSED:
                 task_widget.set_paused()
-                task_widget.status_label.setText(STATUS_TEXT_PAUSED_SAVED)
-                task_widget.percent_label.setText(STATUS_TEXT_WAITING)
+                task_widget.status_label.setText(STR.STATUS_PAUSED_SAVED)
+                task_widget.percent_label.setText(STR.STATUS_WAITING)
             elif task.status == TaskStatus.FAILED:
-                task_widget.set_failed(STATUS_TEXT_PREVIOUS_FAILED)
+                task_widget.set_failed(STR.STATUS_IN_PROGRESS)
             
             self.tasks.append(task)
         
@@ -993,14 +1010,18 @@ class YTDownloaderPyQt5(QMainWindow):
         paused_tasks = [task for task in self.tasks if task.status == TaskStatus.PAUSED]
         if paused_tasks:
             # 일시정지된 작업이 있으면 사용자에게 재개 여부 확인
-            reply = QMessageBox.question(
+            from gui.widgets.message_dialog import MessageDialog
+            from PyQt5.QtWidgets import QDialog
+            
+            dialog = MessageDialog(
+                STR.TITLE_RESUME,
+                STR.MSG_RESUME_CONFIRM,
+                MessageDialog.QUESTION,
                 self,
-                DIALOG_RESUME_DOWNLOAD_TITLE,
-                DIALOG_RESUME_DOWNLOAD_MESSAGE,
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
+                show_cancel=False
             )
-            if reply == QMessageBox.Yes:
+            # Yes -> Accepted
+            if dialog.exec_() == QDialog.Accepted:
                 # 모든 일시정지된 작업 재개
                 for task in paused_tasks:
                     self.resume_task(task.id)
@@ -1013,7 +1034,7 @@ class YTDownloaderPyQt5(QMainWindow):
         if self.playlist_worker and self.playlist_worker.isRunning():
             self.playlist_worker.terminate()  # 먼저 종료 신호 전송
             if not self.playlist_worker.wait(WORKER_SHUTDOWN_WAIT_MS):
-                log.warning(WARNING_PLAYLIST_WORKER_TIMEOUT)
+                log.warning("플레이리스트 워커가 시간 내에 종료되지 않았습니다.")
         
         # 스케줄러 종료 (워커 정리)
         self.scheduler.shutdown()

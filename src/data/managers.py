@@ -6,17 +6,15 @@ import os
 import json
 import sqlite3
 import datetime
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QDialog
 
 from utils.utils import get_user_data_path
 from utils.logger import log
 from constants import (
     TaskStatus, DEFAULT_FORMAT,
-    HISTORY_DB_FILENAME, TASKS_JSON_FILENAME, HISTORY_TABLE_NAME, DATE_FORMAT,
-    DUPLICATE_CHECK_TITLE, DUPLICATE_MSG_ALREADY_DOWNLOADED, 
-    DUPLICATE_MSG_IN_QUEUE, DUPLICATE_MSG_ASK_OVERWRITE,
-    STATUS_TEXT_WAITING, STATUS_TEXT_DOWNLOADING, STATUS_TEXT_PAUSED, STATUS_TEXT_IN_PROGRESS
+    HISTORY_DB_FILENAME, TASKS_JSON_FILENAME, HISTORY_TABLE_NAME, DATE_FORMAT
 )
+from locales.strings import STR
 from data.models import DownloadTask
 
 
@@ -210,15 +208,15 @@ class DuplicateChecker:
         # 중복이 발견된 경우
         if is_in_history or is_in_queue:
             # 메시지 구성
-            message = DUPLICATE_MSG_ALREADY_DOWNLOADED.format(format=target_ext)
+            message = STR.MSG_DUP_ALREADY_DONE.format(format=target_ext)
             if is_in_queue and duplicate_task:
                 status_text = {
-                    TaskStatus.WAITING: STATUS_TEXT_WAITING,
-                    TaskStatus.DOWNLOADING: STATUS_TEXT_DOWNLOADING,
-                    TaskStatus.PAUSED: STATUS_TEXT_PAUSED
-                }.get(duplicate_task.status, STATUS_TEXT_IN_PROGRESS)
-                message += DUPLICATE_MSG_IN_QUEUE.format(status=status_text)
-            message += DUPLICATE_MSG_ASK_OVERWRITE
+                    TaskStatus.WAITING: STR.STATUS_WAITING,
+                    TaskStatus.DOWNLOADING: STR.STATUS_DOWNLOADING,
+                    TaskStatus.PAUSED: STR.STATUS_PAUSED
+                }.get(duplicate_task.status, STR.STATUS_IN_PROGRESS)
+                message += STR.MSG_DUP_IN_QUEUE.format(status=status_text)
+            message += STR.MSG_DUP_ASK_OVERWRITE
             
             return True, message, duplicate_task
         
@@ -248,13 +246,14 @@ class DuplicateChecker:
             return False
         
         # 확인 대화상자 표시
-        reply = QMessageBox.question(
-            self.parent_widget, 
-            DUPLICATE_CHECK_TITLE,
-            message,
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        from gui.widgets.message_dialog import MessageDialog
         
-        # 사용자가 "아니요"를 선택한 경우 True 반환 (중복 취소)
-        return reply == QMessageBox.No
+        dialog = MessageDialog(STR.DLG_DUP_CHECK_TITLE, message, 
+                               MessageDialog.QUESTION, self.parent_widget, show_cancel=False)
+        
+        # 사용자가 "아니요"를 선택한 경우 (Reject) True 반환 (중복 취소)
+        # MessageDialog의 QUESTION 타입은 
+        # Yes -> accept -> Accepted
+        # No -> reject -> Rejected
+        
+        return dialog.exec_() != QDialog.Accepted

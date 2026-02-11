@@ -1,6 +1,8 @@
 """
 애플리케이션 스타일시트 상수 정의
 """
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt
 
 # 색상 상수
 COLOR_WAITING = "#D1D3D4"    # 다운로드 대기 / 메타데이터 로딩 중
@@ -8,6 +10,50 @@ COLOR_DOWNLOADING = "#DBC4F0" # 다운로드 중
 COLOR_FINISHED = "#B8E8FC"    # 완료
 COLOR_ERROR = "#FF0000"       # 실패
 COLOR_PAUSED = "#FFE0B2"      # 일시정지 (살구색)
+COLOR_PRIMARY = "#5F428B"     # 메인 퍼플
+COLOR_DEEP_ORANGE = "#E65100" # 진한 주황 (정지 상태 아이콘/테두리)
+
+# 텍스트 색상
+COLOR_TEXT_PRIMARY = "#333333"
+COLOR_TEXT_SECONDARY = "#444444"
+COLOR_TEXT_GRAY = "#888888"
+COLOR_TEXT_LIGHT_GRAY = "#999999"
+COLOR_DIVIDER = "#E0E0E0"
+
+# ==========================================
+# 공통 UI 설정 상수는 여기서 관리합니다.
+# ==========================================
+
+# 폰트 설정
+SETTINGS_FONT_FAMILY = "Segoe UI"
+SETTINGS_TITLE_FONT_SIZE = 12
+SETTINGS_SECTION_FONT_SIZE = 10
+
+# 다이얼로그 크기 및 레이아웃
+SETTINGS_DIALOG_WIDTH = 450
+SETTINGS_DIALOG_HEIGHT = 580
+SETTINGS_CONTAINER_MARGIN = 10
+SETTINGS_CONTENT_MARGIN = (15, 15, 15, 15)
+SETTINGS_CONTENT_SPACING = 10
+
+# UI 요소 크기
+SETTINGS_INPUT_HEIGHT = 30
+SETTINGS_BUTTON_HEIGHT = 36
+SETTINGS_BUTTON_WIDTH = 70
+SETTINGS_TITLE_BAR_HEIGHT = 30
+SETTINGS_CLOSE_BUTTON_SIZE = 24
+
+# 그림자 효과
+SETTINGS_SHADOW_BLUR_RADIUS = 15
+SETTINGS_SHADOW_ALPHA = 30
+
+# 다운로드 다이얼로그 크기
+DOWNLOAD_DIALOG_WIDTH = 450
+DOWNLOAD_DIALOG_HEIGHT = 250
+
+# 메시지 다이얼로그 버튼 크기
+MESSAGE_BTN_WIDTH = 80
+MESSAGE_BTN_HEIGHT = 32
 
 # 메인 윈도우 스타일
 MAIN_WINDOW_STYLE = """
@@ -44,6 +90,82 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: none; 
 }
 """
+
+# ==========================================
+# 메인 윈도우 UI 설정 (constants.py에서 이동)
+# ==========================================
+
+# 메인 윈도우 크기 및 위치
+MAIN_WINDOW_X = 100
+MAIN_WINDOW_Y = 100
+MAIN_WINDOW_WIDTH = 1200
+MAIN_WINDOW_HEIGHT = 800
+
+# 메인 윈도우 제목 및 앱 정보
+APP_TITLE_COLOR = "#5F428B"
+
+# 메인 윈도우 레이아웃
+MAIN_LAYOUT_MARGINS = (3, 3, 3, 3)
+MAIN_LAYOUT_SPACING = 5
+
+# 타이틀 바
+TITLE_BAR_HEIGHT = 30
+TITLE_BAR_MARGINS = (10, 0, 10, 0)
+TITLE_BAR_SPACING = 10
+TITLE_BAR_FONT_FAMILY = "Segoe UI"
+TITLE_BAR_FONT_SIZE = 11
+TITLE_BAR_BUTTON_SIZE = 28
+
+# URL 입력 섹션
+URL_INPUT_SECTION_HEIGHT = 70
+URL_INPUT_CONTAINER_MARGINS = (10, 8, 10, 8)
+URL_INPUT_CONTAINER_SPACING = 10
+URL_INPUT_HEIGHT = 40
+URL_INPUT_FONT_FAMILY = "Segoe UI"
+URL_INPUT_FONT_SIZE = 11
+TOGGLE_BUTTON_SIZE = 50
+SETTINGS_BUTTON_SIZE = 40
+
+# 다운로드 버튼
+DOWNLOAD_BUTTON_HEIGHT = 40
+DOWNLOAD_BUTTON_WIDTH = 90
+DOWNLOAD_BUTTON_FONT_FAMILY = "Segoe UI"
+DOWNLOAD_BUTTON_FONT_SIZE = 10
+
+# 설정 버튼
+SETTINGS_BUTTON_TEXT = "⚙"
+SETTINGS_BUTTON_FONT_FAMILY = "Segoe UI"
+SETTINGS_BUTTON_FONT_SIZE = 12
+
+# 작업 목록 섹션
+TASK_LIST_MARGINS = (10, 0, 10, 0)
+TASK_LIST_SPACING = 10
+EMPTY_STATE_FONT_FAMILY = "Segoe UI"
+EMPTY_STATE_FONT_SIZE = 11
+
+# 상태 표시줄
+STATUS_BAR_HEIGHT = 30
+STATUS_BAR_MARGINS = (10, 0, 10, 0)
+STATUS_BAR_SPACING = 10
+STATUS_BAR_FONT_FAMILY = "Segoe UI"
+STATUS_BAR_FONT_SIZE = 9
+PROGRESS_SLIDER_MIN = 0
+PROGRESS_SLIDER_MAX = 100
+PROGRESS_SLIDER_DEFAULT = 0
+
+# 작업 카드 UI 크기 상수
+CARD_HEIGHT = 130
+THUMBNAIL_WIDTH = 160
+THUMBNAIL_HEIGHT = 90
+BUTTON_SIZE = 40
+BUTTON_FONT_SIZE = 15
+
+# 버튼 색상 상수
+COLOR_BTN_RED = "#F44336"
+COLOR_BTN_GREEN = "#4CAF50"
+COLOR_BTN_BLUE = "#2196F3"
+COLOR_BTN_ORANGE = "#FF9800"
+COLOR_BTN_GRAY = "#999999"
 
 # 중앙 위젯 스타일
 CENTRAL_WIDGET_STYLE = """
@@ -189,7 +311,7 @@ QSlider::handle:horizontal {
 """
 
 # 선택 상태 색상
-COLOR_SELECTED = "5F428B"  # 선택됨 (메인 테마 색상)
+COLOR_SELECTED = COLOR_PRIMARY.lstrip('#')  # 선택됨 (메인 테마 색상)
 
 # 작업 카드 스타일
 def get_card_style(color_hex, selected=False):
@@ -219,13 +341,38 @@ border-radius: 8px;
 """
 
 # 썸네일 라벨 스타일
-THUMBNAIL_LABEL_STYLE = "background: #F0F0F0; border-radius: 4px; border: none; color: #888;"
+# 썸네일 라벨 스타일
+THUMBNAIL_LABEL_STYLE = """
+QLabel {
+    background: #F0F0F0;
+    border-radius: 4px;
+    border: none;
+    color: #888;
+}
+"""
 
 # 제목 라벨 스타일
-TITLE_LABEL_STYLE = "color: #333333; border: none; background: transparent;"
+TITLE_LABEL_STYLE = """
+QLabel {
+    color: #333333;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 11pt;
+    font-weight: bold;
+}
+"""
 
 # 업로더 라벨 스타일
-UPLOADER_LABEL_STYLE = "color: #888888; border: none; background: transparent;"
+UPLOADER_LABEL_STYLE = """
+QLabel {
+    color: #888888;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
 
 # 프로그레스 바 스타일
 PROGRESS_BAR_STYLE = """
@@ -253,16 +400,72 @@ QProgressBar::chunk { background-color: #F44336; border-radius: 3px; }
 """
 
 # 퍼센트 라벨 스타일
-PERCENT_LABEL_STYLE = "color: #5F428B; border: none; background: transparent;"
+# 퍼센트 라벨 스타일
+PERCENT_LABEL_STYLE = """
+QLabel {
+    color: #5F428B;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+    font-weight: bold;
+}
+"""
 
-# 상태 라벨 스타일
-STATUS_LABEL_NORMAL_STYLE = "color: #666666; border: none; background: transparent;"
-STATUS_LABEL_SUCCESS_STYLE = "color: #4CAF50; font-weight: bold; border: none; background: transparent;"
-STATUS_LABEL_ERROR_STYLE = "color: #F44336; font-weight: bold; border: none; background: transparent;"
-STATUS_LABEL_WARNING_STYLE = "color: #FF9800; font-weight: bold; border: none; background: transparent;"
+# 상태 라벨 스타일 (공통)
+STATUS_LABEL_NORMAL_STYLE = """
+QLabel {
+    color: #666666;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
+
+STATUS_LABEL_SUCCESS_STYLE = """
+QLabel {
+    color: #4CAF50;
+    font-weight: bold;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
+
+STATUS_LABEL_ERROR_STYLE = """
+QLabel {
+    color: #F44336;
+    font-weight: bold;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
+
+STATUS_LABEL_WARNING_STYLE = """
+QLabel {
+    color: #FF9800;
+    font-weight: bold;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
 
 # 크기 라벨 스타일
-SIZE_LABEL_STYLE = "color: #999999; border: none; background: transparent;"
+SIZE_LABEL_STYLE = """
+QLabel {
+    color: #999999;
+    border: none;
+    background: transparent;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+"""
 
 # 액션 버튼 스타일
 def get_action_button_style(color="#555555"):
@@ -274,6 +477,7 @@ QPushButton {{
     border: 1px solid #E0E0E0;
     border-radius: 6px;
     font-family: 'Segoe UI Emoji';
+    font-size: {BUTTON_FONT_SIZE}pt;
     padding: 0px;
     margin: 0px;
 }}
@@ -398,6 +602,7 @@ QPushButton {
     border-radius: 8px;
     font-weight: bold;
     font-family: 'Segoe UI';
+    padding: 0 8px;
 }
 QPushButton:hover { background-color: #EEEEEE; }
 """
@@ -411,7 +616,82 @@ QPushButton {
     border-radius: 8px;
     font-weight: bold;
     font-family: 'Segoe UI';
+    padding: 0 8px;
 }
 QPushButton:hover { background-color: #70529E; }
 QPushButton:pressed { background-color: #4E3672; }
 """
+
+# 설정 다이얼로그 탭 스타일
+SETTINGS_TAB_STYLE = """
+QTabWidget::pane {
+    border: 1px solid #E0E0E0;
+    border-radius: 5px;
+    background: white;
+}
+QTabBar::tab {
+    background: #F5F5F5;
+    color: #666;
+    padding: 6px 10px;
+    border: 1px solid #E0E0E0;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+}
+QTabBar::tab:selected {
+    background: white;
+    color: #5F428B;
+    border-bottom: 1px solid white;
+    font-weight: bold;
+}
+QTabBar::tab:hover:!selected {
+    background: #EEEEEE;
+}
+"""
+
+# 설정 다이얼로그 도움말 아이콘 스타일
+SETTINGS_HELP_ICON_STYLE = """
+QLabel {
+    color: #5F428B;
+    font-size: 14px;
+    font-family: "Segoe UI Emoji";
+}
+"""
+
+# 설정 다이얼로그 업데이트/삭제 버튼 스타일
+SETTINGS_UPDATE_BUTTON_STYLE = """
+QPushButton {
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    color: #333;
+    padding: 10px;
+}
+QPushButton:hover {
+    background-color: #e0e0e0;
+}
+"""
+
+SETTINGS_UNINSTALL_BUTTON_STYLE = """
+QPushButton {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 5px;
+    color: #d32f2f;
+    padding: 10px;
+}
+QPushButton:hover {
+    background-color: #ffcdd2;
+}
+"""
+
+# 다운로드 진행 다이얼로그 스타일
+DETAIL_LABEL_STYLE = f"color: {COLOR_TEXT_GRAY};"
+INFO_LABEL_STYLE = f"color: {COLOR_TEXT_LIGHT_GRAY};"
+
+# 메시지 다이얼로그 스타일
+MESSAGE_TITLE_STYLE = f"color: {COLOR_TEXT_PRIMARY};"
+MESSAGE_BODY_STYLE = f"color: {COLOR_TEXT_SECONDARY};"
+MESSAGE_DIVIDER_STYLE = f"background-color: {COLOR_DIVIDER};"
+

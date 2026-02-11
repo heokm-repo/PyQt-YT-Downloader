@@ -2,8 +2,12 @@ import sys
 import os
 import re
 from typing import Optional
-
-APP_NAME = "YTDownloader"
+from constants import (
+    APPDATA_DIR_NAME,
+    YOUTUBE_URL_PATTERNS,
+    PATH_MAC_APP_DATA,
+    PATH_LINUX_APP_DATA
+)
 
 
 def get_base_path() -> str:
@@ -22,14 +26,14 @@ def get_user_data_path() -> str:
     if sys.platform == 'win32':
         base_path = os.getenv('APPDATA')
     elif sys.platform == 'darwin':
-        base_path = os.path.expanduser('~/Library/Application Support')
+        base_path = os.path.expanduser(PATH_MAC_APP_DATA)
     else:
-        base_path = os.path.expanduser('~/.local/share')
+        base_path = os.path.expanduser(PATH_LINUX_APP_DATA)
 
     if not base_path:
         return get_base_path()
     
-    data_path = os.path.join(base_path, APP_NAME)
+    data_path = os.path.join(base_path, APPDATA_DIR_NAME)
     
     if not os.path.exists(data_path):
         try:
@@ -52,14 +56,7 @@ def validate_url(url: str) -> bool:
     YouTube URL 유효성 검사
     지원 형식: 일반 영상, 단축 URL, 숏츠, 플레이리스트, 라이브, 임베드
     """
-    youtube_patterns = [
-        r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&\n?#]+)',
-        r'(?:https?://)?(?:www\.)?youtu\.be/([^&\n?#]+)', 
-        r'(?:https?://)?(?:www\.)?youtube\.com/shorts/([^&\n?#]+)',
-        r'(?:https?://)?(?:www\.)?youtube\.com/playlist\?list=([^&\n?#]+)',
-        r'(?:https?://)?(?:www\.)?youtube\.com/live/([^&\n?#]+)',
-        r'(?:https?://)?(?:www\.)?youtube\.com/(?:embed|v)/([^&\n?#]+)'
-    ]
+    youtube_patterns = YOUTUBE_URL_PATTERNS
     
     return any(re.search(pattern, url) for pattern in youtube_patterns)
 

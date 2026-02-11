@@ -20,7 +20,7 @@
 
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog
 
 # 로거를 먼저 초기화 (다른 모듈보다 먼저)
 try:
@@ -29,6 +29,10 @@ try:
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
     from utils.logger import log
+    from locales.strings import STR
+    from constants import (
+        APP_TITLE, LOGGER_NAME, ORGANIZATION_NAME, SRC_DIR_NAME, REQUIREMENTS_FILENAME
+    )
 except ImportError:
     # logger를 import할 수 없으면 기본 print 사용
     import logging
@@ -56,16 +60,30 @@ def check_dependencies():
 
 def show_error_message(title, text, informative_text=""):
     """
-    오류 메시지를 표시합니다. QApplication이 있으면 QMessageBox를, 없으면 print를 사용합니다.
+    오류 메시지를 표시합니다. QApplication이 있으면 MessageDialog를, 없으면 print를 사용합니다.
     """
     if QApplication.instance():
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(text)
-        if informative_text:
-            msg.setInformativeText(informative_text)
-        msg.setWindowTitle(title)
-        msg.exec_()
+        try:
+            from gui.widgets.message_dialog import MessageDialog
+            import constants
+            
+            # informative_text가 있으면 text에 붙여서 표시
+            full_text = text
+            if informative_text:
+                full_text += f"\n\n{informative_text}"
+                
+            dialog = MessageDialog(title, full_text, MessageDialog.ERROR)
+            dialog.exec_()
+        except ImportError:
+            # MessageDialog import 실패 시 폴백
+            from PyQt5.QtWidgets import QMessageBox
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText(text)
+            if informative_text:
+                msg.setInformativeText(informative_text)
+            msg.setWindowTitle(title)
+            msg.exec_()
     else:
         print(f"[{title}] {text}")
         if informative_text:
@@ -82,7 +100,7 @@ def main():
             # 실행 파일로 패키징된 경우: _MEIPASS를 사용
             application_path = sys._MEIPASS
             # PyInstaller 환경에서는 src 폴더가 _MEIPASS 루트에 있음
-            src_path = os.path.join(application_path, 'src')
+            src_path = os.path.join(application_path, SRC_DIR_NAME)
             if os.path.exists(src_path) and src_path not in sys.path:
                 sys.path.insert(0, src_path)
         else:
@@ -95,16 +113,16 @@ def main():
         
         # PyQt5 애플리케이션을 먼저 생성 (QMessageBox 사용을 위해)
         app = QApplication(sys.argv)
-        app.setApplicationName("YT Downloader")
-        app.setOrganizationName("YTDownloader")
+        app.setApplicationName(APP_TITLE)
+        app.setOrganizationName(ORGANIZATION_NAME)
         
         # 의존성 확인 (QApplication 생성 후)
         deps_ok, missing_module = check_dependencies()
         if not deps_ok:
             show_error_message(
-                "오류",
-                f"필수 라이브러리 '{missing_module}'를 찾을 수 없습니다.",
-                "프로그램을 실행하려면 'pip install -r requirements.txt' 명령어를 실행하여 필요한 라이브러리를 설치해주세요."
+                STR.TITLE_ERROR,
+                STR.MSG_MISSING_DEPENDENCY.format(module=missing_module),
+                STR.MSG_INSTALL_DEPENDENCY.format(file=REQUIREMENTS_FILENAME)
             )
             sys.exit(1)
         
@@ -114,7 +132,20 @@ def main():
             from PyQt5.QtWidgets import QMessageBox
             
             if not check_binaries_exist():
-                # 첫 실행: 바이너리 다운로드
+                # 첫 실행: 사용자 확인 후 바이너리 다운로드 (커스텀 다이얼로그 사용)
+                from gui.widgets.message_dialog import MessageDialog
+                
+                msg_dialog = MessageDialog(
+                    STR.TITLE_INIT,
+                    STR.MSG_CONFIRM_INIT_DOWNLOAD,
+                    MessageDialog.QUESTION,
+                    show_cancel=False # QUESTION 타입은 기본적으로 Yes/No 버튼 보여줌
+                )
+                
+                if msg_dialog.exec_() != QDialog.Accepted:
+                    # 사용자가 No를 선택하거나 닫은 경우
+                    sys.exit(0)
+
                 log.info("Binaries not found. Starting initial download...")
                 from gui.widgets.download_progress_dialog import DownloadProgressDialog
                 
@@ -123,9 +154,9 @@ def main():
                 
                 if not dialog.download_success:
                     show_error_message(
-                        "초기화 실패",
-                        "필수 구성 요소 다운로드에 실패했습니다.",
-                        "인터넷 연결을 확인하고 다시 시도해주세요."
+                        STR.TITLE_INIT_FAIL,
+                        STR.MSG_DOWNLOAD_COMPONENT_FAIL,
+                        STR.MSG_CHECK_INTERNET
                     )
                     sys.exit(1)
                 
@@ -137,20 +168,19 @@ def main():
                 
                 if updates:
                     # 업데이트 가능한 항목 표시
-                    update_msg = "다음 구성 요소의 업데이트가 있습니다:\n\n"
+                    update_msg = STR.MSG_UPDATE_COMPONENTS
                     for name, info in updates.items():
                         update_msg += f"• {name}: {info['current']} → {info['latest']}\n"
-                    update_msg += "\n지금 업데이트하시겠습니까?"
+                    update_msg += STR.MSG_UPDATE_ASK_NOW
                     
-                    reply = QMessageBox.question(
-                        None,
-                        "업데이트 확인",
-                        update_msg,
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.Yes
-                    )
+                    from gui.widgets.message_dialog import MessageDialog
+                    # import constants  # 이미 위에서 import 됨? 아니면 필요함. show_error 에서만 import 했음.
+                    import constants
                     
-                    if reply == QMessageBox.Yes:
+                    dialog = MessageDialog(STR.TITLE_UPDATE_CHECK, update_msg, MessageDialog.QUESTION, show_cancel=False)
+                    # QUESTION 타입은 Yes/No 버튼이므로 exec_() 결과가 Accepted(Yes)인지 확인
+                    
+                    if dialog.exec_() == QDialog.Accepted:
                         log.info("User chose to update binaries")
                         from gui.widgets.download_progress_dialog import DownloadProgressDialog
                         
@@ -169,8 +199,8 @@ def main():
         except Exception as e:
             log.error(f"Binary initialization error: {e}", exc_info=True)
             show_error_message(
-                "초기화 오류",
-                "프로그램 초기화 중 오류가 발생했습니다.",
+                STR.TITLE_INIT_FAIL,
+                STR.ERR_INIT_GENERIC,
                 f"오류: {str(e)}"
             )
             sys.exit(1)
@@ -180,9 +210,9 @@ def main():
             from gui.windows.main_window import YTDownloaderPyQt5
         except ImportError as e:
             show_error_message(
-                "오류",
-                "모듈을 불러올 수 없습니다.",
-                f"오류: {str(e)}\n\n필요한 모듈이 누락되었을 수 있습니다."
+                STR.TITLE_ERROR,
+                STR.ERR_MODULE_IMPORT,
+                STR.ERR_MODULE_HINT.format(error=str(e))
             )
             log.error(f"Import 오류: {e}", exc_info=True)
             sys.exit(1)
@@ -193,8 +223,8 @@ def main():
             window.show()
         except Exception as e:
             show_error_message(
-                "오류",
-                "프로그램을 시작할 수 없습니다.",
+                STR.TITLE_ERROR,
+                STR.ERR_START_FAIL,
                 f"오류: {str(e)}"
             )
             log.error(f"윈도우 생성 오류: {e}", exc_info=True)
@@ -206,8 +236,8 @@ def main():
     except Exception as e:
         log.critical(f"치명적 오류: {e}", exc_info=True)
         show_error_message(
-            "치명적 오류",
-            "치명적인 오류가 발생했습니다.",
+            STR.TITLE_FATAL,
+            STR.ERR_FATAL,
             f"오류: {str(e)}"
         )
         sys.exit(1)

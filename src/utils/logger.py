@@ -7,14 +7,15 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 from utils.utils import get_user_data_path
+from constants import LOG_FILE_NAME, LOGGER_NAME
 
 def setup_logger():
     """로깅 설정: AppData 폴더에 app.log 파일 생성"""
     log_dir = get_user_data_path()
-    log_file = os.path.join(log_dir, 'app.log')
+    log_file = os.path.join(log_dir, LOG_FILE_NAME)
 
     # 로거 생성
-    logger = logging.getLogger("YTDownloader")
+    logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(logging.DEBUG)
     
     # 이미 핸들러가 설정되어 있으면 중복 방지

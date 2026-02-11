@@ -46,7 +46,7 @@ class SelectionManager:
         else:
             self._single_selection(task_id, task_widgets)
         
-        self.last_clicked_task_id = task_id
+        # self.last_clicked_task_id = task_id  <-- Removed from here to prevent anchor update on Shift-click
     
     def _single_selection(
         self, 
@@ -66,6 +66,8 @@ class SelectionManager:
         if widget:
             widget.selected = True
             self.selected_task_ids.append(task_id)
+        
+        self.last_clicked_task_id = task_id
     
     def _toggle_selection(
         self, 
@@ -83,6 +85,8 @@ class SelectionManager:
         else:
             widget.selected = True
             self.selected_task_ids.append(task_id)
+        
+        self.last_clicked_task_id = task_id
     
     def _range_selection(
         self, 

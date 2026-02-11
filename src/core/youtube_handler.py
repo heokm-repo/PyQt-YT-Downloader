@@ -6,13 +6,13 @@ from core.ytdlp_wrapper import YtDlpWrapper
 from utils.logger import log
 from constants import (
     ERROR_INVALID_URL, MSG_DOWNLOAD_COMPLETE, MSG_PAUSED_BY_USER, DEFAULT_VIDEO_QUALITY,
-    MSG_NOT_PLAYLIST_URL, MSG_CANNOT_FETCH_INFO,
     DEFAULT_PLAYLIST_TITLE, DEFAULT_UPLOADER, DEFAULT_VIDEO_TITLE,
     CONCURRENT_FRAGMENT_DOWNLOADS, LOUDNORM_FILTER, OUTPUT_TEMPLATE, AUDIO_CHANNELS,
-    FORMAT_MP3, FORMAT_BESTAUDIO, DEFAULT_FORMAT,
+    FORMAT_BESTAUDIO, DEFAULT_FORMAT,
     YOUTUBE_PLAYLIST_URL_PREFIX, YOUTUBE_SHORTS_PATH,
-    COOKIES_BROWSER_DEFAULT
+    COOKIES_BROWSER_DEFAULT, DOMAIN_YOUTU_BE, AUDIO_FORMATS
 )
+from locales.strings import STR
 
 def _sanitize_url(url, prefer_playlist=False):
     """
@@ -26,7 +26,7 @@ def _sanitize_url(url, prefer_playlist=False):
     qs = parse_qs(parsed.query)
 
     # 공통 플래그 계산
-    is_short_url = parsed.netloc.endswith('youtu.be')
+    is_short_url = parsed.netloc.endswith(DOMAIN_YOUTU_BE)
     has_path_video = (
         is_short_url and parsed.path and parsed.path != '/' 
         and not parsed.path.startswith(YOUTUBE_SHORTS_PATH)
@@ -62,7 +62,7 @@ def has_video_and_list(url):
     parsed = urlparse(str(url))
     qs = parse_qs(parsed.query)
     
-    is_short_url = parsed.netloc.endswith('youtu.be')
+    is_short_url = parsed.netloc.endswith(DOMAIN_YOUTU_BE)
     has_path_video = (
         is_short_url and parsed.path and parsed.path != '/' 
         and not (parsed.path or "").startswith(YOUTUBE_SHORTS_PATH)
@@ -77,11 +77,11 @@ def extract_playlist_video_ids(url):
     clean_url, is_playlist = _sanitize_url(url, prefer_playlist=True)
     
     if not is_playlist:
-        return [], False, MSG_NOT_PLAYLIST_URL
+        return [], False, STR.ERR_NOT_PLAYLIST
     
     ytdlp_path = get_ytdlp_path()
     if not ytdlp_path:
-        return [], False, "yt-dlp not found"
+        return [], False, STR.ERR_YTDLP_MISSING
     
     try:
         wrapper = YtDlpWrapper(ytdlp_path)
@@ -90,7 +90,7 @@ def extract_playlist_video_ids(url):
         info, success = wrapper.extract_info(clean_url, download=False, options={'extract_flat': True})
         
         if not success or not info:
-            return [], False, MSG_CANNOT_FETCH_INFO
+            return [], False, STR.ERR_CANNOT_FETCH_INFO
         
         # 플레이리스트 처리
         if '_type' in info and info['_type'] == 'playlist':
@@ -99,7 +99,7 @@ def extract_playlist_video_ids(url):
             entries = info['entries']
         else:
             # 단일 영상
-            return [], False, MSG_NOT_PLAYLIST_URL
+            return [], False, STR.ERR_NOT_PLAYLIST
         
         # 유효한 ID만 필터링
         ids = [e.get('id') or e.get('url', '').split('=')[-1] for e in entries if e]
@@ -248,13 +248,13 @@ def _build_format_options(settings):
     opts = {}
     fmt = settings.get('format', DEFAULT_FORMAT)
     
-    if fmt == FORMAT_MP3:
+    if fmt in AUDIO_FORMATS:
         # 오디오 채널 수는 settings에서 가져오되, 없으면 기본값 사용
         audio_channels = settings.get('audio_channels', AUDIO_CHANNELS)
         opts.update({
             'format': FORMAT_BESTAUDIO,
             'extract_audio': True,
-            'audio_format': FORMAT_MP3,
+            'audio_format': fmt,
             'postprocessor_args': {'ffmpeg': ['-ac', str(audio_channels)]}
         })
     else:
@@ -386,7 +386,7 @@ def download_video(url, settings, progress_hook):
     # 경로 확인
     ytdlp_path = get_ytdlp_path()
     if not ytdlp_path:
-        return False, "yt-dlp not found. Please restart the application."
+        return False, STR.ERR_YTDLP_RESTART
     
     # 저장 경로 설정
     save_path = settings.get('download_folder') or settings.get('save_path') or os.getcwd()

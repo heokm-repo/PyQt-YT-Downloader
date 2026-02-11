@@ -7,6 +7,7 @@ from typing import List, Dict, Callable, TYPE_CHECKING
 from PyQt5.QtWidgets import QMenu, QAction
 
 from constants import TaskStatus
+from locales.strings import STR
 
 if TYPE_CHECKING:
     from data.models import DownloadTask
@@ -55,34 +56,38 @@ class ContextMenuBuilder:
         
         # 재생 (완료된 단일 항목)
         if status_flags['finished'] and count == 1:
-            self._add_action(menu, "▶ 재생", callbacks.get('play'))
+            self._add_action(menu, STR.MENU_PLAY, callbacks.get('play'))
         
-        # 폴더 열기
-        if status_flags['finished']:
-            self._add_action(menu, f"📂 폴더 열기{suffix}", callbacks.get('open_folder'))
+        # 폴더 열기 (단일 항목만)
+        if status_flags['finished'] and count == 1:
+            self._add_action(menu, STR.MENU_OPEN_FOLDER, callbacks.get('open_folder'))
+
+        # URL 복사 (단일 항목만)
+        if count == 1:
+            self._add_action(menu, STR.MENU_COPY_URL, callbacks.get('copy_url'))
         
         menu.addSeparator()
         
         # 일시정지
         if status_flags['downloading'] or status_flags['waiting']:
-            self._add_action(menu, f"⏸ 일시정지{suffix}", callbacks.get('pause'))
+            self._add_action(menu, f"{STR.MENU_PAUSE}{suffix}", callbacks.get('pause'))
         
         # 이어받기
         if status_flags['paused']:
-            self._add_action(menu, f"▶ 이어받기{suffix}", callbacks.get('resume'))
+            self._add_action(menu, f"{STR.MENU_RESUME}{suffix}", callbacks.get('resume'))
         
         # 재시도
         if status_flags['failed']:
-            self._add_action(menu, f"↻ 재시도{suffix}", callbacks.get('retry'))
+            self._add_action(menu, f"{STR.MENU_RETRY}{suffix}", callbacks.get('retry'))
         
         menu.addSeparator()
         
         # 파일 삭제
         if status_flags['finished']:
-            self._add_action(menu, f"🗑️ 파일 삭제{suffix}", callbacks.get('delete_file'))
+            self._add_action(menu, f"{STR.MENU_DELETE_FILE}{suffix}", callbacks.get('delete_file'))
         
         # 목록에서 제거
-        self._add_action(menu, f"❌ 목록에서 제거{suffix}", callbacks.get('remove'))
+        self._add_action(menu, f"{STR.MENU_REMOVE}{suffix}", callbacks.get('remove'))
         
         return menu
     

@@ -16,16 +16,16 @@ from resources.styles import (
     PROGRESS_BAR_STYLE, PROGRESS_BAR_FINISHED_STYLE, PROGRESS_BAR_ERROR_STYLE,
     PERCENT_LABEL_STYLE, STATUS_LABEL_NORMAL_STYLE, STATUS_LABEL_SUCCESS_STYLE,
     STATUS_LABEL_ERROR_STYLE, STATUS_LABEL_WARNING_STYLE, SIZE_LABEL_STYLE,
-    get_action_button_style
-)
-from utils.utils import format_bytes
-from constants import (
-    TaskStatus,
+    get_action_button_style,
+    # Moved Constants
     CARD_HEIGHT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,
-    BUTTON_SIZE, BUTTON_FONT_SIZE,
+    BUTTON_SIZE,
     COLOR_BTN_RED, COLOR_BTN_GREEN, COLOR_BTN_BLUE,
     COLOR_BTN_ORANGE, COLOR_BTN_GRAY
 )
+from utils.utils import format_bytes
+from constants import TaskStatus, MSG_0_PERCENT
+from locales.strings import STR
 
 # 상태별 테두리 색상 매핑
 STATUS_BORDER_COLORS = {
@@ -79,10 +79,11 @@ class TaskWidget(QFrame):
     clicked = pyqtSignal(int, int)  # 클릭 시그널 (task_id, keyboard_modifiers)
     right_clicked = pyqtSignal(int, object)  # 우클릭 시그널 (task_id, QPoint - global position)
     
-    def __init__(self, task_id, url, parent=None):
+    def __init__(self, task_id, url, settings, parent=None):
         super().__init__(parent)
         self.task_id = task_id
         self.url = url
+        self.settings = settings
         self.network_manager = QNetworkAccessManager(self)  # 비동기 이미지 다운로드용
         self.network_manager.finished.connect(self.on_thumbnail_downloaded)
         self.pending_reply = None  # 진행 중인 네트워크 요청
@@ -90,6 +91,11 @@ class TaskWidget(QFrame):
         self._base_border_color = None  # 현재 상태의 기본 테두리 색상
         self.setup_ui()
         self.set_status(TaskStatus.WAITING)
+        
+    def _get_formatted_title(self, text):
+        """제목 앞에 포맷 정보를 추가하여 반환"""
+        fmt = self.settings.get('format', 'mp4').upper()
+        return f"[{fmt}] {text}"
     
     def setup_ui(self):
         """UI 구성"""
@@ -104,7 +110,7 @@ class TaskWidget(QFrame):
         root.setSpacing(10)
 
         # 썸네일 (로딩 중)
-        self.thumb_label = QLabel("Loading...")
+        self.thumb_label = QLabel(STR.MSG_LOADING)
         self.thumb_label.setFixedSize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
         self.thumb_label.setStyleSheet(THUMBNAIL_LABEL_STYLE)
         self.thumb_label.setAlignment(Qt.AlignCenter)
@@ -125,15 +131,13 @@ class TaskWidget(QFrame):
         text_group.setSpacing(0)  # 제목과 업로더 사이 간격 0px
         
         # 제목
-        self.title_label = ElidedLabel(self.url)
-        self.title_label.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.title_label = ElidedLabel(self._get_formatted_title(self.url))
         self.title_label.setStyleSheet(TITLE_LABEL_STYLE)
         self.title_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         text_group.addWidget(self.title_label)
         
         # 업로더 (채널명)
-        self.uploader_label = QLabel("정보 확인 중...")
-        self.uploader_label.setFont(QFont("Segoe UI", 9))
+        self.uploader_label = ElidedLabel(STR.MSG_CHECKING_INFO)
         self.uploader_label.setStyleSheet(UPLOADER_LABEL_STYLE)
         self.uploader_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         text_group.addWidget(self.uploader_label)
@@ -164,8 +168,7 @@ class TaskWidget(QFrame):
         self.progress_bar.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         progress_row.addWidget(self.progress_bar, 1)
         
-        self.percent_label = QLabel("0%")
-        self.percent_label.setFont(QFont("Segoe UI", 9, QFont.Bold))
+        self.percent_label = QLabel(MSG_0_PERCENT)
         self.percent_label.setStyleSheet(PERCENT_LABEL_STYLE)
         self.percent_label.setMinimumWidth(60) 
         self.percent_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -176,13 +179,11 @@ class TaskWidget(QFrame):
         
         # === [3단] 하단 상태 ===
         status_row = QHBoxLayout()
-        self.status_label = QLabel("정보를 가져오는 중...")
-        self.status_label.setFont(QFont("Segoe UI", 9))
+        self.status_label = ElidedLabel(STR.MSG_FETCHING_INFO)
         self.status_label.setStyleSheet(STATUS_LABEL_NORMAL_STYLE)
         self.status_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
         self.size_label = QLabel("")
-        self.size_label.setFont(QFont("Segoe UI", 9))
         self.size_label.setStyleSheet(SIZE_LABEL_STYLE)
         self.size_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
@@ -242,7 +243,6 @@ class TaskWidget(QFrame):
         """액션 버튼 생성"""
         btn = QPushButton(text)
         btn.setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
-        btn.setFont(QFont("Segoe UI", BUTTON_FONT_SIZE))
         btn.setCursor(Qt.PointingHandCursor)
         btn.setToolTip(tooltip)
         btn.clicked.connect(callback)
@@ -252,14 +252,15 @@ class TaskWidget(QFrame):
     def _get_button_configs(self, state):
         """상태별 버튼 설정 반환"""
         # 버튼 설정: (아이콘, 툴팁, 시그널, 색상)
-        pause_btn = ("⏸", "일시 정지", self.pause_requested, COLOR_BTN_RED)
-        delete_btn = ("🗑️", "취소 및 삭제", self.delete_file_requested, COLOR_BTN_RED)
-        resume_btn = ("▶", "이어받기", self.resume_requested, COLOR_BTN_GREEN)
-        remove_btn = ("❌", "목록에서 제거", self.remove_requested, COLOR_BTN_GRAY)
-        play_btn = ("▶", "파일 실행", self.play_requested, COLOR_BTN_GREEN)
-        folder_btn = ("📂", "폴더 열기", self.open_folder_requested, COLOR_BTN_BLUE)
-        file_del_btn = ("🗑️", "파일 삭제", self.delete_file_requested, COLOR_BTN_RED)
-        retry_btn = ("↻", "재시도", self.retry_requested, COLOR_BTN_ORANGE)
+        # 버튼 설정: (아이콘, 툴팁, 시그널, 색상)
+        pause_btn = ("⏸", STR.TOOLTIP_PAUSE, self.pause_requested, COLOR_BTN_RED)
+        delete_btn = ("🗑️", STR.TOOLTIP_CANCEL, self.delete_file_requested, COLOR_BTN_RED)
+        resume_btn = ("▶", STR.TOOLTIP_RESUME, self.resume_requested, COLOR_BTN_GREEN)
+        remove_btn = ("❌", STR.TOOLTIP_REMOVE, self.remove_requested, COLOR_BTN_GRAY)
+        play_btn = ("▶", STR.TOOLTIP_PLAY, self.play_requested, COLOR_BTN_GREEN)
+        folder_btn = ("📂", STR.TOOLTIP_OPEN_FOLDER, self.open_folder_requested, COLOR_BTN_BLUE)
+        file_del_btn = ("🗑️", STR.TOOLTIP_DELETE_FILE, self.delete_file_requested, COLOR_BTN_RED)
+        retry_btn = ("↻", STR.TOOLTIP_RETRY, self.retry_requested, COLOR_BTN_ORANGE)
         
         # 상태별 버튼 목록
         button_configs = {
@@ -326,11 +327,11 @@ class TaskWidget(QFrame):
             speed = re.sub(r'\x1b\[[0-9;]*m', '', progress_dict.get('_speed_str', '')).strip()
             
             if status == 'postprocessing':
-                self.status_label.setText("변환 중...")
+                self.status_label.setText(STR.STATUS_CONVERTING)
             elif speed:
-                self.status_label.setText(f"다운로드 중 ({speed})")
+                self.status_label.setText(STR.STATUS_DOWNLOADING_SPEED.format(speed=speed))
             else:
-                self.status_label.setText("다운로드 중...")
+                self.status_label.setText(STR.STATUS_DOWNLOADING)
                 
             # 다운로드 중 상태로 변경 (아직 변경되지 않았다면)
             if self.current_status != TaskStatus.DOWNLOADING:
@@ -341,9 +342,10 @@ class TaskWidget(QFrame):
     
     def update_metadata(self, meta):
         """메타데이터로 UI 업데이트"""
-        self.title_label.setText(meta.get('title', '(제목 없음)'))
+        title = meta.get('title', '(제목 없음)')
+        self.title_label.setText(self._get_formatted_title(title))
         self.uploader_label.setText(meta.get('uploader', 'Unknown'))
-        self.status_label.setText("대기 중...")
+        self.status_label.setText(STR.STATUS_WAITING)
         
         # 기존 진행 중인 요청 취소
         if self.pending_reply:
@@ -353,13 +355,13 @@ class TaskWidget(QFrame):
         # 썸네일 비동기 다운로드
         thumbnail_url = meta.get('thumbnail')
         if thumbnail_url:
-            self.thumb_label.setText("로딩 중...")
+            self.thumb_label.setText(STR.STATUS_WAITING)
             url = QUrl(thumbnail_url)
             request = QNetworkRequest(url)
             request.setRawHeader(b'User-Agent', b'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             self.pending_reply = self.network_manager.get(request)
         else:
-            self.thumb_label.setText("No Image")
+            self.thumb_label.setText(STR.STATUS_NO_IMAGE)
     
     @pyqtSlot(QNetworkReply)
     def on_thumbnail_downloaded(self, reply):
@@ -379,38 +381,38 @@ class TaskWidget(QFrame):
                     pix = pix.scaled(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
                     self.thumb_label.setPixmap(pix)
                 else:
-                    self.thumb_label.setText("No Image")
+                    self.thumb_label.setText(STR.STATUS_NO_IMAGE)
             except Exception as e:
                 log.warning(f"썸네일 로드 실패 (task_id={self.task_id}): {e}", exc_info=True)
-                self.thumb_label.setText("No Image")
+                self.thumb_label.setText(STR.STATUS_NO_IMAGE)
         else:
-            self.thumb_label.setText("No Image")
+            self.thumb_label.setText(STR.STATUS_NO_IMAGE)
         
         reply.deleteLater()
     
     def set_finished(self):
         """완료 상태로 설정"""
         self.set_status(TaskStatus.FINISHED)
-        self.status_label.setText("완료됨")
+        self.status_label.setText(STR.STATUS_COMPLETED)
         self.status_label.setStyleSheet(STATUS_LABEL_SUCCESS_STYLE)
         self.progress_bar.setStyleSheet(PROGRESS_BAR_FINISHED_STYLE)
         self.progress_bar.setValue(100)
-        self.percent_label.setText("100%")
+        self.percent_label.setText(MSG_0_PERCENT.replace('0', '100'))
     
     def set_failed(self, message):
         """실패 상태로 설정"""
         self.set_status(TaskStatus.FAILED)
-        self.status_label.setText(f"실패: {message}")
+        self.status_label.setText(STR.STATUS_FAILED_FMT.format(message=message))
         self.status_label.setStyleSheet(STATUS_LABEL_ERROR_STYLE)
         self.progress_bar.setStyleSheet(PROGRESS_BAR_ERROR_STYLE)
     
     def set_paused(self):
         """일시정지 상태로 설정"""
         self.set_status(TaskStatus.PAUSED)
-        self.status_label.setText("일시정지됨")
+        self.status_label.setText(STR.STATUS_PAUSED)
         self.status_label.setStyleSheet(STATUS_LABEL_WARNING_STYLE)
     
     def set_started(self):
         """다운로드 시작 상태로 설정"""
         self.set_status(TaskStatus.DOWNLOADING)
-        self.status_label.setText("다운로드 준비 중...")
+        self.status_label.setText(STR.STATUS_PREPARING)

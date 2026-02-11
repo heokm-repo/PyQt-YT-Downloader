@@ -4,6 +4,9 @@
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtCore import Qt, QRectF
 from PyQt5.QtGui import QPainter, QColor, QPainterPath, QBrush, QPen
+from resources.styles import (
+    COLOR_DOWNLOADING, COLOR_PAUSED, COLOR_PRIMARY, COLOR_DEEP_ORANGE
+)
 
 
 class ToggleButton(QPushButton):
@@ -12,12 +15,12 @@ class ToggleButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._is_playing = True  # True: 재생 상태 (▶ 표시), False: 정지 상태 (■ 표시)
-        self._bg_color_play = QColor("#DBC4F0")  # 재생 상태 배경색
-        self._bg_color_stop = QColor("#FFE0B2")  # 정지 상태 배경색
-        self._icon_color_play = QColor("#5F428B")  # 재생 아이콘 색상
-        self._icon_color_stop = QColor("#E65100")  # 정지 아이콘 색상
-        self._border_color_play = QColor("#5F428B")  # 재생 상태 테두리 색상
-        self._border_color_stop = QColor("#E65100")  # 정지 상태 테두리 색상
+        self._bg_color_play = QColor(COLOR_DOWNLOADING)  # 재생 상태 배경색
+        self._bg_color_stop = QColor(COLOR_PAUSED)  # 정지 상태 배경색
+        self._icon_color_play = QColor(COLOR_PRIMARY)  # 재생 아이콘 색상
+        self._icon_color_stop = QColor(COLOR_DEEP_ORANGE)  # 정지 아이콘 색상
+        self._border_color_play = QColor(COLOR_PRIMARY)  # 재생 상태 테두리 색상
+        self._border_color_stop = QColor(COLOR_DEEP_ORANGE)  # 정지 상태 테두리 색상
         self._hover = False
         
     def setPlaying(self, playing):

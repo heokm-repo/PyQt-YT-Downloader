@@ -10,6 +10,7 @@ import re
 import os
 from typing import Dict, Callable, Optional, Tuple, List
 from utils.logger import log
+from constants import YTDLP_TIMEOUT, YTDLP_RETRIES, DEFAULT_ENCODING
 
 
 class YtDlpWrapper:
@@ -62,7 +63,7 @@ class YtDlpWrapper:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                encoding='utf-8',
+                encoding=DEFAULT_ENCODING,
                 errors='replace',
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
@@ -189,9 +190,9 @@ class YtDlpWrapper:
                 args,
                 capture_output=True,
                 text=True,
-                encoding='utf-8',
+                encoding=DEFAULT_ENCODING,
                 errors='replace',
-                timeout=30,
+                timeout=YTDLP_TIMEOUT,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
             
@@ -417,7 +418,7 @@ class YtDlpWrapper:
         # 이어받기 관련 옵션
         args.append('--continue')  # 이어받기 기능 (.part 파일 사용)
         args.append('--fragment-retries')  # fragment 재시도
-        args.append('10')  # 최대 10회 재시도
+        args.append(YTDLP_RETRIES)  # 최대 10회 재시도
         
         # URL 추가
         args.append(url)

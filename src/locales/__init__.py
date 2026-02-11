@@ -53,19 +53,15 @@ def _load_strings(lang_code: str):
             from . import ja
             _strings = ja.STRINGS
         elif lang_code == 'en':
-            from . import en
-            _strings = en.STRINGS
-        else:
-            # 기본값으로 한국어 사용
-            from . import ko
-            _strings = ko.STRINGS
-    except ImportError as e:
-        # 언어 파일을 찾을 수 없으면 한국어로 폴백
-        try:
-            from . import ko
-            _strings = ko.STRINGS
-        except ImportError:
+            # 영어는 기본값이므로 별도 파일 로드 안함 (strings.py의 기본값 사용)
             _strings = {}
+        else:
+            # 지원하지 않는 언어는 한국어로 폴백 (또는 영어로 폴백하려면 {} 사용)
+            from . import ko
+            _strings = ko.STRINGS
+    except ImportError:
+        # 언어 파일을 찾을 수 없으면 빈 딕셔너리 사용 (기본값인 영어 출력)
+        _strings = {}
 
 
 # 초기화: 기본 언어 로드

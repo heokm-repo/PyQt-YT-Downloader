@@ -12,7 +12,14 @@ import shutil
 import tempfile
 from typing import Optional, Tuple, Callable, Dict
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 from utils.logger import log
+from constants import (
+    FFMPEG_ZIP_NAME_WIN,
+    FFMPEG_ZIP_NAME_LINUX,
+    FFMPEG_EXE_INTERNAL_PATH,
+    FFMPEG_EXE_INTERNAL_PATH_ROOT
+)
 
 # 바이너리 이름
 YTDLP_BINARY = 'yt-dlp.exe' if sys.platform == 'win32' else 'yt-dlp'
@@ -206,7 +213,8 @@ def check_ffmpeg_latest_version() -> Tuple[Optional[str], Optional[str]]:
             version = data.get('tag_name', '').lstrip('v')
         
         # Windows용 ffmpeg 찾기 (일반적으로 ffmpeg-master-latest-win64-gpl.zip)
-        target_name = 'ffmpeg-master-latest-win64-gpl.zip' if sys.platform == 'win32' else 'ffmpeg-master-latest-linux64-gpl.tar.xz'
+        # Windows용 ffmpeg 찾기 (일반적으로 ffmpeg-master-latest-win64-gpl.zip)
+        target_name = FFMPEG_ZIP_NAME_WIN if sys.platform == 'win32' else FFMPEG_ZIP_NAME_LINUX
         
         for asset in data.get('assets', []):
             if target_name in asset['name']:
@@ -222,14 +230,16 @@ def check_ffmpeg_latest_version() -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
 
-def download_file(url: str, dest_path: str, progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
+
+def download_file(url: str, dest_path: str, progress_callback: Optional[Callable[[int, int], None]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> bool:
     """
-    파일 다운로드 (진행률 콜백 지원)
+    파일 다운로드 (진행률 콜백 및 취소 지원)
     
     Args:
         url: 다운로드 URL
         dest_path: 저장 경로
         progress_callback: 진행률 콜백 (downloaded_bytes, total_bytes)
+        check_cancel: 취소 여부 확인 콜백 (True 반환 시 취소)
     
     Returns:
         성공 여부
@@ -237,6 +247,10 @@ def download_file(url: str, dest_path: str, progress_callback: Optional[Callable
     try:
         log.info(f"Downloading {url} to {dest_path}")
         
+        if check_cancel and check_cancel():
+            log.info("Download cancelled before start")
+            return False
+
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
         
@@ -245,6 +259,13 @@ def download_file(url: str, dest_path: str, progress_callback: Optional[Callable
         
         with open(dest_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
+                if check_cancel and check_cancel():
+                    log.info("Download cancelled during transfer")
+                    f.close()
+                    if os.path.exists(dest_path):
+                        os.remove(dest_path)
+                    return False
+                
                 if chunk:
                     f.write(chunk)
                     downloaded_size += len(chunk)
@@ -265,12 +286,13 @@ def download_file(url: str, dest_path: str, progress_callback: Optional[Callable
         return False
 
 
-def download_ytdlp(progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
+def download_ytdlp(progress_callback: Optional[Callable[[int, int], None]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> bool:
     """
     yt-dlp.exe 다운로드
     
     Args:
         progress_callback: 진행률 콜백 (downloaded_bytes, total_bytes)
+        check_cancel: 취소 여부 확인 콜백
     
     Returns:
         성공 여부
@@ -286,7 +308,7 @@ def download_ytdlp(progress_callback: Optional[Callable[[int, int], None]] = Non
     temp_path = final_path + '.tmp'
     
     # 임시 파일에 다운로드
-    success = download_file(url, temp_path, progress_callback)
+    success = download_file(url, temp_path, progress_callback, check_cancel)
     
     if success:
         # 기존 파일이 있으면 삭제
@@ -311,12 +333,13 @@ def download_ytdlp(progress_callback: Optional[Callable[[int, int], None]] = Non
         return False
 
 
-def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = None) -> bool:
+def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> bool:
     """
     ffmpeg.exe 다운로드 (ZIP 압축 해제 포함)
     
     Args:
         progress_callback: 진행률 콜백 (downloaded_bytes, total_bytes)
+        check_cancel: 취소 여부 확인 콜백
     
     Returns:
         성공 여부
@@ -335,11 +358,14 @@ def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = No
     
     try:
         # ZIP 다운로드
-        success = download_file(url, temp_zip_path, progress_callback)
+        success = download_file(url, temp_zip_path, progress_callback, check_cancel)
         
         if not success:
             return False
         
+        if check_cancel and check_cancel():
+            return False
+            
         # ZIP 압축 해제
         log.info(f"Extracting ffmpeg from {temp_zip_path}")
         import zipfile
@@ -347,7 +373,7 @@ def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = No
         with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
             # ffmpeg.exe 찾기 (보통 bin/ffmpeg.exe 경로에 있음)
             for file_info in zip_ref.filelist:
-                if file_info.filename.endswith('bin/ffmpeg.exe') or file_info.filename.endswith('ffmpeg.exe'):
+                if file_info.filename.endswith(FFMPEG_EXE_INTERNAL_PATH) or file_info.filename.endswith(FFMPEG_EXE_INTERNAL_PATH_ROOT):
                     # ffmpeg.exe 추출
                     with zip_ref.open(file_info) as source:
                         final_path = os.path.join(bin_path, FFMPEG_BINARY)
@@ -374,6 +400,7 @@ def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = No
         # 임시 ZIP 파일 삭제
         if os.path.exists(temp_zip_path):
             os.remove(temp_zip_path)
+
 
 
 def needs_update(binary_name: str) -> bool:
@@ -446,12 +473,13 @@ def check_updates_available() -> Dict[str, Dict[str, str]]:
     return updates
 
 
-def download_initial_binaries(progress_callback: Optional[Callable[[str, int, int], None]] = None) -> bool:
+def download_initial_binaries(progress_callback: Optional[Callable[[str, int, int], None]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> bool:
     """
     초기 바이너리 다운로드 (yt-dlp + ffmpeg)
     
     Args:
         progress_callback: 진행률 콜백 (binary_name, downloaded_bytes, total_bytes)
+        check_cancel: 취소 여부 확인 콜백
     
     Returns:
         성공 여부
@@ -463,8 +491,14 @@ def download_initial_binaries(progress_callback: Optional[Callable[[str, int, in
         if progress_callback:
             progress_callback('yt-dlp', downloaded, total)
     
-    if not download_ytdlp(ytdlp_progress):
+    if check_cancel and check_cancel():
+        return False
+
+    if not download_ytdlp(ytdlp_progress, check_cancel):
         log.error("Failed to download yt-dlp")
+        return False
+    
+    if check_cancel and check_cancel():
         return False
     
     # ffmpeg 다운로드
@@ -472,7 +506,7 @@ def download_initial_binaries(progress_callback: Optional[Callable[[str, int, in
         if progress_callback:
             progress_callback('ffmpeg', downloaded, total)
     
-    if not download_ffmpeg(ffmpeg_progress):
+    if not download_ffmpeg(ffmpeg_progress, check_cancel):
         log.error("Failed to download ffmpeg")
         return False
     
@@ -480,14 +514,15 @@ def download_initial_binaries(progress_callback: Optional[Callable[[str, int, in
     return True
 
 
-def update_binaries(progress_callback: Optional[Callable[[str, int, int], None]] = None, updates_to_apply: Optional[Dict[str, Dict[str, str]]] = None) -> Dict[str, bool]:
+def update_binaries(progress_callback: Optional[Callable[[str, int, int], None]] = None, updates_to_apply: Optional[Dict[str, Dict[str, str]]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> Dict[str, bool]:
     """
     바이너리 업데이트 (필요한 것만)
     
     Args:
         progress_callback: 진행률 콜백 (binary_name, downloaded_bytes, total_bytes)
         updates_to_apply: 업데이트할 바이너리 목록 (check_updates_available 결과)
-                         None이면 모든 바이너리 체크
+                          None이면 모든 바이너리 체크
+        check_cancel: 취소 여부 확인 콜백
     
     Returns:
         {"yt-dlp": True/False, "ffmpeg": True/False}
@@ -499,6 +534,9 @@ def update_binaries(progress_callback: Optional[Callable[[str, int, int], None]]
     
     log.info("Checking for binary updates")
     
+    if check_cancel and check_cancel():
+        return results
+
     # updates_to_apply가 지정되지 않으면 모든 바이너리 체크 (기존 동작)
     if updates_to_apply is None:
         binaries_to_check = ['yt-dlp', 'ffmpeg']
@@ -514,10 +552,13 @@ def update_binaries(progress_callback: Optional[Callable[[str, int, int], None]]
             if progress_callback:
                 progress_callback('yt-dlp', downloaded, total)
         
-        results['yt-dlp'] = download_ytdlp(ytdlp_progress)
+        results['yt-dlp'] = download_ytdlp(ytdlp_progress, check_cancel)
     else:
         log.info("yt-dlp is up to date or not in update list")
         results['yt-dlp'] = True
+    
+    if check_cancel and check_cancel():
+        return results
     
     # ffmpeg 업데이트
     if 'ffmpeg' in binaries_to_check and needs_update('ffmpeg'):
@@ -526,14 +567,17 @@ def update_binaries(progress_callback: Optional[Callable[[str, int, int], None]]
             if progress_callback:
                 progress_callback('ffmpeg', downloaded, total)
         
-        results['ffmpeg'] = download_ffmpeg(ffmpeg_progress)
+        results['ffmpeg'] = download_ffmpeg(ffmpeg_progress, check_cancel)
     else:
         log.info("ffmpeg is up to date or not in update list")
         results['ffmpeg'] = True
     
-    # 업데이트 체크 시간 갱신
-    versions = load_versions()
-    versions['last_check'] = datetime.now().isoformat()
-    save_versions(versions)
+    # 업데이트 체크 시간 갱신 (성공한 경우에만?)
+    # 취소되었어도 성공한 부분은 있을 수 있으므로 버전 파일 저장은 개별 함수에서 처리됨
+    # 여기서는 last_check만 갱신
+    if not (check_cancel and check_cancel()):
+        versions = load_versions()
+        versions['last_check'] = datetime.now().isoformat()
+        save_versions(versions)
     
     return results

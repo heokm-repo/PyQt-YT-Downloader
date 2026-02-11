@@ -12,8 +12,11 @@ from core import youtube_handler
 from utils.logger import log
 from constants import (
     MSG_PAUSED_BY_USER, MEDIA_EXTENSIONS, QUEUE_TIMEOUT_SEC,
-    BYTES_PER_KB, BYTES_PER_MB
+    BYTES_PER_KB, BYTES_PER_MB,
+    STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING,
+    EXT_PART, EXT_YTDL
 )
+from locales.strings import STR
 
 class PlaylistAnalysisWorker(QThread):
     """플레이리스트 분석을 위한 별도 스레드 (UI 프리징 방지)"""
@@ -213,7 +216,7 @@ class DownloadWorker(QThread):
                 )
                 
                 if not success and MSG_PAUSED_BY_USER in str(message):
-                    self.download_finished.emit(False, "일시정지됨", task_id, "")
+                    self.download_finished.emit(False, STR.STATUS_PAUSED, task_id, "")
                     self.download_queue.task_done()
                     continue
 
@@ -252,7 +255,7 @@ class DownloadWorker(QThread):
     def _progress_hook(self, d: Dict[str, Any]) -> None:
         """진행률 훅 - concurrent_fragment_downloads 사용 시 정상 작동"""
         if self.stop_event.is_set():
-            raise yt_dlp.utils.DownloadError("사용자에 의해 다운로드 중단됨")
+            raise yt_dlp.utils.DownloadError(STR.WORKER_MSG_STOPPED)
         
         if not self.pause_event.is_set():
             raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
@@ -269,9 +272,9 @@ class DownloadWorker(QThread):
         try:
             status = d.get('status', '')
             
-            if status == 'downloading':
+            if status == STATUS_DOWNLOADING:
                 self._handle_downloading_status(d, task_id)
-            elif status in ['postprocessing', 'finished']:
+            elif status in [STATUS_POSTPROCESSING, STATUS_FINISHED]:
                 self._handle_postprocessing_status(d, status, task_id)
                 
         except Exception:
@@ -290,7 +293,7 @@ class DownloadWorker(QThread):
         
         import os
         clean_current = os.path.basename(current_filename)
-        for ext in ['.part', '.ytdl']:
+        for ext in [EXT_PART, EXT_YTDL]:
             if clean_current.endswith(ext):
                 clean_current = clean_current[:-len(ext)]
                 break
@@ -365,9 +368,9 @@ class DownloadWorker(QThread):
             
         progress_info = self.download_progress[task_id]
         
-        if status == 'postprocessing':
-            d['_percent_str'] = "처리 중..."
-            d['_speed_str'] = "변환/병합"
+        if status == STATUS_POSTPROCESSING:
+            d['_percent_str'] = STR.WORKER_MSG_PROCESSING
+            d['_speed_str'] = STR.WORKER_MSG_CONVERTING
             
             total_size = progress_info.get('total_size_est', 0)
             if total_size > 0:
@@ -375,11 +378,11 @@ class DownloadWorker(QThread):
                 d['total_bytes'] = total_size
                 d['total_bytes_estimate'] = total_size
                     
-        elif status == 'finished':
+        elif status == STATUS_FINISHED:
             import os
             current_filename = d.get('filename', '')
             clean_current = os.path.basename(current_filename)
-            for ext in ['.part', '.ytdl']:
+            for ext in [EXT_PART, EXT_YTDL]:
                 if clean_current.endswith(ext):
                     clean_current = clean_current[:-len(ext)]
                     break
@@ -395,7 +398,7 @@ class DownloadWorker(QThread):
                 return
 
             d['_percent_str'] = "100%"
-            d['_speed_str'] = "다운로드 완료"
+            d['_speed_str'] = STR.WORKER_MSG_COMPLETED
             
             total_size = progress_info.get('total_size_est', 0)
             if total_size > 0:
