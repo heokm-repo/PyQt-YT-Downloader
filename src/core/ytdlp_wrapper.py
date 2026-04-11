@@ -228,6 +228,14 @@ class YtDlpWrapper:
                 # format 옵션 추가 (크기 추정을 위해)
                 if 'format' in options:
                     args.extend(['--format', options['format']])
+                
+                # 쿠키 파일 (연령 제한 영상 등 인증 필요 시)
+                if 'cookiefile' in options:
+                    args.extend(['--cookies', options['cookiefile']])
+                
+                # JS 런타임 (YouTube 서명 풀기용)
+                if 'js_runtimes' in options:
+                    args.extend(['--js-runtimes', options['js_runtimes']])
             
             args.append(url)
             
