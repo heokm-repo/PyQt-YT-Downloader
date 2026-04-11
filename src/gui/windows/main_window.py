@@ -583,6 +583,7 @@ class YTDownloaderPyQt5(QMainWindow):
         task_id: int, 
         url: str, 
         video_id: Optional[str] = None,
+        extractor: str = 'unknown',
         title_override: Optional[str] = None
     ) -> DownloadTask:
         """
@@ -592,6 +593,7 @@ class YTDownloaderPyQt5(QMainWindow):
             task_id: 작업 ID
             url: 비디오 URL
             video_id: 비디오 ID (선택적)
+            extractor: 추출기(사이트) 식별자
             title_override: 제목 오버라이드 (선택적, 플레이리스트용)
             
         Returns:
@@ -603,10 +605,6 @@ class YTDownloaderPyQt5(QMainWindow):
         # TaskWidget 생성
         task_widget = TaskWidget(task_id, url, current_settings, self)
         if title_override:
-            # 플레이리스트의 경우 타이틀 오버라이드를 할 때 포맷 정보도 포함
-            # 하지만 TaskWidget 내부에서 처리하도록 하는 것이 더 깔끔할 수 있음
-            # 일단 _get_formatted_title 메서드를 외부에서 호출할 수 없으므로(protected),
-            # setText를 직접 호출하되 포맷을 붙여줌
             fmt = current_settings.get('format', 'mp4').upper()
             task_widget.title_label.setText(f"[{fmt}] {title_override}")
             
@@ -619,6 +617,7 @@ class YTDownloaderPyQt5(QMainWindow):
             id=task_id,
             url=url,
             video_id=video_id,
+            extractor=extractor,
             settings=current_settings
         )
         self.tasks.append(task)
@@ -650,13 +649,13 @@ class YTDownloaderPyQt5(QMainWindow):
         self.playlist_worker.analysis_finished.connect(self.on_playlist_analysis_finished)
         self.playlist_worker.start()
 
-    def _handle_single_video_download(self, clean_url: str, video_id: Optional[str]):
-        """단일 영상 다운로드 처리"""
+    def _handle_single_video_download(self, clean_url: str, video_id: Optional[str], extractor: str = 'unknown'):
+        """단일 영상 다운로드 처리 (범용)"""
         # 중복 다운로드 체크 (큐에 넣기 전에 확인)
         current_settings = self.settings.copy()
         target_format = current_settings.get('format', 'mp4')
         
-        if video_id and self.duplicate_checker.check_duplicate(video_id, -1, self.tasks[:], target_format):
+        if video_id and self.duplicate_checker.check_duplicate(extractor, video_id, -1, self.tasks[:], target_format):
             # 사용자가 다시 다운로드하지 않기로 선택한 경우
             self.status_label.setText(STR.MSG_DL_CANCELLED)
             return
@@ -666,7 +665,7 @@ class YTDownloaderPyQt5(QMainWindow):
         task_id = self.total_tasks_in_queue
         
         # TaskWidget 생성 및 작업 등록
-        self._create_and_register_task(task_id, clean_url, video_id)
+        self._create_and_register_task(task_id, clean_url, video_id, extractor)
         
         self.status_label.setText(STR.MSG_ADDED_QUEUE)
         self.update_progress_ui()
@@ -687,7 +686,7 @@ class YTDownloaderPyQt5(QMainWindow):
         if result.is_playlist:
             self._handle_playlist_download(result.clean_url)
         else:
-            self._handle_single_video_download(result.clean_url, result.video_id)
+            self._handle_single_video_download(result.clean_url, result.video_id, result.extractor or 'unknown')
 
     # --- 스케줄러 시그널 핸들러 ---
         
@@ -720,15 +719,23 @@ class YTDownloaderPyQt5(QMainWindow):
             if not os.path.isabs(final_path):
                 final_path = os.path.abspath(final_path)
             task.output_path = final_path
+        
+            # 파일 성공 시 용량 저장 (Persistence)
+            if success and os.path.exists(final_path):
+                try:
+                    size = os.path.getsize(final_path)
+                    task.meta['file_size'] = size
+                except Exception as e:
+                    log.warning(f"파일 크기 저장 실패: {e}")
 
         if success:
-            if task: task.status = TaskStatus.FINISHED
-            widget.set_finished()
-            
-            if task:
+            if task: 
+                task.status = TaskStatus.FINISHED
                 # 설정에서 포맷(확장자) 가져오기
                 task_format = task.settings.get('format', 'mp4')
-                self.history_manager.add_to_history(task.video_id, task.meta, task_format)
+                self.history_manager.add_to_history(task.extractor, task.video_id, task.meta, task_format)
+            
+            widget.set_finished(file_size=task.meta.get('file_size') if task else None)
         else:
             if message == STR.STATUS_PAUSED:
                 # 이미 PAUSED 상태인 경우 (전체 일시정지로 미리 처리됨) - 중복 처리 방지
@@ -820,6 +827,9 @@ class YTDownloaderPyQt5(QMainWindow):
             return
         
         video_id = metadata.get('id')
+        extractor = metadata.get('extractor', 'unknown')
+        if extractor:
+            extractor = extractor.lower()
         
         # UI 카드 업데이트
         widget.update_metadata(metadata)
@@ -831,6 +841,9 @@ class YTDownloaderPyQt5(QMainWindow):
                 # video_id가 없으면 추가
                 if not task.video_id and video_id:
                     task.video_id = video_id
+                # extractor 업데이트 (메타데이터에서 정확한 값 획득)
+                if extractor and (task.extractor == 'unknown' or not task.extractor):
+                    task.extractor = extractor
                 break
 
     # --- 플레이리스트 처리 ---
@@ -849,9 +862,13 @@ class YTDownloaderPyQt5(QMainWindow):
                       MessageDialog.WARNING, self).exec_()
         self.status_label.setText(STR.MSG_READY)
 
-    def _filter_duplicate_videos(self, video_ids: list) -> tuple[list, int]:
+    def _filter_duplicate_videos(self, video_ids: list, extractor: str = 'youtube') -> tuple[list, int]:
         """
         중복 비디오 필터링
+        
+        Args:
+            video_ids: 비디오 ID 리스트
+            extractor: 추출기(사이트) 식별자
         
         Returns:
             (filtered_ids, duplicate_count) 튜플
@@ -860,13 +877,13 @@ class YTDownloaderPyQt5(QMainWindow):
         filtered_ids = []
         
         for video_id in video_ids:
-            # 히스토리 확인
-            if self.history_manager.is_video_downloaded(video_id):
+            # 히스토리 확인 (extractor 포함)
+            if self.history_manager.is_video_downloaded(extractor, video_id):
                 duplicate_count += 1
                 continue
-            # 현재 큐 확인
+            # 현재 큐 확인 (extractor 포함)
             is_in_queue = any(
-                task.video_id == video_id and task.is_active()
+                task.extractor == extractor and task.video_id == video_id and task.is_active()
                 for task in self.tasks
             )
             if is_in_queue:
@@ -917,6 +934,7 @@ class YTDownloaderPyQt5(QMainWindow):
                 task_id, 
                 video_url, 
                 video_id,
+                extractor='youtube',
                 title_override=STR.TPL_VIDEO_TITLE.format(video_id=video_id)
             )
         
@@ -991,11 +1009,11 @@ class YTDownloaderPyQt5(QMainWindow):
             
             # 상태 복원
             if task.status == TaskStatus.FINISHED:
-                task_widget.set_finished()
+                task_widget.set_finished(file_size=task.meta.get('file_size'))
             elif task.status == TaskStatus.PAUSED:
                 task_widget.set_paused()
                 task_widget.status_label.setText(STR.STATUS_PAUSED_SAVED)
-                task_widget.percent_label.setText(STR.STATUS_WAITING)
+                task_widget.percent_label.setText(STR.STATUS_WAITING_DOTS)
             elif task.status == TaskStatus.FAILED:
                 task_widget.set_failed(STR.STATUS_IN_PROGRESS)
             

@@ -4,7 +4,7 @@
 import re
 
 from PyQt5.QtWidgets import (QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, 
-                             QProgressBar, QPushButton)
+                             QProgressBar, QPushButton, QSizePolicy)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QUrl
 from PyQt5.QtGui import QFont, QPixmap, QFontMetrics
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
@@ -52,12 +52,23 @@ class ElidedLabel(QLabel):
         super().resizeEvent(event)
 
     def update_text(self):
+        # 너비가 0이거나 텍스트가 없으면 리턴
+        if self.width() <= 0 or not self.full_text:
+            return
+
         metrics = QFontMetrics(self.font())
-        elided = metrics.elidedText(self.full_text, Qt.ElideRight, self.width())
+        width = self.width()
+        
+        # 텍스트가 너비보다 작으면 전체 텍스트 표시
+        if metrics.width(self.full_text) <= width:
+            elided = self.full_text
+        else:
+            elided = metrics.elidedText(self.full_text, Qt.ElideRight, width)
         
         # 현재 텍스트와 다를 때만 setText 호출 (무한 루프 방지)
         if self.text() != elided:
             super().setText(elided)
+            
             # 툴팁은 텍스트가 잘렸을 때만 표시
             if elided != self.full_text:
                 self.setToolTip(self.full_text)
@@ -187,8 +198,8 @@ class TaskWidget(QFrame):
         self.size_label.setStyleSheet(SIZE_LABEL_STYLE)
         self.size_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         
-        status_row.addWidget(self.status_label)
-        status_row.addStretch()
+        status_row.addWidget(self.status_label, 1)
+        # status_row.addStretch() # 제거: 라벨이 남은 공간을 모두 차지하도록 함
         status_row.addWidget(self.size_label)
         
         info_layout.addLayout(status_row)
@@ -331,7 +342,7 @@ class TaskWidget(QFrame):
             elif speed:
                 self.status_label.setText(STR.STATUS_DOWNLOADING_SPEED.format(speed=speed))
             else:
-                self.status_label.setText(STR.STATUS_DOWNLOADING)
+                self.status_label.setText(STR.STATUS_DOWNLOADING_DOTS)
                 
             # 다운로드 중 상태로 변경 (아직 변경되지 않았다면)
             if self.current_status != TaskStatus.DOWNLOADING:
@@ -345,7 +356,15 @@ class TaskWidget(QFrame):
         title = meta.get('title', '(제목 없음)')
         self.title_label.setText(self._get_formatted_title(title))
         self.uploader_label.setText(meta.get('uploader', 'Unknown'))
-        self.status_label.setText(STR.STATUS_WAITING)
+        self.status_label.setText(STR.STATUS_WAITING_DOTS)
+        
+        # 저장된 파일 크기가 있으면 표시 (Persistence 로드)
+        if 'file_size' in meta:
+            size_str = format_bytes(meta['file_size'])
+            self.size_label.setText(size_str)
+            # 만약 완료 상태라면 상태 텍스트도 업데이트
+            if self.current_status == TaskStatus.FINISHED:
+                self.status_label.setText(STR.STATUS_COMPLETED)
         
         # 기존 진행 중인 요청 취소
         if self.pending_reply:
@@ -355,7 +374,7 @@ class TaskWidget(QFrame):
         # 썸네일 비동기 다운로드
         thumbnail_url = meta.get('thumbnail')
         if thumbnail_url:
-            self.thumb_label.setText(STR.STATUS_WAITING)
+            self.thumb_label.setText(STR.STATUS_WAITING_DOTS)
             url = QUrl(thumbnail_url)
             request = QNetworkRequest(url)
             request.setRawHeader(b'User-Agent', b'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
@@ -390,7 +409,7 @@ class TaskWidget(QFrame):
         
         reply.deleteLater()
     
-    def set_finished(self):
+    def set_finished(self, file_size=None):
         """완료 상태로 설정"""
         self.set_status(TaskStatus.FINISHED)
         self.status_label.setText(STR.STATUS_COMPLETED)
@@ -398,6 +417,10 @@ class TaskWidget(QFrame):
         self.progress_bar.setStyleSheet(PROGRESS_BAR_FINISHED_STYLE)
         self.progress_bar.setValue(100)
         self.percent_label.setText(MSG_0_PERCENT.replace('0', '100'))
+        
+        # 파일 크기가 전달되면 단일 값으로 표시
+        if file_size is not None:
+            self.size_label.setText(format_bytes(file_size))
     
     def set_failed(self, message):
         """실패 상태로 설정"""

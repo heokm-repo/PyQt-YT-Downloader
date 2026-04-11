@@ -8,7 +8,7 @@ import sys
 import subprocess
 import requests
 from packaging import version
-from constants import APP_VERSION, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, UPDATE_TEMP_FILENAME, UPDATE_BATCH_FILENAME, BATCH_ENCODING
+from constants import APP_VERSION, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, UPDATE_TEMP_FILENAME
 from utils.logger import log
 
 
@@ -42,15 +42,23 @@ def check_for_updates():
         log.info(f"현재 버전: {current_ver}, 최신 버전: {latest_version}")
         
         if version.parse(latest_version) > version.parse(current_ver):
-            # 업데이트 가능
-            # assets에서 exe 파일 찾기
+            # 업데이트 가능 - Setup 파일 우선 탐색
             assets = release_data.get('assets', [])
             download_url = None
             
             for asset in assets:
-                if asset['name'].endswith('.exe'):
+                name = asset['name']
+                # Setup 파일 우선 선택
+                if name.lower().startswith('setup') and name.endswith('.exe'):
                     download_url = asset['browser_download_url']
                     break
+            
+            # Setup 파일이 없으면 일반 exe 파일 선택
+            if not download_url:
+                for asset in assets:
+                    if asset['name'].endswith('.exe'):
+                        download_url = asset['browser_download_url']
+                        break
             
             if download_url:
                 log.info(f"업데이트 가능: {latest_version}, 다운로드 URL: {download_url}")
@@ -73,7 +81,7 @@ def check_for_updates():
 
 def download_update(download_url, progress_callback=None):
     """
-    최신 버전 exe 다운로드
+    최신 버전 Setup 파일 다운로드
     
     Args:
         download_url: 다운로드 URL
@@ -115,12 +123,12 @@ def download_update(download_url, progress_callback=None):
         return None
 
 
-def apply_update(new_exe_path):
+def apply_update(setup_exe_path):
     """
-    다운로드한 exe로 업데이트 적용
+    다운로드한 Setup 파일로 업데이트 적용 (Inno Setup 사일런트 설치)
     
     Args:
-        new_exe_path: 새 exe 파일 경로
+        setup_exe_path: Setup 설치 파일 경로
     
     Returns:
         bool: 성공 여부
@@ -130,50 +138,23 @@ def apply_update(new_exe_path):
             log.warning("개발 환경에서는 업데이트를 적용할 수 없습니다.")
             return False
         
-        current_exe = sys.executable
-        exe_dir = os.path.dirname(current_exe)
-        bat_path = os.path.join(exe_dir, UPDATE_BATCH_FILENAME)
+        if not os.path.exists(setup_exe_path):
+            log.error(f"Setup 파일을 찾을 수 없습니다: {setup_exe_path}")
+            return False
         
-        # update.bat 스크립트 생성
-        bat_content = f"""@echo off
-echo YT Downloader 업데이트 중...
-
-REM 2초 대기 (현재 exe 완전 종료 대기)
-timeout /t 2 /nobreak >nul
-
-REM 기존 exe 백업
-if exist "{current_exe}.bak" (
-    del /f /q "{current_exe}.bak"
-)
-move /y "{current_exe}" "{current_exe}.bak"
-
-REM 새 exe 복사
-move /y "{new_exe_path}" "{current_exe}"
-
-REM 업데이트된 앱 재실행
-start "" "{current_exe}"
-
-REM 백업 파일 삭제
-del /f /q "{current_exe}.bak"
-
-REM update.bat 자체 삭제
-del "%~f0"
-"""
+        log.info(f"Inno Setup 사일런트 설치 실행: {setup_exe_path}")
         
-        # 배치 파일 작성
-        with open(bat_path, 'w', encoding=BATCH_ENCODING) as f:
-            f.write(bat_content)
-        
-        log.info(f"update.bat 생성 완료: {bat_path}")
-        
-        # 배치 파일 실행
+        # Inno Setup 설치 파일을 사일런트 모드로 실행
+        # /SILENT: 최소 UI (진행 바만 표시)
+        # /SUPPRESSMSGBOXES: 메시지 박스 억제
+        # /NORESTART: 재시작 안 함
+        # /CLOSEAPPLICATIONS: 실행 중인 앱 자동 종료
         subprocess.Popen(
-            [bat_path],
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            shell=True
+            [setup_exe_path, '/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS'],
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
         )
         
-        log.info("update.bat 실행 완료")
+        log.info("Setup 실행 완료, 앱 종료 예정...")
         return True
         
     except Exception as e:

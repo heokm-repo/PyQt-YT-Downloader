@@ -35,7 +35,7 @@ class Strings:
     # 2. Main Window
     # =========================================================================
     @property
-    def MAIN_URL_PLACEHOLDER(self): return get_string('MAIN_URL_PLACEHOLDER', "Enter YouTube link")
+    def MAIN_URL_PLACEHOLDER(self): return get_string('MAIN_URL_PLACEHOLDER', "Enter video URL")
     @property
     def BTN_DOWNLOAD(self):         return get_string('BTN_DOWNLOAD', "Download")
     @property
@@ -87,7 +87,17 @@ class Strings:
     @property
     def SETTINGS_CHK_ACCEL(self):       return get_string('SETTINGS_CHK_ACCEL', "Download Acceleration (Multi-thread)")
     @property
-    def SETTINGS_LABEL_COOKIES(self):   return get_string('SETTINGS_LABEL_COOKIES', "Cookies Integration:")
+    def SETTINGS_LABEL_COOKIES(self):   return get_string('SETTINGS_LABEL_COOKIES', "Cookie (In-App Login):")
+    @property
+    def BTN_LOGIN(self):                return get_string('BTN_LOGIN', "Login")
+    @property
+    def BTN_SAVE_CLOSE(self):           return get_string('BTN_SAVE_CLOSE', "Save & Close")
+    @property
+    def TITLE_LOGIN_BROWSER(self):      return get_string('TITLE_LOGIN_BROWSER', "YouTube Login")
+    @property
+    def MSG_LOGIN_WAITING(self):        return get_string('MSG_LOGIN_WAITING', "Please log in to your Google account.")
+    @property
+    def MSG_LOGIN_SUCCESS(self):        return get_string('MSG_LOGIN_SUCCESS', "Login detected! Click 'Save & Close'.")
 
     # Section: App Management
     @property
@@ -110,12 +120,10 @@ class Strings:
     # =========================================================================
     # 4. Status Messages
     # =========================================================================
-    @property
-    def STATUS_WAITING(self):           return get_string('STATUS_WAITING', 'Waiting')
+
     @property
     def STATUS_WAITING_DOTS(self):      return get_string('STATUS_WAITING_DOTS', 'Waiting...')
-    @property
-    def STATUS_DOWNLOADING(self):       return get_string('STATUS_DOWNLOADING', 'Downloading')
+
     @property
     def STATUS_DOWNLOADING_DOTS(self):  return get_string('STATUS_DOWNLOADING_DOTS', "Downloading...")
     @property
@@ -127,13 +135,11 @@ class Strings:
     def STATUS_PAUSED_SAVED(self):  return get_string('STATUS_PAUSED_SAVED', 'Paused (Saved)')
     @property
     def STATUS_IN_PROGRESS(self):   return get_string('STATUS_IN_PROGRESS', 'In Progress')
-    @property
-    def STATUS_PREV_FAILED(self):   return get_string('STATUS_PREV_FAILED', 'Previous Task Failed')
+
     
     @property
     def STATUS_CONVERTING(self):    return get_string('STATUS_CONVERTING', "Converting...")
-    @property
-    def STATUS_LOADING(self):       return get_string('STATUS_LOADING', "Loading...")
+
     @property
     def STATUS_COMPLETED(self):     return get_string('STATUS_COMPLETED', "Completed")
     @property
@@ -149,7 +155,7 @@ class Strings:
     @property
     def WORKER_MSG_PROCESSING(self): return get_string('WORKER_MSG_PROCESSING', "Processing...")
     @property
-    def WORKER_MSG_COMPLETE(self):   return get_string('WORKER_MSG_COMPLETE', "Download Complete")
+    def WORKER_MSG_COMPLETED(self):  return get_string('WORKER_MSG_COMPLETED', "Download Complete")
     @property
     def WORKER_MSG_STOPPED(self):    return get_string('WORKER_MSG_STOPPED', "Download stopped by user")
 
@@ -192,9 +198,17 @@ class Strings:
     @property
     def TITLE_INIT(self):           return get_string('TITLE_INIT', "YT Downloader Initialization")
     @property
-    def TITLE_APP_UPDATE(self):     return get_string('TITLE_APP_UPDATE', "YT Downloader Update")
+    def TITLE_INIT_SETUP(self):     return get_string('TITLE_INIT_SETUP', "Initial Setup")
     @property
-    def MSG_INIT_TITLE(self):       return get_string('MSG_INIT_TITLE', "Initializing YT Downloader...")
+    def LABEL_LANGUAGE_SELECT(self):return get_string('LABEL_LANGUAGE_SELECT', "Select Language:")
+    @property
+    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg) are required for video downloading and merging.\n\nDo you want to download them?")
+    @property
+    def BTN_START_SETUP(self):      return get_string('BTN_START_SETUP', "Start")
+    
+    @property
+    def TITLE_APP_UPDATE(self):     return get_string('TITLE_APP_UPDATE', "YT Downloader Update")
+
     @property
     def MSG_INIT_DESC(self):        return get_string('MSG_INIT_DESC', "Downloading required components...")
     @property
@@ -211,13 +225,17 @@ class Strings:
     def MSG_INIT_FAILED(self):      return get_string('MSG_INIT_FAILED', "Initialization Failed")
     @property
     def ERR_INIT_DOWNLOAD(self):    return get_string('ERR_INIT_DOWNLOAD', "An error occurred during download.")
-    @property
-    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg) are required for video downloading and merging.\n\nDo you want to download them?")
-    @property
-    def MSG_DOWNLOAD_COMPONENT_FAIL(self): return get_string('MSG_DOWNLOAD_COMPONENT_FAIL', "Required components failed to download.")
-    @property
-    def MSG_CHECK_INTERNET(self):   return get_string('MSG_CHECK_INTERNET', "Please check your internet connection.")
 
+    # Startup Dialog
+    @property
+    def TITLE_STARTUP(self):        return get_string('TITLE_STARTUP', "Starting YT Downloader")
+    @property
+    def MSG_STARTUP_CHECK_EXT(self):return get_string('MSG_STARTUP_CHECK_EXT', "Checking external components...")
+    @property
+    def MSG_STARTUP_CHECK_APP(self):return get_string('MSG_STARTUP_CHECK_APP', "Checking for app updates...")
+    @property
+    def MSG_STARTUP_OPENING(self):  return get_string('MSG_STARTUP_OPENING', "Opening app...")
+    
     # Uninstall
     @property
     def TITLE_UNINSTALL(self):       return get_string('TITLE_UNINSTALL', "Confirm Uninstall")
@@ -284,7 +302,9 @@ class Strings:
     @property
     def ERR_CANNOT_FETCH_INFO(self):   return get_string('ERR_CANNOT_FETCH_INFO', "Could not fetch information.")
     @property
-    def ERR_INVALID_URL(self):         return get_string('ERR_INVALID_URL', "Please enter a valid YouTube URL.")
+    def ERR_INVALID_URL(self):         return get_string('ERR_INVALID_URL', "Please enter a valid URL.")
+    @property
+    def ERR_UNSUPPORTED_URL(self):    return get_string('ERR_UNSUPPORTED_URL', "This URL is not supported for downloading.")
 
     # Loading / Analysis
     @property
@@ -311,8 +331,7 @@ class Strings:
     def ERR_DL_COMPONENT_FAIL(self):   return get_string('ERR_DL_COMPONENT_FAIL', "Failed to download required components.")
     @property
     def MSG_CHECK_NET(self):           return get_string('MSG_CHECK_NET', "Please check your internet connection and try again.")
-    @property
-    def TITLE_INIT_ERR(self):          return get_string('TITLE_INIT_ERR', "Initialization Error")
+
     @property
     def ERR_INIT_GENERIC(self):        return get_string('ERR_INIT_GENERIC', "An error occurred during initialization.")
     @property
@@ -329,8 +348,7 @@ class Strings:
     def ERR_YTDLP_MISSING(self):       return get_string('ERR_YTDLP_MISSING', "yt-dlp not found")
     @property
     def ERR_YTDLP_RESTART(self):       return get_string('ERR_YTDLP_RESTART', "yt-dlp not found. Please restart the application.")
-    @property
-    def WARN_WORKER_TIMEOUT(self):     return get_string('WARN_WORKER_TIMEOUT', "Playlist worker did not terminate within time limit.")
+
 
     # =========================================================================
     # 7. Tooltips & Context Menus
@@ -413,19 +431,7 @@ class Strings:
     @property
     def TPL_VIDEO_TITLE(self): return get_string('TPL_VIDEO_TITLE', "Video ID: {video_id}")
 
-    @property
-    def COOKIES_BROWSER_VALUES(self): return ['', 'chrome', 'edge', 'firefox', 'whale']
-
-    @property
-    def COOKIES_BROWSER_DISPLAY(self):
-        """Returns browser display list based on current language settings."""
-        return [
-            get_string('COOKIES_BROWSER_DISPLAY_0', 'Disabled'),
-            get_string('COOKIES_BROWSER_DISPLAY_1', 'Chrome'),
-            get_string('COOKIES_BROWSER_DISPLAY_2', 'Edge'),
-            get_string('COOKIES_BROWSER_DISPLAY_3', 'Firefox'),
-            get_string('COOKIES_BROWSER_DISPLAY_4', 'Whale')
-        ]
+    # COOKIES_BROWSER_VALUES / COOKIES_BROWSER_DISPLAY removed (replaced by in-app login)
 
 # Global singleton instance
 STR = Strings()

@@ -20,7 +20,7 @@ STRINGS = {
     # =========================================================================
     # 2. Main Window
     # =========================================================================
-    'MAIN_URL_PLACEHOLDER': "YouTubeリンクを入力",
+    'MAIN_URL_PLACEHOLDER': "動画URLを入力",
     'BTN_DOWNLOAD': "ダウンロード",
     'MAIN_EMPTY_STATE': "ダウンロードする動画がありません。\n上部にURLを入力して開始してください。",
     'MAIN_STATUS_READY': "準備完了",
@@ -52,7 +52,12 @@ STRINGS = {
     'SETTINGS_SEC_ADVANCED': "高度な機能",
     'SETTINGS_CHK_NORMALIZE': "音量正規化",
     'SETTINGS_CHK_ACCEL': "ダウンロード加速 (マルチスレッド)",
-    'SETTINGS_LABEL_COOKIES': "Cookies Integration:",
+    'SETTINGS_LABEL_COOKIES': "クッキー (アプリ内ログイン):",
+    'BTN_LOGIN': "ログイン",
+    'BTN_SAVE_CLOSE': "保存して閉じる",
+    'TITLE_LOGIN_BROWSER': "YouTubeログイン",
+    'MSG_LOGIN_WAITING': "Googleアカウントでログインしてください。",
+    'MSG_LOGIN_SUCCESS': "ログイン検出！「保存して閉じる」をクリックしてください。",
 
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "アプリ管理",
@@ -68,19 +73,19 @@ STRINGS = {
     # =========================================================================
     # 4. Status Messages
     # =========================================================================
-    'STATUS_WAITING': '待機中',
+
     'STATUS_WAITING_DOTS': '待機中...',
-    'STATUS_DOWNLOADING': 'ダウンロード中',
+
     'STATUS_DOWNLOADING_DOTS': "ダウンロード中...",
     'STATUS_DOWNLOADING_SPEED': "ダウンロード中 ({speed})",
     
     'STATUS_PAUSED': '一時停止',
     'STATUS_PAUSED_SAVED': '一時停止 (保存済み)',
     'STATUS_IN_PROGRESS': '進行中',
-    'STATUS_PREV_FAILED': '前のタスク失敗',
+
     
     'STATUS_CONVERTING': "変換中...",
-    'STATUS_LOADING': "読み込み中...",
+
     'STATUS_COMPLETED': "完了",
     'STATUS_FAILED_FMT': "失敗: {message}",
     'STATUS_PREPARING': "準備中...",
@@ -117,7 +122,7 @@ STRINGS = {
     # Initialization & Update
     'TITLE_INIT': "YT Downloader 初期化",
     'TITLE_APP_UPDATE': "YT Downloader 更新",
-    'MSG_INIT_TITLE': "初期化中...",
+
     'MSG_INIT_DESC': "必要なコンポーネントをダウンロードしています...",
     'MSG_INIT_PREPARING': "準備中...",
     'MSG_INIT_INFO': "お待ちください。これは初回のみ実行されます。",
@@ -126,9 +131,25 @@ STRINGS = {
     'MSG_INIT_STARTING': "起動中...",
     'MSG_INIT_FAILED': "初期化失敗",
     'ERR_INIT_DOWNLOAD': "ダウンロード中にエラーが発生しました。",
+
+
+
+    
+    # Init & Update
+    'TITLE_INIT': "YT Downloader 初期化",
+    'TITLE_INIT_SETUP': "初期設定",
+    'LABEL_LANGUAGE_SELECT': "言語選択:",
     'MSG_CONFIRM_INIT_DOWNLOAD': "動画のダウンロードと結合には必須コンポーネント(yt-dlp, FFmpeg)が必要です。\n\nダウンロードしますか？",
-    'MSG_DOWNLOAD_COMPONENT_FAIL': "必須コンポーネントのダウンロードに失敗しました。",
-    'MSG_CHECK_INTERNET': "インターネット接続を確認してください。",
+    'BTN_START_SETUP': "開始",
+
+    'TITLE_APP_UPDATE': "YT Downloader 更新",
+    'MSG_INIT_TITLE': "YT Downloader 初期化中...",
+
+    # Startup Dialog
+    'TITLE_STARTUP': "YT Downloader 起動中",
+    'MSG_STARTUP_CHECK_EXT': "外部コンポーネントを確認中...",
+    'MSG_STARTUP_CHECK_APP': "アプリのアップデートを確認中...",
+    'MSG_STARTUP_OPENING': "アプリを開いています...",
 
     # Uninstall
     'TITLE_UNINSTALL': "削除確認",
@@ -150,6 +171,12 @@ STRINGS = {
     'MSG_UPDATE_COMPONENTS': "以下のコンポーネントの更新があります:\n\n",
     'MSG_UPDATE_ASK_NOW': "\n今すぐ更新しますか？",
 
+    # Worker Status
+    'WORKER_MSG_CONVERTING': "変換/結合中",
+    'WORKER_MSG_PROCESSING': "処理中...",
+    'WORKER_MSG_COMPLETED': "ダウンロード完了",
+    'WORKER_MSG_STOPPED': "ユーザーにより停止されました",
+
     # =========================================================================
     # 6. Toast / Info Messages
     # =========================================================================
@@ -166,7 +193,7 @@ STRINGS = {
     'ERR_PLAYLIST_FETCH': "プレイリストから動画を取得できませんでした。",
     'ERR_NOT_PLAYLIST': "プレイリストURLではありません。",
     'ERR_CANNOT_FETCH_INFO': "情報を取得できませんでした。",
-    'ERR_INVALID_URL': "有効なYouTube URLを入力してください。",
+    'ERR_INVALID_URL': "有効な動画URLを入力してください。",
 
     # Loading / Analysis
     'MSG_LOADING': "読み込み中...",
@@ -182,7 +209,7 @@ STRINGS = {
     'TITLE_INIT_FAIL': "初期化失敗",
     'ERR_DL_COMPONENT_FAIL': "コンポーネントのダウンロードに失敗しました。",
     'MSG_CHECK_NET': "インターネット接続を確認してください。",
-    'TITLE_INIT_ERR': "初期化エラー",
+
     'ERR_INIT_GENERIC': "初期化中にエラーが発生しました。",
     'ERR_MODULE_IMPORT': "モ듈をインポートできません。",
     'ERR_MODULE_HINT': "エラー: {error}\n\n必要なモ듈が不足している可能性があります。",
@@ -191,7 +218,7 @@ STRINGS = {
     'ERR_FATAL': "致命的なエラーが発生しました。",
     'ERR_YTDLP_MISSING': "yt-dlpが見つかりません",
     'ERR_YTDLP_RESTART': "yt-dlpが見つかりません。再起動してください。",
-    'WARN_WORKER_TIMEOUT': "プレイリストワーカーが時間内に終了しませんでした。",
+
 
     # =========================================================================
     # 7. Tooltips & Context Menus
@@ -241,9 +268,5 @@ STRINGS = {
     # =========================================================================
     'TPL_VIDEO_TITLE': "動画ID: {video_id}",
 
-    'COOKIES_BROWSER_DISPLAY_0': "無効",
-    'COOKIES_BROWSER_DISPLAY_1': "Chrome",
-    'COOKIES_BROWSER_DISPLAY_2': "Edge",
-    'COOKIES_BROWSER_DISPLAY_3': "Firefox",
-    'COOKIES_BROWSER_DISPLAY_4': "Whale",
+    # COOKIES_BROWSER_DISPLAY removed (replaced by in-app login)
 }

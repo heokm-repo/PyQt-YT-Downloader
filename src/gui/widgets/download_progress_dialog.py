@@ -3,21 +3,21 @@
 - 첫 실행 시 yt-dlp와 ffmpeg 다운로드 진행률 표시
 - 모달 다이얼로그 (취소 불가)
 """
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar,
-                             QPushButton, QFrame, QGraphicsDropShadowEffect)
+from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QProgressBar,
+                             QPushButton)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtGui import QFont
+
+from gui.widgets.base_dialog import BaseDialog
+
 from constants import change_language
 from locales.strings import STR
 from resources.styles import (
-    SETTINGS_CONTAINER_STYLE, SETTINGS_TITLE_LABEL_STYLE,
     SETTINGS_LABEL_STYLE, PROGRESS_BAR_STYLE,
-    # Moved Constants
-    SETTINGS_SHADOW_BLUR_RADIUS, SETTINGS_SHADOW_ALPHA,
     SETTINGS_FONT_FAMILY,
-    # New Constants
     DOWNLOAD_DIALOG_WIDTH, DOWNLOAD_DIALOG_HEIGHT,
-    DETAIL_LABEL_STYLE, INFO_LABEL_STYLE
+    DETAIL_LABEL_STYLE, INFO_LABEL_STYLE,
+    SETTINGS_CANCEL_BUTTON_STYLE
 )
 from utils.logger import log
 
@@ -80,61 +80,33 @@ class DownloadWorker(QThread):
             self.finished.emit(False)
 
 
-class DownloadProgressDialog(QDialog):
+class DownloadProgressDialog(BaseDialog):
     """초기 바이너리 다운로드 진행 다이얼로그"""
     
     def __init__(self, parent=None, update_mode=False, updates=None):
-        super().__init__(parent)
-        
         self.update_mode = update_mode
         self.updates = updates  # 업데이트할 바이너리 목록
         title_text = STR.TITLE_APP_UPDATE if update_mode else STR.TITLE_INIT
         
-        self.setWindowTitle(title_text)
-        # If SETTINGS_DIALOG_WIDTH is 500-600, it's fine.
-        # Let's use a slightly smaller fixed size for this specific dialog as it has less content,
-        # or use the literal 450 but make sure styles match.
-        self.setFixedSize(DOWNLOAD_DIALOG_WIDTH, DOWNLOAD_DIALOG_HEIGHT) 
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        super().__init__(
+            parent=parent, 
+            title=title_text, 
+            icon_text=None, 
+            show_close_btn=False, 
+            show_divider=True
+        )
         
-        self._setup_ui()
+        self.setFixedSize(DOWNLOAD_DIALOG_WIDTH, DOWNLOAD_DIALOG_HEIGHT) 
+        
+        self._setup_content()
+        self._setup_buttons()
         
         # 다운로드 워커
         self.worker = None
         self.download_success = False
     
-    def _setup_ui(self):
+    def _setup_content(self):
         """UI 구성"""
-        # 메인 레이아웃 (투명 배경 위)
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 실제 컨텐츠가 담길 컨테이너
-        container = QFrame()
-        container.setObjectName("Container")
-        container.setStyleSheet(SETTINGS_CONTAINER_STYLE)
-        
-        # 그림자 효과
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(SETTINGS_SHADOW_BLUR_RADIUS)
-        shadow.setColor(QColor(0, 0, 0, SETTINGS_SHADOW_ALPHA))
-        shadow.setOffset(0, 0)
-        container.setGraphicsEffect(shadow)
-        
-        main_layout.addWidget(container)
-        
-        # 컨테이너 내부 레이아웃
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
-        
-        # 제목
-        title = QLabel(STR.TITLE_INIT if not self.update_mode else STR.TITLE_APP_UPDATE)
-        title.setFont(QFont(SETTINGS_FONT_FAMILY, 14, QFont.Bold))
-        title.setStyleSheet(SETTINGS_TITLE_LABEL_STYLE)
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
         
         # 상태 메시지
         self.status_label = QLabel(STR.MSG_INIT_DESC)
@@ -142,7 +114,7 @@ class DownloadProgressDialog(QDialog):
         self.status_label.setStyleSheet(SETTINGS_LABEL_STYLE)
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
-        layout.addWidget(self.status_label)
+        self.content_layout.addWidget(self.status_label)
         
         # 진행률 바
         self.progress_bar = QProgressBar()
@@ -154,14 +126,14 @@ class DownloadProgressDialog(QDialog):
         self.progress_bar.setFixedHeight(25)
         # Use centralized style, possibly overriding font size if needed
         self.progress_bar.setStyleSheet(PROGRESS_BAR_STYLE)
-        layout.addWidget(self.progress_bar)
+        self.content_layout.addWidget(self.progress_bar)
         
         # 상세 정보
         self.detail_label = QLabel(STR.MSG_INIT_PREPARING)
         self.detail_label.setFont(QFont(SETTINGS_FONT_FAMILY, 9))
         self.detail_label.setStyleSheet(DETAIL_LABEL_STYLE)
         self.detail_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.detail_label)
+        self.content_layout.addWidget(self.detail_label)
         
         # 안내 메시지
         info_text = STR.MSG_UPDATE_DL if self.update_mode else STR.MSG_INIT_INFO
@@ -171,28 +143,21 @@ class DownloadProgressDialog(QDialog):
         info_label.setStyleSheet(INFO_LABEL_STYLE)
         info_label.setAlignment(Qt.AlignCenter)
         info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        self.content_layout.addWidget(info_label)
         
+        self.content_layout.addStretch()
+        
+    def _setup_buttons(self):
+        """버튼 레이아웃"""
         # 버튼 레이아웃 (취소 버튼)
-        btn_layout = QHBoxLayout()
-        btn_layout.setContentsMargins(0, 10, 0, 0)
-        btn_layout.addStretch()
-        
         self.cancel_btn = QPushButton(STR.BTN_CANCEL)
         self.cancel_btn.setCursor(Qt.PointingHandCursor)
         self.cancel_btn.setFixedHeight(30)
         self.cancel_btn.setFixedWidth(100)
-        # Use existing style constants, e.g., SETTINGS_CANCEL_BUTTON_STYLE
-        from resources.styles import SETTINGS_CANCEL_BUTTON_STYLE
         self.cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
         self.cancel_btn.clicked.connect(self.cancel_download)
         
-        btn_layout.addWidget(self.cancel_btn)
-        btn_layout.addStretch()
-        
-        layout.addLayout(btn_layout)
-        
-        layout.addStretch()
+        self.button_layout.addWidget(self.cancel_btn)
     
     def cancel_download(self):
         """다운로드 취소"""

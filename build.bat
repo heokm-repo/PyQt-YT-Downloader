@@ -1,3 +1,33 @@
 @echo off
-rmdir /s /q build
-python -m PyInstaller --noconsole --onefile --name="YTDownloader" --icon="app_icon.ico" --paths=src --hidden-import=gui.windows.main_window --hidden-import=gui.windows.settings_dialog --hidden-import=gui.widgets.download_progress_dialog --hidden-import=core.workers --hidden-import=core.youtube_handler --hidden-import=core.ytdlp_wrapper --hidden-import=core.url_processor --hidden-import=core.scheduler --hidden-import=data.managers --hidden-import=data.models --hidden-import=gui.selection_manager --hidden-import=gui.context_menu --hidden-import=gui.task_actions --hidden-import=gui.widgets.task_item --hidden-import=gui.widgets.toggle_button --hidden-import=utils.logger --hidden-import=utils.utils --hidden-import=utils.bin_manager --hidden-import=utils.app_updater --hidden-import=utils.app_uninstaller --hidden-import=locales.ko --hidden-import=locales.ja --hidden-import=requests --hidden-import=urllib3 --hidden-import=certifi --hidden-import=charset_normalizer --hidden-import=idna --hidden-import=packaging --hidden-import=packaging.version --hidden-import=packaging.specifiers --hidden-import=packaging.requirements src/main.py
+echo ========================================
+echo  YTDownloader Build Script
+echo ========================================
+echo.
+
+echo [1/4] Reading version from constants.py...
+for /f "delims=" %%v in ('python get_version.py') do set APP_VER=%%v
+if "%APP_VER%"=="" (
+    echo ERROR: Failed to read version from constants.py
+    pause
+    exit /b 1
+)
+echo       Version: %APP_VER%
+
+echo [2/4] Cleaning previous build...
+rmdir /s /q build 2>nul
+rmdir /s /q dist 2>nul
+
+echo [3/4] Building with PyInstaller (one-dir)...
+python -m PyInstaller YTDownloader.spec
+
+echo [4/4] Creating installer with Inno Setup...
+if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion="%APP_VER%" installer.iss
+) else (
+    echo WARNING: Inno Setup not found. Skipping installer creation.
+    echo Install Inno Setup 6 from https://jrsoftware.org/isinfo.php
+)
+
+echo.
+echo Build complete!
+pause

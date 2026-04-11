@@ -126,6 +126,7 @@ class TaskActions:
         if task.video_id:
             current_settings = self.main_window.settings.copy()
             target_format = current_settings.get('format', 'mp4')
+            extractor = task.extractor or 'unknown'
             
             # 중복 체크 (사용자 확인 포함)
             from data.managers import DuplicateChecker
@@ -135,7 +136,7 @@ class TaskActions:
             )
             
             is_cancelled = dup_checker.check_duplicate(
-                task.video_id, task_id, self.main_window.tasks[:], target_format
+                extractor, task.video_id, task_id, self.main_window.tasks[:], target_format
             )
             
             if is_cancelled:
@@ -143,7 +144,7 @@ class TaskActions:
                 return
             
             # 사용자가 Yes를 선택 -> history에서 제거하여 start_download에서 중복 체크 안뜨게 함
-            self.main_window.history_manager.remove_from_history(task.video_id, target_format)
+            self.main_window.history_manager.remove_from_history(extractor, task.video_id, target_format)
         
         # 기존 카드 제거 후 새로 다운로드
         self.main_window.remove_task_from_list(task_id)

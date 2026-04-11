@@ -27,27 +27,67 @@ class HistoryManager:
         self._init_db()
     
     def _init_db(self):
-        """DB 테이블 초기화"""
+        """DB 테이블 초기화 및 마이그레이션"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                # ID와 포맷(확장자)를 복합 키로 설정
+                # extractor + ID + 포맷(확장자)를 복합 키로 설정
                 cursor.execute(f'''
                     CREATE TABLE IF NOT EXISTS {HISTORY_TABLE_NAME} (
+                        extractor TEXT,
                         video_id TEXT,
                         format TEXT,
                         title TEXT,
                         uploader TEXT,
                         download_date TEXT,
-                        PRIMARY KEY (video_id, format)
+                        PRIMARY KEY (extractor, video_id, format)
                     )
                 ''')
                 conn.commit()
+                
+                # 기존 DB 마이그레이션 (extractor 컬럼이 없는 경우)
+                self._migrate_db(conn)
         except Exception as e:
             log.error(f"DB 초기화 오류: {e}", exc_info=True)
     
-    def is_downloaded(self, video_id, fmt):
-        """특정 포맷으로 다운로드 여부 확인"""
+    def _migrate_db(self, conn):
+        """기존 DB에 extractor 컬럼이 없으면 추가하고 기존 데이터를 'youtube'로 채움"""
+        try:
+            cursor = conn.cursor()
+            cursor.execute(f"PRAGMA table_info({HISTORY_TABLE_NAME})")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'extractor' not in columns:
+                log.info("DB 마이그레이션: extractor 컬럼 추가 중...")
+                # 1. 기존 테이블 백업
+                cursor.execute(f"ALTER TABLE {HISTORY_TABLE_NAME} RENAME TO {HISTORY_TABLE_NAME}_old")
+                # 2. 새 스키마로 테이블 생성
+                cursor.execute(f'''
+                    CREATE TABLE {HISTORY_TABLE_NAME} (
+                        extractor TEXT,
+                        video_id TEXT,
+                        format TEXT,
+                        title TEXT,
+                        uploader TEXT,
+                        download_date TEXT,
+                        PRIMARY KEY (extractor, video_id, format)
+                    )
+                ''')
+                # 3. 기존 데이터 복사 (extractor='youtube')
+                cursor.execute(f'''
+                    INSERT INTO {HISTORY_TABLE_NAME} (extractor, video_id, format, title, uploader, download_date)
+                    SELECT 'youtube', video_id, format, title, uploader, download_date
+                    FROM {HISTORY_TABLE_NAME}_old
+                ''')
+                # 4. 백업 테이블 삭제
+                cursor.execute(f"DROP TABLE {HISTORY_TABLE_NAME}_old")
+                conn.commit()
+                log.info("DB 마이그레이션 완료")
+        except Exception as e:
+            log.error(f"DB 마이그레이션 오류: {e}", exc_info=True)
+    
+    def is_downloaded(self, extractor, video_id, fmt):
+        """특정 extractor + 포맷으로 다운로드 여부 확인"""
         if not video_id:
             return False
         
@@ -55,15 +95,15 @@ class HistoryManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"SELECT 1 FROM {HISTORY_TABLE_NAME} WHERE video_id = ? AND format = ?", 
-                    (video_id, fmt)
+                    f"SELECT 1 FROM {HISTORY_TABLE_NAME} WHERE extractor = ? AND video_id = ? AND format = ?", 
+                    (extractor, video_id, fmt)
                 )
                 return cursor.fetchone() is not None
         except Exception as e:
-            log.error(f"DB 검색 오류 (video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
+            log.error(f"DB 검색 오류 (extractor={extractor}, video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
             return False
     
-    def add_to_history(self, video_id, meta, fmt=DEFAULT_FORMAT):
+    def add_to_history(self, extractor, video_id, meta, fmt=DEFAULT_FORMAT):
         """기록 추가"""
         if not video_id:
             return
@@ -73,8 +113,9 @@ class HistoryManager:
                 cursor = conn.cursor()
                 # INSERT OR REPLACE: 이미 있으면 덮어쓰기
                 cursor.execute(
-                    f"INSERT OR REPLACE INTO {HISTORY_TABLE_NAME} VALUES (?, ?, ?, ?, ?)",
+                    f"INSERT OR REPLACE INTO {HISTORY_TABLE_NAME} VALUES (?, ?, ?, ?, ?, ?)",
                     (
+                        extractor,
                         video_id, 
                         fmt, 
                         meta.get('title', ''), 
@@ -84,9 +125,9 @@ class HistoryManager:
                 )
                 conn.commit()
         except Exception as e:
-            log.error(f"DB 저장 오류 (video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
+            log.error(f"DB 저장 오류 (extractor={extractor}, video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
     
-    def remove_from_history(self, video_id, fmt=DEFAULT_FORMAT):
+    def remove_from_history(self, extractor, video_id, fmt=DEFAULT_FORMAT):
         """기록 제거 (retry 시 사용)"""
         if not video_id:
             return
@@ -95,16 +136,16 @@ class HistoryManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"DELETE FROM {HISTORY_TABLE_NAME} WHERE video_id = ? AND format = ?",
-                    (video_id, fmt)
+                    f"DELETE FROM {HISTORY_TABLE_NAME} WHERE extractor = ? AND video_id = ? AND format = ?",
+                    (extractor, video_id, fmt)
                 )
                 conn.commit()
-                log.info(f"Removed from history: {video_id} (format={fmt})")
+                log.info(f"Removed from history: {extractor}/{video_id} (format={fmt})")
         except Exception as e:
-            log.error(f"DB 삭제 오류 (video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
+            log.error(f"DB 삭제 오류 (extractor={extractor}, video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
     
     # 하위 호환성을 위한 메서드 (기존 코드에서 사용 중일 수 있음)
-    def is_video_downloaded(self, video_id):
+    def is_video_downloaded(self, extractor, video_id):
         """다운로드 히스토리에 있는지 확인 (확장자 무관) - 하위 호환성"""
         if not video_id:
             return False
@@ -113,12 +154,12 @@ class HistoryManager:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"SELECT 1 FROM {HISTORY_TABLE_NAME} WHERE video_id = ? LIMIT 1", 
-                    (video_id,)
+                    f"SELECT 1 FROM {HISTORY_TABLE_NAME} WHERE extractor = ? AND video_id = ? LIMIT 1", 
+                    (extractor, video_id)
                 )
                 return cursor.fetchone() is not None
         except Exception as e:
-            log.error(f"DB 검색 오류 (video_id={video_id}): {e}", exc_info=True)
+            log.error(f"DB 검색 오류 (extractor={extractor}, video_id={video_id}): {e}", exc_info=True)
             return False
 
 
@@ -163,17 +204,18 @@ class TaskManager:
 
 
 class DuplicateChecker:
-    """중복 다운로드 체크 (확장자 포함)"""
+    """중복 다운로드 체크 (extractor + 확장자 포함)"""
     
     def __init__(self, history_manager, parent_widget=None):
         self.history_manager = history_manager
         self.parent_widget = parent_widget
     
-    def is_duplicate(self, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
+    def is_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
         """
         중복 다운로드 여부 확인 (순수 로직, UI 없음)
         
         Args:
+            extractor: 추출기(사이트) 식별자
             video_id: 비디오 ID
             current_task_id: 현재 작업 ID
             tasks: 작업 목록 (DownloadTask 리스트)
@@ -185,10 +227,10 @@ class DuplicateChecker:
                 - 중복 메시지: str (중복이 없으면 None)
                 - 중복된 작업: DownloadTask (중복이 없으면 None)
         """
-        # 1. 히스토리 확인 (DB 조회 - 확장자 포함)
-        is_in_history = self.history_manager.is_downloaded(video_id, target_ext)
+        # 1. 히스토리 확인 (DB 조회 - extractor + 확장자 포함)
+        is_in_history = self.history_manager.is_downloaded(extractor, video_id, target_ext)
         
-        # 2. 현재 큐 확인 (확장자 포함)
+        # 2. 현재 큐 확인 (extractor + 확장자 포함)
         is_in_queue = False
         duplicate_task = None
         for task in tasks:
@@ -199,7 +241,7 @@ class DuplicateChecker:
             # 큐에 있는 작업의 확장자 확인 (settings에서 유추)
             task_ext = task.settings.get('format', DEFAULT_FORMAT)
             
-            if task.video_id == video_id and task_ext == target_ext:
+            if task.extractor == extractor and task.video_id == video_id and task_ext == target_ext:
                 if task.is_active():
                     is_in_queue = True
                     duplicate_task = task
@@ -211,8 +253,8 @@ class DuplicateChecker:
             message = STR.MSG_DUP_ALREADY_DONE.format(format=target_ext)
             if is_in_queue and duplicate_task:
                 status_text = {
-                    TaskStatus.WAITING: STR.STATUS_WAITING,
-                    TaskStatus.DOWNLOADING: STR.STATUS_DOWNLOADING,
+                    TaskStatus.WAITING: STR.STATUS_WAITING_DOTS,
+                    TaskStatus.DOWNLOADING: STR.STATUS_DOWNLOADING_DOTS,
                     TaskStatus.PAUSED: STR.STATUS_PAUSED
                 }.get(duplicate_task.status, STR.STATUS_IN_PROGRESS)
                 message += STR.MSG_DUP_IN_QUEUE.format(status=status_text)
@@ -223,13 +265,15 @@ class DuplicateChecker:
         # 중복이 없으면 False 반환
         return False, None, None
     
-    def check_duplicate(self, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
+    def check_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
         """
-        중복 다운로드 체크 (확장자 포함) + UI 확인
-        - 같은 ID라도 확장자가 다르면 OK
-        - 같은 ID이고 확장자도 같으면 경고
+        중복 다운로드 체크 (extractor + 확장자 포함) + UI 확인
+        - 같은 extractor + ID이고 확장자도 같으면 경고
+        - 같은 ID라도 extractor가 다르면 OK
+        - 같은 extractor + ID라도 확장자가 다르면 OK
         
         Args:
+            extractor: 추출기(사이트) 식별자
             video_id: 비디오 ID
             current_task_id: 현재 작업 ID
             tasks: 작업 목록 (DownloadTask 리스트)
@@ -239,7 +283,7 @@ class DuplicateChecker:
             bool: True면 중복으로 간주하여 취소, False면 다운로드 진행
         """
         is_dup, message, duplicate_task = self.is_duplicate(
-            video_id, current_task_id, tasks, target_ext
+            extractor, video_id, current_task_id, tasks, target_ext
         )
         
         if not is_dup:
@@ -248,7 +292,7 @@ class DuplicateChecker:
         # 확인 대화상자 표시
         from gui.widgets.message_dialog import MessageDialog
         
-        dialog = MessageDialog(STR.DLG_DUP_CHECK_TITLE, message, 
+        dialog = MessageDialog(STR.MSG_DUPLICATE_CHECK, message, 
                                MessageDialog.QUESTION, self.parent_widget, show_cancel=False)
         
         # 사용자가 "아니요"를 선택한 경우 (Reject) True 반환 (중복 취소)

@@ -54,40 +54,49 @@ class ContextMenuBuilder:
         # 상태 플래그 계산
         status_flags = self._get_status_flags(selected_tasks)
         
+        # 메뉴 빌드 및 표시
+        # 각 콜백을 로깅 래퍼로 감쌈
+        from utils.logger import log
+        
+        def _log_and_call(action_name, callback):
+            if callback:
+                log.debug(f"Context Menu Action: {action_name}")
+                callback()
+        
         # 재생 (완료된 단일 항목)
         if status_flags['finished'] and count == 1:
-            self._add_action(menu, STR.MENU_PLAY, callbacks.get('play'))
+            self._add_action(menu, STR.MENU_PLAY, lambda: _log_and_call('play', callbacks.get('play')))
         
         # 폴더 열기 (단일 항목만)
         if status_flags['finished'] and count == 1:
-            self._add_action(menu, STR.MENU_OPEN_FOLDER, callbacks.get('open_folder'))
+            self._add_action(menu, STR.MENU_OPEN_FOLDER, lambda: _log_and_call('open_folder', callbacks.get('open_folder')))
 
         # URL 복사 (단일 항목만)
         if count == 1:
-            self._add_action(menu, STR.MENU_COPY_URL, callbacks.get('copy_url'))
+            self._add_action(menu, STR.MENU_COPY_URL, lambda: _log_and_call('copy_url', callbacks.get('copy_url')))
         
         menu.addSeparator()
         
         # 일시정지
         if status_flags['downloading'] or status_flags['waiting']:
-            self._add_action(menu, f"{STR.MENU_PAUSE}{suffix}", callbacks.get('pause'))
+            self._add_action(menu, f"{STR.MENU_PAUSE}{suffix}", lambda: _log_and_call('pause', callbacks.get('pause')))
         
         # 이어받기
         if status_flags['paused']:
-            self._add_action(menu, f"{STR.MENU_RESUME}{suffix}", callbacks.get('resume'))
+            self._add_action(menu, f"{STR.MENU_RESUME}{suffix}", lambda: _log_and_call('resume', callbacks.get('resume')))
         
         # 재시도
         if status_flags['failed']:
-            self._add_action(menu, f"{STR.MENU_RETRY}{suffix}", callbacks.get('retry'))
+            self._add_action(menu, f"{STR.MENU_RETRY}{suffix}", lambda: _log_and_call('retry', callbacks.get('retry')))
         
         menu.addSeparator()
         
         # 파일 삭제
         if status_flags['finished']:
-            self._add_action(menu, f"{STR.MENU_DELETE_FILE}{suffix}", callbacks.get('delete_file'))
+            self._add_action(menu, f"{STR.MENU_DELETE_FILE}{suffix}", lambda: _log_and_call('delete_file', callbacks.get('delete_file')))
         
         # 목록에서 제거
-        self._add_action(menu, f"{STR.MENU_REMOVE}{suffix}", callbacks.get('remove'))
+        self._add_action(menu, f"{STR.MENU_REMOVE}{suffix}", lambda: _log_and_call('remove', callbacks.get('remove')))
         
         return menu
     

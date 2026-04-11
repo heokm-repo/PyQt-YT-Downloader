@@ -55,6 +55,23 @@ DOWNLOAD_DIALOG_HEIGHT = 250
 MESSAGE_BTN_WIDTH = 80
 MESSAGE_BTN_HEIGHT = 32
 
+# 스타트업 다이얼로그 스타일
+STARTUP_DIALOG_WIDTH = 450
+STARTUP_DIALOG_HEIGHT = 200
+STARTUP_LABEL_STYLE = "color: #555555; font-size: 11pt;"
+STARTUP_PROGRESS_STYLE = """
+QProgressBar {
+    border: none;
+    background: #EAEAEA;
+    border-radius: 3px;
+    height: 6px;
+}
+QProgressBar::chunk {
+    background-color: #5F428B;
+    border-radius: 3px;
+}
+"""
+
 # 메인 윈도우 스타일
 MAIN_WINDOW_STYLE = """
 QMainWindow {
