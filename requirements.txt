@@ -1,3 +1,6 @@
 PyQt5>=5.15.0
 requests>=2.31.0
 packaging>=21.0
+PyQtWebEngine>=5.15.0
+yt-dlp>=2023.0.0
+pyinstaller>=6.18.0

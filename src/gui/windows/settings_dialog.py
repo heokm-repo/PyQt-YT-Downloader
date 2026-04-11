@@ -3,11 +3,9 @@ import json
 import sys
 import subprocess
 import shutil
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
+from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLineEdit, 
                              QPushButton, QLabel, QFormLayout, QSpinBox,
-                             QComboBox, QFileDialog, QFrame, QGraphicsDropShadowEffect,
-                             QComboBox, QFileDialog, QFrame, QGraphicsDropShadowEffect,
-                             QCheckBox, QTabWidget, QWidget)
+                             QComboBox, QFileDialog, QCheckBox, QTabWidget, QWidget)
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont, QColor, QStandardItem
 
@@ -17,17 +15,16 @@ from constants import (
     KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
     DEFAULT_VIDEO_QUALITY, DEFAULT_AUDIO_QUALITY, DEFAULT_FORMAT,
     DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
-    DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
-    KEY_COOKIES_BROWSER, COOKIES_BROWSER_DEFAULT,
     FORMAT_OPTIONS, VIDEO_FORMATS, AUDIO_FORMATS,
     VIDEO_QUALITY_OPTIONS, AUDIO_QUALITY_OPTIONS,
-    MAX_DOWNLOADS_RANGE, DEFAULT_MAX_DOWNLOADS,
-    MAX_DOWNLOADS_RANGE, DEFAULT_MAX_DOWNLOADS,
+    MAX_DOWNLOADS_RANGE,
     APP_VERSION,
     BTN_TEXT_CLOSE_X
 )
 from locales import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from locales.strings import STR
+from gui.widgets.base_dialog import BaseDialog
+from gui.widgets.message_dialog import MessageDialog
 from resources.styles import (
     SETTINGS_CONTAINER_STYLE, SETTINGS_TITLE_LABEL_STYLE, SETTINGS_CLOSE_BUTTON_STYLE,
     SETTINGS_SECTION_LABEL_STYLE, SETTINGS_LABEL_STYLE, SETTINGS_BROWSE_BUTTON_STYLE,
@@ -94,44 +91,34 @@ def save_settings(settings):
 
 # ===== 설정 다이얼로그 클래스 =====
 
-class SettingsDialog(QDialog):
+class SettingsDialog(BaseDialog):
     """다운로드 설정 다이얼로그"""
     
     def __init__(self, current_settings, parent=None):
-        super().__init__(parent)
-        
-        # Frameless Window 설정
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        
-        self.resize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
         self.settings = current_settings
-        self.oldPos = None
         
-        self._setup_ui()
-        
-    def _setup_ui(self):
-        """UI 설정 - 메인 구조 생성"""
-        # 메인 레이아웃 (투명 배경 위)
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(
-            SETTINGS_CONTAINER_MARGIN, SETTINGS_CONTAINER_MARGIN,
-            SETTINGS_CONTAINER_MARGIN, SETTINGS_CONTAINER_MARGIN
+        super().__init__(
+            parent=parent,
+            title=STR.TITLE_SETTINGS,
+            icon_text=None,
+            show_close_btn=True,
+            show_divider=False
         )
         
-        # 실제 컨텐츠가 담길 컨테이너 (흰색 배경, 둥근 모서리)
-        container = self._create_container()
-        main_layout.addWidget(container)
+        self.resize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
         
-        # 컨테이너 내부 레이아웃
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(*SETTINGS_CONTENT_MARGIN)
-        layout.setSpacing(SETTINGS_CONTENT_SPACING)
+        # 설정 다이얼로그 전용 타이틀 스타일 적용
+        self.title_label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, QFont.Bold))
+        self.title_label.setStyleSheet(SETTINGS_TITLE_LABEL_STYLE)
         
-        # 1. 커스텀 타이틀 바
-        self._create_title_bar(layout)
+        # Set container spacing differently if needed, wait, BaseDialog handles it roughly the same
         
-        # 2. 탭 위젯 생성
+        self._setup_content()
+        self._create_button_section()
+        
+    def _setup_content(self):
+        """UI 설정 - 탭 위젯 등 생성 및 추가"""
+        # 탭 위젯 생성
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(SETTINGS_TAB_STYLE)
         
@@ -150,51 +137,7 @@ class SettingsDialog(QDialog):
         self._create_app_manage_tab(app_manage_tab)
         self.tab_widget.addTab(app_manage_tab, STR.SETTINGS_SEC_APP_MANAGE)
         
-        layout.addWidget(self.tab_widget)
-        
-        # 3. 하단 버튼 (저장/취소)
-        self._create_button_section(layout)
-
-    def _create_container(self):
-        """컨테이너 프레임 생성"""
-        container = QFrame()
-        container.setObjectName("Container")
-        container.setStyleSheet(SETTINGS_CONTAINER_STYLE)
-        
-        # 그림자 효과
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(SETTINGS_SHADOW_BLUR_RADIUS)
-        shadow.setXOffset(0)
-        shadow.setYOffset(0)
-        shadow.setColor(QColor(0, 0, 0, SETTINGS_SHADOW_ALPHA))
-        container.setGraphicsEffect(shadow)
-        
-        return container
-
-    def _create_title_bar(self, layout):
-        """타이틀 바 생성"""
-        title_frame = QFrame()
-        title_frame.setFixedHeight(SETTINGS_TITLE_BAR_HEIGHT)
-        title_frame.setStyleSheet("background: transparent;")
-        
-        title_layout = QHBoxLayout(title_frame)
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        
-        title_lbl = QLabel(STR.TITLE_SETTINGS)
-        title_lbl.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, QFont.Bold))
-        title_lbl.setStyleSheet(SETTINGS_TITLE_LABEL_STYLE)
-        
-        close_btn = QPushButton(BTN_TEXT_CLOSE_X)
-        close_btn.setFixedSize(SETTINGS_CLOSE_BUTTON_SIZE, SETTINGS_CLOSE_BUTTON_SIZE)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.clicked.connect(self.reject)
-        close_btn.setStyleSheet(SETTINGS_CLOSE_BUTTON_STYLE)
-        
-        title_layout.addWidget(title_lbl)
-        title_layout.addStretch()
-        title_layout.addWidget(close_btn)
-        
-        layout.addWidget(title_frame)
+        self.content_layout.addWidget(self.tab_widget)
 
     def _create_general_tab(self, parent):
         """일반 설정 탭 생성"""
@@ -244,6 +187,24 @@ class SettingsDialog(QDialog):
         lang_form_layout.addRow(self._create_label(STR.SETTINGS_LABEL_LANGUAGE), self.language_combo)
         
         layout.addLayout(lang_form_layout)
+        
+        # 쿠키 (인앱 로그인)
+        cookie_layout = QHBoxLayout()
+        cookie_layout.setSpacing(10)
+        
+        cookie_label = self._create_label(STR.SETTINGS_LABEL_COOKIES)
+        cookie_layout.addWidget(cookie_label)
+        
+        cookie_layout.addStretch()
+        
+        login_btn = QPushButton(STR.BTN_LOGIN)
+        login_btn.setFixedSize(120, SETTINGS_INPUT_HEIGHT)
+        login_btn.setCursor(Qt.PointingHandCursor)
+        login_btn.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
+        login_btn.clicked.connect(self._on_login_clicked)
+        cookie_layout.addWidget(login_btn)
+        
+        layout.addLayout(cookie_layout)
         layout.addStretch()
 
     def _create_download_tab(self, parent):
@@ -427,11 +388,9 @@ class SettingsDialog(QDialog):
         
         layout.addStretch()
 
-    def _create_button_section(self, layout):
+    def _create_button_section(self):
         """하단 버튼 섹션 생성"""
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(10)
-        btn_layout.addStretch()
+        # BaseDialog 의 button_layout 을 사용
         
         cancel_btn = QPushButton(STR.BTN_CANCEL)
         cancel_btn.setFixedSize(SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT)
@@ -445,10 +404,8 @@ class SettingsDialog(QDialog):
         save_btn.clicked.connect(self.accept)
         save_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
         
-        btn_layout.addWidget(cancel_btn)
-        btn_layout.addWidget(save_btn)
-        
-        layout.addLayout(btn_layout)
+        self.button_layout.addWidget(cancel_btn)
+        self.button_layout.addWidget(save_btn)
 
     # ===== 헬퍼 메서드 =====
     
@@ -477,22 +434,7 @@ class SettingsDialog(QDialog):
 
     # ===== 이벤트 핸들러 =====
     
-    def mousePressEvent(self, event):
-        """윈도우 드래그 - 마우스 누름"""
-        if event.button() == Qt.LeftButton:
-            self.oldPos = event.globalPos()
-
-    def mouseMoveEvent(self, event):
-        """윈도우 드래그 - 마우스 이동"""
-        if self.oldPos is not None and event.buttons() == Qt.LeftButton:
-            delta = QPoint(event.globalPos() - self.oldPos)
-            self.move(self.x() + delta.x(), self.y() + delta.y())
-            self.oldPos = event.globalPos()
-
-    def mouseReleaseEvent(self, event):
-        """윈도우 드래그 - 마우스 놓음"""
-        if event.button() == Qt.LeftButton:
-            self.oldPos = None
+    # mouse drag event handled by BaseDialog
 
     def _browse_folder(self):
         """폴더 선택 다이얼로그"""
@@ -511,6 +453,17 @@ class SettingsDialog(QDialog):
         else:
             # 다운로드 가속이 꺼지면 최대 다운로드 수 편집 가능
             self.max_downloads_spin.setEnabled(True)
+    
+    def _on_login_clicked(self):
+        """인앱 로그인 버튼 클릭 시 호출"""
+        try:
+            from gui.windows.login_browser import LoginBrowser
+            dialog = LoginBrowser(self)
+            dialog.exec_()
+        except ImportError:
+            log.error("LoginBrowser module not available (PyQtWebEngine required)")
+        except Exception as e:
+            log.error(f"Login browser error: {e}", exc_info=True)
 
     # ===== 다이얼로그 결과 처리 =====
     
@@ -567,7 +520,6 @@ class SettingsDialog(QDialog):
     def _on_uninstall_clicked(self):
         """앱 삭제 버튼 클릭 시 호출"""
         # 확인 다이얼로그 표시
-        from gui.widgets.message_dialog import MessageDialog
         dialog = MessageDialog(STR.TITLE_UNINSTALL, STR.MSG_UNINSTALL_CONFIRM, 
                                MessageDialog.QUESTION, self, show_cancel=False)
         
@@ -599,7 +551,6 @@ class SettingsDialog(QDialog):
     
     def _on_check_update_clicked(self):
         """업데이트 확인 버튼 클릭 시 호출"""
-        from gui.widgets.message_dialog import MessageDialog
         try:
             from utils.app_updater import check_for_updates, download_update, apply_update
             from PyQt5.QtWidgets import QProgressDialog, QApplication

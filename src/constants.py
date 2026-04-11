@@ -13,18 +13,16 @@ KEY_FORMAT = 'format'
 KEY_MAX_DOWNLOADS = 'max_downloads'
 KEY_NORMALIZE_AUDIO = 'normalize_audio'
 KEY_USE_ACCELERATION = 'use_acceleration'
-KEY_COOKIES_BROWSER = 'cookies_browser'
 KEY_LANGUAGE = 'language'
 
 # 기본값 (Defaults)
-APP_VERSION = 'v1.2.1'  # 앱 버전
+APP_VERSION = 'v2.0.0'  # 앱 버전
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
 DEFAULT_MAX_DOWNLOADS = 3
 DEFAULT_ACCELERATION = False
 DEFAULT_NORMALIZE = False
-DEFAULT_COOKIES_BROWSER = ''
 
 # 설정 다이얼로그 옵션
 VIDEO_QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'worst']
@@ -34,8 +32,6 @@ VIDEO_FORMATS = ['mp4', 'mkv', 'webm']
 AUDIO_FORMATS = ['mp3', 'm4a', 'wav']
 MAX_DOWNLOADS_RANGE = (1, 10)
 
-# 쿠키 브라우저 매핑
-COOKIES_BROWSER_DEFAULT = 'default'
 
 # --- Core Logic Constants (Moved from function) ---
 # Scheduler
@@ -87,7 +83,7 @@ BYTES_PER_MB = 1024 * 1024  # 메가바이트
 # 다운로드 관련 메시지 (Logic Only)
 ERROR_INVALID_URL = "Invalid URL"
 MSG_PAUSED_BY_USER = "PAUSED_BY_USER"
-MSG_DOWNLOAD_COMPLETE = "완료" # Logic key used in youtube_handler.py
+MSG_DOWNLOAD_COMPLETE = "완료" # Logic key used in download_handler.py
 
 # 히스토리 및 작업 관리 관련
 HISTORY_DB_FILENAME = 'history.db'
@@ -155,13 +151,9 @@ class TaskStatus(Enum):
 # Updater Constants
 GITHUB_REPO_OWNER = "heokm-repo"
 GITHUB_REPO_NAME = "PyQt-YT-Downloader"
-UPDATE_TEMP_FILENAME = "YTDownloader_new.exe"
-UPDATE_BATCH_FILENAME = "update.bat"
-BATCH_ENCODING = 'cp949'
+UPDATE_TEMP_FILENAME = "YTDownloader_Setup.exe"
 
 # Uninstaller Constants
-UNINSTALL_BATCH_FILENAME = "uninstall.bat"
-UNINSTALL_VBS_FILENAME = "uninstall_silent.vbs"
 APPDATA_DIR_NAME = "YTDownloader"
 
 # Bin Manager Constants

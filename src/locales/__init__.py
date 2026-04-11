@@ -22,7 +22,7 @@ _strings: Dict[str, str] = {}
 
 def set_language(lang_code: str):
     """언어를 설정합니다."""
-    global _current_language, _strings
+    global _current_language
     
     if lang_code not in SUPPORTED_LANGUAGES:
         lang_code = DEFAULT_LANGUAGE

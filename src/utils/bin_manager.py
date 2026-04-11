@@ -1,5 +1,5 @@
 """
-바이너리 관리 모듈 (yt-dlp.exe, ffmpeg.exe)
+바이너리 관리 모듈 (yt-dlp.exe, ffmpeg.exe, qjs.exe)
 - %APPDATA%\YTDownloader\bin에 바이너리 저장
 - GitHub API를 통한 버전 확인 및 업데이트
 - 다운로드 진행률 콜백 지원
@@ -12,7 +12,6 @@ import shutil
 import tempfile
 from typing import Optional, Tuple, Callable, Dict
 from datetime import datetime, timedelta
-from datetime import datetime, timedelta
 from utils.logger import log
 from constants import (
     FFMPEG_ZIP_NAME_WIN,
@@ -24,10 +23,15 @@ from constants import (
 # 바이너리 이름
 YTDLP_BINARY = 'yt-dlp.exe' if sys.platform == 'win32' else 'yt-dlp'
 FFMPEG_BINARY = 'ffmpeg.exe' if sys.platform == 'win32' else 'ffmpeg'
+QUICKJS_BINARY = 'qjs.exe' if sys.platform == 'win32' else 'qjs'
 
 # GitHub API URLs
 YTDLP_API_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 FFMPEG_API_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
+QUICKJS_API_URL = "https://api.github.com/repos/quickjs-ng/quickjs/releases/latest"
+
+# QuickJS 다운로드 에셋 이름 (플랫폼별)
+QUICKJS_ASSET_NAME = 'qjs-windows-x86_64.exe' if sys.platform == 'win32' else 'qjs-linux-x86_64'
 
 # 버전 파일명
 VERSION_FILE = '.version.json'
@@ -68,6 +72,12 @@ def get_ytdlp_path() -> Optional[str]:
 def get_ffmpeg_path() -> Optional[str]:
     """ffmpeg 실행 파일 경로 반환"""
     path = os.path.join(get_bin_path(), FFMPEG_BINARY)
+    return path if os.path.exists(path) else None
+
+
+def get_quickjs_path() -> Optional[str]:
+    """QuickJS 실행 파일 경로 반환"""
+    path = os.path.join(get_bin_path(), QUICKJS_BINARY)
     return path if os.path.exists(path) else None
 
 
@@ -123,15 +133,16 @@ def save_versions(versions: Dict[str, any]) -> bool:
 
 def check_binaries_exist() -> bool:
     """
-    yt-dlp와 ffmpeg가 모두 존재하는지 확인
+    yt-dlp와 ffmpeg가 모두 존재하는지 확인 (QuickJS는 선택적)
     
     Returns:
-        True if both exist, False otherwise
+        True if both yt-dlp and ffmpeg exist, False otherwise
     """
     ytdlp_exists = get_ytdlp_path() is not None
     ffmpeg_exists = get_ffmpeg_path() is not None
+    quickjs_exists = get_quickjs_path() is not None
     
-    log.info(f"Binary check - yt-dlp: {ytdlp_exists}, ffmpeg: {ffmpeg_exists}")
+    log.info(f"Binary check - yt-dlp: {ytdlp_exists}, ffmpeg: {ffmpeg_exists}, quickjs: {quickjs_exists}")
     return ytdlp_exists and ffmpeg_exists
 
 
@@ -397,9 +408,86 @@ def download_ffmpeg(progress_callback: Optional[Callable[[int, int], None]] = No
         log.error(f"Failed to extract ffmpeg: {e}")
         return False
     finally:
-        # 임시 ZIP 파일 삭제
+        # 임시 ZIP 파일 정리
         if os.path.exists(temp_zip_path):
             os.remove(temp_zip_path)
+
+
+def check_quickjs_latest_version() -> Tuple[Optional[str], Optional[str]]:
+    """
+    GitHub API로 QuickJS 최신 버전 확인
+    
+    Returns:
+        (버전, 다운로드 URL) 또는 (None, None)
+    """
+    try:
+        log.info(f"Checking QuickJS latest version from {QUICKJS_API_URL}")
+        response = requests.get(QUICKJS_API_URL, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        version = data.get('tag_name', '').lstrip('v')
+        
+        # 플랫폼에 맞는 에셋 찾기
+        for asset in data.get('assets', []):
+            if asset['name'] == QUICKJS_ASSET_NAME:
+                download_url = asset['browser_download_url']
+                log.info(f"Latest QuickJS version: {version}, URL: {download_url}")
+                return version, download_url
+        
+        log.warning(f"QuickJS asset ({QUICKJS_ASSET_NAME}) not found in release")
+        return None, None
+        
+    except requests.RequestException as e:
+        log.error(f"Failed to check QuickJS version: {e}")
+        return None, None
+
+
+def download_quickjs(progress_callback: Optional[Callable[[int, int], None]] = None, check_cancel: Optional[Callable[[], bool]] = None) -> bool:
+    """
+    QuickJS (qjs.exe) 다운로드
+    
+    Args:
+        progress_callback: 진행률 콜백 (downloaded_bytes, total_bytes)
+        check_cancel: 취소 여부 확인 콜백
+    
+    Returns:
+        성공 여부
+    """
+    version, url = check_quickjs_latest_version()
+    
+    if not url:
+        log.error("Cannot get QuickJS download URL")
+        return False
+    
+    bin_path = get_bin_path()
+    final_path = os.path.join(bin_path, QUICKJS_BINARY)
+    temp_path = final_path + '.tmp'
+    
+    # 임시 파일에 다운로드
+    success = download_file(url, temp_path, progress_callback, check_cancel)
+    
+    if success:
+        # 기존 파일이 있으면 삭제
+        if os.path.exists(final_path):
+            os.remove(final_path)
+        
+        # 임시 파일을 최종 위치로 이동
+        shutil.move(temp_path, final_path)
+        
+        # 버전 정보 업데이트
+        versions = load_versions()
+        versions['quickjs'] = version
+        versions['last_check'] = datetime.now().isoformat()
+        save_versions(versions)
+        
+        log.info(f"QuickJS {version} installed successfully")
+        return True
+    else:
+        # 실패 시 임시 파일 삭제
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return False
 
 
 
@@ -509,6 +597,17 @@ def download_initial_binaries(progress_callback: Optional[Callable[[str, int, in
     if not download_ffmpeg(ffmpeg_progress, check_cancel):
         log.error("Failed to download ffmpeg")
         return False
+    
+    if check_cancel and check_cancel():
+        return False
+    
+    # QuickJS 다운로드 (실패해도 계속 진행 - 선택적 바이너리)
+    def quickjs_progress(downloaded, total):
+        if progress_callback:
+            progress_callback('quickjs', downloaded, total)
+    
+    if not download_quickjs(quickjs_progress, check_cancel):
+        log.warning("Failed to download QuickJS (optional, continuing)")
     
     log.info("Initial binary download completed successfully")
     return True

@@ -53,11 +53,21 @@ def get_ffmpeg_path() -> Optional[str]:
 
 def validate_url(url: str) -> bool:
     """
-    YouTube URL 유효성 검사
-    지원 형식: 일반 영상, 단축 URL, 숏츠, 플레이리스트, 라이브, 임베드
+    URL 유효성 검사 (모든 http/https URL 허용)
+    yt-dlp가 지원하는 모든 사이트의 URL을 처리하기 위해 범용 검증
     """
+    if not url:
+        return False
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        return all([result.scheme in ('http', 'https'), result.netloc])
+    except Exception:
+        return False
+
+def is_youtube_url(url: str) -> bool:
+    """YouTube URL인지 판별 (플레이리스트/단일영상 분기 등 YouTube 전용 로직에 사용)"""
     youtube_patterns = YOUTUBE_URL_PATTERNS
-    
     return any(re.search(pattern, url) for pattern in youtube_patterns)
 
 def format_bytes(b) -> str:

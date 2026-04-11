@@ -111,6 +111,12 @@ def main():
         if application_path not in sys.path:
             sys.path.insert(0, application_path)
         
+        # QtWebEngineWidgets는 QApplication 생성 전에 import 해야 함 (OpenGL 컨텍스트 공유 오류 방지)
+        try:
+            from PyQt5 import QtWebEngineWidgets  # noqa: F401
+        except ImportError:
+            pass  # PyQtWebEngine이 없으면 인앱 로그인 기능 비활성화
+        
         # PyQt5 애플리케이션을 먼저 생성 (QMessageBox 사용을 위해)
         app = QApplication(sys.argv)
         app.setApplicationName(APP_TITLE)
@@ -121,30 +127,55 @@ def main():
         if not deps_ok:
             show_error_message(
                 STR.TITLE_ERROR,
-                STR.MSG_MISSING_DEPENDENCY.format(module=missing_module),
-                STR.MSG_INSTALL_DEPENDENCY.format(file=REQUIREMENTS_FILENAME)
+                STR.ERR_MISSING_DEP.format(module=missing_module),
+                STR.MSG_INSTALL_DEP.format(file=REQUIREMENTS_FILENAME)
             )
             sys.exit(1)
         
-        # 바이너리 초기화 (yt-dlp, ffmpeg)
+        # 스타트업 다이얼로그를 통한 바이너리/앱 업데이트 확인
         try:
-            from utils.bin_manager import check_binaries_exist, check_updates_available
+            from gui.widgets.startup_dialog import StartupDialog
+            from utils.bin_manager import check_binaries_exist
             from PyQt5.QtWidgets import QMessageBox
             
-            if not check_binaries_exist():
-                # 첫 실행: 사용자 확인 후 바이너리 다운로드 (커스텀 다이얼로그 사용)
-                from gui.widgets.message_dialog import MessageDialog
+            # 설정 로드 및 언어 초기화
+            try:
+                from gui.windows.settings_dialog import load_settings
+                from constants import change_language, KEY_LANGUAGE
+                from locales import DEFAULT_LANGUAGE
                 
-                msg_dialog = MessageDialog(
-                    STR.TITLE_INIT,
-                    STR.MSG_CONFIRM_INIT_DOWNLOAD,
-                    MessageDialog.QUESTION,
-                    show_cancel=False # QUESTION 타입은 기본적으로 Yes/No 버튼 보여줌
-                )
+                settings = load_settings()
+                lang = settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
+                change_language(lang)
+                log.info(f"Loaded language early: {lang}")
+            except Exception as e:
+                log.warning(f"Failed to load language setting early: {e}")
+            
+            # 앱 시작 로딩 화면 및 백그라운드 업데이트 확인
+            startup_dialog = StartupDialog()
+            startup_dialog.show()
+            startup_dialog.start_checks()
+            startup_dialog.exec_()
+            
+            bin_exist = check_binaries_exist()
+            updates = getattr(startup_dialog, 'updates_available', {})
+            update_avail, latest_ver, download_url = getattr(startup_dialog, 'app_update_info', (False, None, None))
+            
+            if not bin_exist:
+                # 첫 실행: 사용자에게 언어 선택 및 바이너리 다운로드 확인 (InitSetupDialog 사용)
+                from gui.widgets.init_setup_dialog import InitSetupDialog
+                from locales import get_language
+                from constants import change_language
+
+                # 언어 선택 및 다운로드 확인 대화상자
+                setup_dialog = InitSetupDialog()
                 
-                if msg_dialog.exec_() != QDialog.Accepted:
-                    # 사용자가 No를 선택하거나 닫은 경우
+                if setup_dialog.exec_() != QDialog.Accepted:
+                    # 사용자가 취소하거나 닫은 경우
                     sys.exit(0)
+
+                # 선택된 언어로 변경 (다이얼로그 내부에서 settings 저장은 됨, 여기선 런타임 적용 확인)
+                log.info(f"Initial setup completed. Language: {get_language()}")
 
                 log.info("Binaries not found. Starting initial download...")
                 from gui.widgets.download_progress_dialog import DownloadProgressDialog
@@ -155,17 +186,14 @@ def main():
                 if not dialog.download_success:
                     show_error_message(
                         STR.TITLE_INIT_FAIL,
-                        STR.MSG_DOWNLOAD_COMPONENT_FAIL,
-                        STR.MSG_CHECK_INTERNET
+                        STR.ERR_DL_COMPONENT_FAIL,
+                        STR.MSG_CHECK_NET
                     )
                     sys.exit(1)
                 
                 log.info("Initial binary download completed successfully")
             else:
-                # 바이너리가 이미 존재: 업데이트 확인
-                log.info("Checking for updates...")
-                updates = check_updates_available()
-                
+                # 바이너리 업데이트 결과 처리
                 if updates:
                     # 업데이트 가능한 항목 표시
                     update_msg = STR.MSG_UPDATE_COMPONENTS
@@ -196,17 +224,13 @@ def main():
                     log.info("All binaries are up to date")
 
             # ---------------------------------------------------------
-            # 앱 자체 업데이트 확인 (App Update Check)
+            # 앱 자체 업데이트 확인 (App Update Check) 결과 처리
             # ---------------------------------------------------------
-            try:
-                from utils.app_updater import check_for_updates, download_update, apply_update
-                import constants
-                
-                log.info("Checking for app updates...")
-                update_avail, latest_ver, download_url = check_for_updates()
-                
-                if update_avail:
+            if update_avail:
+                try:
+                    from utils.app_updater import download_update, apply_update
                     from gui.widgets.message_dialog import MessageDialog
+                    import constants
                     
                     msg = STR.MSG_UPDATE_AVAILABLE.format(current=constants.APP_VERSION, latest=latest_ver)
                     dialog = MessageDialog(STR.TITLE_APP_UPDATE, msg, MessageDialog.QUESTION)
@@ -244,13 +268,9 @@ def main():
                             else:
                                 show_error_message(STR.TITLE_ERROR, STR.ERR_UPDATE_APPLY)
                         else:
-                            # 사용자가 취소한 경우가 아니면 에러 메시지 표시 context check needed
-                            # simple check: if not cancelled explicitly inside download_update (which catches exc)
-                            # but download_update returns None on failure.
                             pass
-
-            except Exception as e:
-                log.error(f"App update check failed: {e}")
+                except Exception as e:
+                    log.error(f"App update check failed: {e}")
 
                     
         except Exception as e:

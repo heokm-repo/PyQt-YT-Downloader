@@ -20,7 +20,7 @@ STRINGS = {
     # =========================================================================
     # 2. Main Window
     # =========================================================================
-    'MAIN_URL_PLACEHOLDER': "YouTube 링크 입력",
+    'MAIN_URL_PLACEHOLDER': "영상 URL 입력",
     'BTN_DOWNLOAD': "다운로드",
     'MAIN_EMPTY_STATE': "다운로드할 영상이 없습니다.\n상단에 URL을 입력하여 시작하세요.",
     'MAIN_STATUS_READY': "준비됨",
@@ -52,7 +52,12 @@ STRINGS = {
     'SETTINGS_SEC_ADVANCED': "고급 기능",
     'SETTINGS_CHK_NORMALIZE': "음량 평준화",
     'SETTINGS_CHK_ACCEL': "다운로드 가속 (멀티 스레드)",
-    'SETTINGS_LABEL_COOKIES': "쿠키 통합:",
+    'SETTINGS_LABEL_COOKIES': "쿠키 (인앱 로그인):",
+    'BTN_LOGIN': "로그인하기",
+    'BTN_SAVE_CLOSE': "저장 및 닫기",
+    'TITLE_LOGIN_BROWSER': "YouTube 로그인",
+    'MSG_LOGIN_WAITING': "Google 계정으로 로그인해주세요.",
+    'MSG_LOGIN_SUCCESS': "로그인 감지! '저장 및 닫기'를 클릭하세요.",
 
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "앱 관리",
@@ -68,19 +73,19 @@ STRINGS = {
     # =========================================================================
     # 4. Status Messages
     # =========================================================================
-    'STATUS_WAITING': "대기 중",
+
     'STATUS_WAITING_DOTS': "대기 중...",
-    'STATUS_DOWNLOADING': "다운로드 중",
+
     'STATUS_DOWNLOADING_DOTS': "다운로드 중...",
     'STATUS_DOWNLOADING_SPEED': "다운로드 중 ({speed})",
     
     'STATUS_PAUSED': "일시정지됨",
     'STATUS_PAUSED_SAVED': "일시정지됨 (저장됨)",
     'STATUS_IN_PROGRESS': "진행 중",
-    'STATUS_PREV_FAILED': "이전 작업 실패",
+
     
     'STATUS_CONVERTING': "변환 중...",
-    'STATUS_LOADING': "로딩 중...",
+
     'STATUS_COMPLETED': "완료",
     'STATUS_FAILED_FMT': "실패: {message}",
     'STATUS_PREPARING': "다운로드 준비 중...",
@@ -117,7 +122,7 @@ STRINGS = {
     # Initialization & Update
     'TITLE_INIT': "YT Downloader 초기화",
     'TITLE_APP_UPDATE': "YT Downloader 업데이트",
-    'MSG_INIT_TITLE': "YT Downloader 초기화 중...",
+
     'MSG_INIT_DESC': "필수 구성 요소를 다운로드하고 있습니다...",
     'MSG_INIT_PREPARING': "준비 중...",
     'MSG_INIT_INFO': "잠시만 기다려주세요. 이 작업은 처음 실행 시에만 수행됩니다.",
@@ -126,9 +131,25 @@ STRINGS = {
     'MSG_INIT_STARTING': "YT Downloader를 시작합니다...",
     'MSG_INIT_FAILED': "초기화 실패",
     'ERR_INIT_DOWNLOAD': "다운로드 중 오류가 발생했습니다.",
+
+
+
+    
+    # Init & Update
+    'TITLE_INIT': "YT Downloader 초기화",
+    'TITLE_INIT_SETUP': "초기 설정",
+    'LABEL_LANGUAGE_SELECT': "언어 선택:",
     'MSG_CONFIRM_INIT_DOWNLOAD': "영상 다운로드 및 병합을 위해 필수 구성 요소(yt-dlp, FFmpeg)가 필요합니다.\n\n다운로드하시겠습니까?",
-    'MSG_DOWNLOAD_COMPONENT_FAIL': "필수 구성 요소 다운로드에 실패했습니다.",
-    'MSG_CHECK_INTERNET': "인터넷 연결을 확인해주세요.",
+    'BTN_START_SETUP': "시작",
+    
+    'TITLE_APP_UPDATE': "YT Downloader 업데이트",
+    'MSG_INIT_TITLE': "YT Downloader 초기화 중...",
+
+    # Startup Dialog
+    'TITLE_STARTUP': "YT Downloader 시작 중",
+    'MSG_STARTUP_CHECK_EXT': "외부 구성 요소 확인 중...",
+    'MSG_STARTUP_CHECK_APP': "앱 업데이트 확인 중...",
+    'MSG_STARTUP_OPENING': "앱 여는 중...",
 
     # Uninstall
     'TITLE_UNINSTALL': "앱 삭제 확인",
@@ -150,6 +171,12 @@ STRINGS = {
     'MSG_UPDATE_COMPONENTS': "다음 구성 요소에 대한 업데이트가 있습니다:\n\n",
     'MSG_UPDATE_ASK_NOW': "\n지금 업데이트하시겠습니까?",
 
+    # Worker Status
+    'WORKER_MSG_CONVERTING': "변환/병합 중",
+    'WORKER_MSG_PROCESSING': "처리 중...",
+    'WORKER_MSG_COMPLETED': "다운로드 완료",
+    'WORKER_MSG_STOPPED': "사용자에 의해 중지됨",
+
     # =========================================================================
     # 6. Toast / Info Messages
     # =========================================================================
@@ -166,7 +193,8 @@ STRINGS = {
     'ERR_PLAYLIST_FETCH': "플레이리스트에서 영상을 가져올 수 없습니다.",
     'ERR_NOT_PLAYLIST': "플레이리스트 URL이 아닙니다.",
     'ERR_CANNOT_FETCH_INFO': "정보를 가져올 수 없습니다.",
-    'ERR_INVALID_URL': "유효한 YouTube URL을 입력해주세요.",
+    'ERR_INVALID_URL': "유효한 영상 URL을 입력해주세요.",
+    'ERR_UNSUPPORTED_URL': "이 URL은 다운로드를 지원하지 않는 사이트입니다.",
 
     # Loading / Analysis
     'MSG_LOADING': "로딩 중...",
@@ -182,7 +210,7 @@ STRINGS = {
     'TITLE_INIT_FAIL': "초기화 실패",
     'ERR_DL_COMPONENT_FAIL': "필수 구성 요소를 다운로드하지 못했습니다.",
     'MSG_CHECK_NET': "인터넷 연결을 확인하고 다시 시도하세요.",
-    'TITLE_INIT_ERR': "초기화 오류",
+
     'ERR_INIT_GENERIC': "초기화 중 오류가 발생했습니다.",
     'ERR_MODULE_IMPORT': "모듈을 불러올 수 없습니다.",
     'ERR_MODULE_HINT': "오류: {error}\n\n필수 모듈이 누락되었을 수 있습니다.",
@@ -191,7 +219,7 @@ STRINGS = {
     'ERR_FATAL': "치명적인 오류가 발생했습니다.",
     'ERR_YTDLP_MISSING': "yt-dlp를 찾을 수 없습니다",
     'ERR_YTDLP_RESTART': "yt-dlp를 찾을 수 없습니다. 애플리케이션을 다시 시작해주세요.",
-    'WARN_WORKER_TIMEOUT': "플레이리스트 워커가 시간 내에 종료되지 않았습니다.",
+
 
     # =========================================================================
     # 7. Tooltips & Context Menus
@@ -241,9 +269,5 @@ STRINGS = {
     # =========================================================================
     'TPL_VIDEO_TITLE': "영상 ID: {video_id}",
 
-    'COOKIES_BROWSER_DISPLAY_0': "사용 안함",
-    'COOKIES_BROWSER_DISPLAY_1': "Chrome",
-    'COOKIES_BROWSER_DISPLAY_2': "Edge",
-    'COOKIES_BROWSER_DISPLAY_3': "Firefox",
-    'COOKIES_BROWSER_DISPLAY_4': "Whale",
+    # COOKIES_BROWSER_DISPLAY removed (replaced by in-app login)
 }

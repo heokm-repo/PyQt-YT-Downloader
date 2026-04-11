@@ -5,6 +5,7 @@ yt-dlp.exe subprocess 래퍼
 - stdout 파싱을 통한 진행률 모니터링
 """
 import subprocess
+import threading
 import json
 import re
 import os
@@ -24,6 +25,7 @@ class YtDlpWrapper:
         """
         self.ytdlp_path = ytdlp_path
         self.ffmpeg_path = ffmpeg_path
+        self.current_process: Optional[subprocess.Popen] = None  # 외부에서 kill 가능하도록 참조 보관
         
         # 진행률 파싱용 정규식 패턴
         # [download]  45.2% of 10.5MiB at 2.3MiB/s ETA 00:03
@@ -39,6 +41,17 @@ class YtDlpWrapper:
         # [download] 100% of 10.5MiB in 00:04
         self.complete_pattern = re.compile(r'\[download\] 100%')
     
+    def _kill_process(self, process: subprocess.Popen) -> None:
+        """프로세스를 안전하게 종료"""
+        try:
+            if process and process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+        except Exception:
+            pass
+        finally:
+            self.current_process = None
+    
     def download(self, url: str, options: Dict, progress_hook: Callable) -> Tuple[bool, str]:
         """
         영상 다운로드 (기존 yt_dlp.YoutubeDL().download()와 동일한 인터페이스)
@@ -51,6 +64,8 @@ class YtDlpWrapper:
         Returns:
             (성공 여부, 에러 메시지)
         """
+        process = None
+        stderr_output = []
         try:
             # 옵션을 CLI 인자로 변환
             args = self._build_command(url, options)
@@ -67,6 +82,21 @@ class YtDlpWrapper:
                 errors='replace',
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
+            self.current_process = process
+            
+            # stderr를 별도 스레드에서 읽어 파이프 버퍼 데드락 방지
+            def _drain_stderr(proc, output_list):
+                try:
+                    for line in iter(proc.stderr.readline, ''):
+                        if line:
+                            output_list.append(line)
+                except Exception:
+                    pass
+            
+            stderr_thread = threading.Thread(
+                target=_drain_stderr, args=(process, stderr_output), daemon=True
+            )
+            stderr_thread.start()
             
             # 진행률 추적을 위한 변수
             current_file = None
@@ -75,64 +105,79 @@ class YtDlpWrapper:
             last_progress = {}
             
             # stdout 실시간 파싱
-            for line in iter(process.stdout.readline, ''):
-                if not line:
-                    break
-                
-                line = line.strip()
-                
-                # Destination 파싱 (새 fragment 시작)
-                dest_match = self.destination_pattern.search(line)
-                if dest_match:
-                    current_file = dest_match.group(1)
-                    log.info(f"Downloading to: {current_file}")
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    if not line:
+                        break
                     
-                    # 새 fragment 준비
-                    current_fragment = {
-                        'type': 'video' if 'f' in current_file and 'mp4' in current_file else 'audio',
-                        'total': 0,
-                        'downloaded': 0
-                    }
-                
-                # 진행률 파싱
-                progress_data = self._parse_progress(line)
-                if progress_data and current_fragment is not None:
-                    # 현재 fragment 정보 업데이트
-                    if current_fragment['total'] == 0:
-                        current_fragment['total'] = progress_data['total_bytes']
-                        fragments.append(current_fragment)
+                    line = line.strip()
                     
-                    current_fragment['downloaded'] = progress_data['downloaded_bytes']
-                    
-                    # 전체 진행률 계산
-                    total_bytes = sum(f['total'] for f in fragments)
-                    downloaded_bytes = sum(f['downloaded'] for f in fragments)
-                    
-                    if total_bytes > 0:
-                        combined_progress = {
-                            'status': 'downloading',
-                            'downloaded_bytes': downloaded_bytes,
-                            'total_bytes': total_bytes,
-                            'speed': progress_data.get('speed'),
-                            'eta': progress_data.get('eta'),
-                            '_percent_str': f'{downloaded_bytes * 100 / total_bytes:.1f}%',
-                        }
+                    # Destination 파싱 (새 fragment 시작)
+                    dest_match = self.destination_pattern.search(line)
+                    if dest_match:
+                        current_file = dest_match.group(1)
+                        log.info(f"Downloading to: {current_file}")
                         
-                        # 중복 진행률 호출 방지
-                        if combined_progress != last_progress:
-                            progress_hook(combined_progress)
-                            last_progress = combined_progress
-                
-                # 완료 감지
-                if self.complete_pattern.search(line):
-                    log.info("Download complete")
-                    progress_hook({'status': 'finished', 'filename': current_file})
+                        # 새 fragment 준비
+                        current_fragment = {
+                            'type': 'video' if 'f' in current_file and 'mp4' in current_file else 'audio',
+                            'total': 0,
+                            'downloaded': 0
+                        }
+                    
+                    # 진행률 파싱
+                    progress_data = self._parse_progress(line)
+                    if progress_data and current_fragment is not None:
+                        # 현재 fragment 정보 업데이트
+                        if current_fragment['total'] == 0:
+                            current_fragment['total'] = progress_data['total_bytes']
+                            fragments.append(current_fragment)
+                        
+                        current_fragment['downloaded'] = progress_data['downloaded_bytes']
+                        
+                        # 전체 진행률 계산
+                        total_bytes = sum(f['total'] for f in fragments)
+                        downloaded_bytes = sum(f['downloaded'] for f in fragments)
+                        
+                        if total_bytes > 0:
+                            combined_progress = {
+                                'status': 'downloading',
+                                'downloaded_bytes': downloaded_bytes,
+                                'total_bytes': total_bytes,
+                                'speed': progress_data.get('speed'),
+                                'eta': progress_data.get('eta'),
+                                '_percent_str': f'{downloaded_bytes * 100 / total_bytes:.1f}%',
+                            }
+                            
+                            # 중복 진행률 호출 방지
+                            if combined_progress != last_progress:
+                                progress_hook(combined_progress)
+                                last_progress = combined_progress
+                    
+                    # 완료 감지
+                    if self.complete_pattern.search(line):
+                        log.info("Download complete")
+                        progress_hook({'status': 'finished', 'filename': current_file})
+            except Exception as hook_error:
+                # progress_hook 예외 (일시정지 등) → 프로세스 즉시 종료
+                self._kill_process(process)
+                raise hook_error
             
-            # 프로세스 종료 대기
-            process.wait()
+            # 프로세스 종료 대기 (타임아웃 포함)
+            try:
+                process.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                log.warning("yt-dlp process timeout, killing...")
+                self._kill_process(process)
+                return False, "Download timeout"
+            
+            self.current_process = None
+            
+            # stderr 스레드 종료 대기
+            stderr_thread.join(timeout=5)
             
             # stderr 확인
-            stderr = process.stderr.read()
+            stderr = ''.join(stderr_output).strip()
             if stderr:
                 log.warning(f"yt-dlp stderr: {stderr}")
             
@@ -146,10 +191,12 @@ class YtDlpWrapper:
             return True, "Download complete"
             
         except subprocess.SubprocessError as e:
+            self._kill_process(process)
             error_msg = f"Subprocess error: {e}"
             log.error(error_msg)
             return False, error_msg
         except Exception as e:
+            self._kill_process(process)
             error_msg = f"Unexpected error: {e}"
             log.error(error_msg)
             return False, error_msg
@@ -403,6 +450,14 @@ class YtDlpWrapper:
                     else:
                         args.extend(['--postprocessor-args', f'ffmpeg:{arg}'])
                         i += 1
+        
+        # 쿠키 파일
+        if 'cookiefile' in options:
+            args.extend(['--cookies', options['cookiefile']])
+        
+        # JS 런타임 (YouTube 서명 풀기용)
+        if 'js_runtimes' in options:
+            args.extend(['--js-runtimes', options['js_runtimes']])
         
         # 동시 다운로드 (가속)
         if 'concurrent_fragment_downloads' in options:

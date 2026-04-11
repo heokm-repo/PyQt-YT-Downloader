@@ -15,6 +15,7 @@ class DownloadTask:
     url: str
     status: TaskStatus = TaskStatus.WAITING
     video_id: Optional[str] = None
+    extractor: str = 'unknown'
     output_path: str = ""
     settings: Dict[str, Any] = field(default_factory=dict)
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -26,6 +27,7 @@ class DownloadTask:
             'url': self.url,
             'status': self.status.value,
             'video_id': self.video_id,
+            'extractor': self.extractor,
             'output_path': self.output_path,
             'settings': self.settings,
             'meta': self.meta
@@ -39,6 +41,7 @@ class DownloadTask:
             url=data.get('url', ''),
             status=TaskStatus.from_string(data.get('status', TaskStatus.WAITING.value)),
             video_id=data.get('video_id'),
+            extractor=data.get('extractor', 'youtube'),  # 하위 호환: 기존 데이터는 youtube
             output_path=data.get('output_path', ''),
             settings=data.get('settings', {}),
             meta=data.get('meta', {})
