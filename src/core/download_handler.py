@@ -111,7 +111,16 @@ def extract_playlist_video_ids(url):
         wrapper = YtDlpWrapper(ytdlp_path)
         
         # --flat-playlist 옵션으로 빠르게 ID만 추출
-        info, success = wrapper.extract_info(clean_url, download=False, options={'extract_flat': True})
+        extract_opts = {'extract_flat': True}
+        
+        # 쿠키 및 JS 런타임 옵션 추가 (연령 제한 영상 등 인증 필요 시)
+        advanced_opts = _build_advanced_options({})
+        if 'cookiefile' in advanced_opts:
+            extract_opts['cookiefile'] = advanced_opts['cookiefile']
+        if 'js_runtimes' in advanced_opts:
+            extract_opts['js_runtimes'] = advanced_opts['js_runtimes']
+        
+        info, success = wrapper.extract_info(clean_url, download=False, options=extract_opts)
         
         if not success or not info:
             return [], False, STR.ERR_CANNOT_FETCH_INFO
@@ -170,6 +179,13 @@ def fetch_metadata(url, settings=None):
         if settings:
             format_opts = _build_format_options(settings)
             options.update(format_opts)
+        
+        # 쿠키 및 JS 런타임 옵션 추가 (연령 제한 영상 등 인증 필요 시)
+        advanced_opts = _build_advanced_options(settings or {})
+        if 'cookiefile' in advanced_opts:
+            options['cookiefile'] = advanced_opts['cookiefile']
+        if 'js_runtimes' in advanced_opts:
+            options['js_runtimes'] = advanced_opts['js_runtimes']
         
         info, success = wrapper.extract_info(clean_url, download=False, options=options)
         
