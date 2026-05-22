@@ -30,8 +30,8 @@ SETTINGS_TITLE_FONT_SIZE = 12
 SETTINGS_SECTION_FONT_SIZE = 10
 
 # 다이얼로그 크기 및 레이아웃
-SETTINGS_DIALOG_WIDTH = 450
-SETTINGS_DIALOG_HEIGHT = 580
+SETTINGS_DIALOG_WIDTH = 800
+SETTINGS_DIALOG_HEIGHT = 600
 SETTINGS_CONTAINER_MARGIN = 10
 SETTINGS_CONTENT_MARGIN = (15, 15, 15, 15)
 SETTINGS_CONTENT_SPACING = 10
@@ -184,12 +184,35 @@ COLOR_BTN_BLUE = "#2196F3"
 COLOR_BTN_ORANGE = "#FF9800"
 COLOR_BTN_GRAY = "#999999"
 
+# ==========================================
+# 바텀업 최소 크기 상수 (개별 부품)
+# 창 자체의 최소 크기를 강제하지 않고,
+# 각 부품의 최소 너비/높이를 설정하여
+# 레이아웃 시스템이 자연스럽게 창의 최소 크기를 결정합니다.
+# ==========================================
+MIN_URL_INPUT_WIDTH = 200
+MIN_DOWNLOAD_BUTTON_WIDTH = 80
+MIN_TITLE_LABEL_WIDTH = 100
+MIN_TASK_CARD_WIDTH = 400
+MIN_STATUS_LABEL_WIDTH = 100
+MIN_SETTINGS_TAB_WIDTH = 300
+MIN_SETTINGS_DIALOG_CONTENT_WIDTH = 350
+
 # 중앙 위젯 스타일
 CENTRAL_WIDGET_STYLE = """
 QWidget#CentralWidget {
     background-color: #FFFFFF;
     border: 1px solid #E0E0E0;
     border-radius: 15px;
+}
+"""
+
+# 중앙 위젯 스타일 (최대화 상태)
+CENTRAL_WIDGET_MAXIMIZED_STYLE = """
+QWidget#CentralWidget {
+    background-color: #FFFFFF;
+    border: none;
+    border-radius: 0px;
 }
 """
 
@@ -221,6 +244,20 @@ QPushButton {
 QPushButton:hover {
     background-color: #FFEEEE;
     color: #FF5252;
+}
+"""
+
+# 최대화/복구 버튼 스타일
+MAXIMIZE_BUTTON_STYLE = """
+QPushButton {
+    background-color: transparent;
+    color: #999999;
+    border-radius: 14px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #E8FDE8;
+    color: #4CAF50;
 }
 """
 
@@ -485,22 +522,21 @@ QLabel {
 """
 
 # 액션 버튼 스타일
-def get_action_button_style(color="#555555"):
-    """액션 버튼 스타일 생성"""
-    return f"""
-QPushButton {{
+ACTION_BUTTON_STYLE = """
+QPushButton {
     background-color: #F5F5F5;
-    color: {color};
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    font-family: 'Segoe UI Emoji';
-    font-size: {BUTTON_FONT_SIZE}pt;
     padding: 0px;
     margin: 0px;
-}}
-QPushButton:hover {{ background-color: #E0E0E0; }}
-QPushButton:pressed {{ background-color: #D0D0D0; }}
+}
+QPushButton:hover { background-color: #E0E0E0; }
+QPushButton:pressed { background-color: #D0D0D0; }
 """
+
+def get_action_button_style(color="#555555"):
+    """액션 버튼 스타일 생성 (하위 호환성 유지)"""
+    return ACTION_BUTTON_STYLE
 
 # 빈 상태 라벨 스타일
 EMPTY_LABEL_STYLE = "color: #AAAAAA; padding: 20px;"

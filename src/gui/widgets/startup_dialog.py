@@ -15,7 +15,7 @@ class StartupDialog(BaseDialog):
         super().__init__(
             parent=parent,
             title=STR.TITLE_STARTUP,
-            icon_text="🚀",
+            icon_text="mdi.rocket-launch",
             show_close_btn=False,  # 진행 중 닫기 방지 (로직상 필요하면 추가)
             show_divider=True
         )

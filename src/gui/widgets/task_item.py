@@ -5,9 +5,10 @@ import re
 
 from PyQt5.QtWidgets import (QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, 
                              QProgressBar, QPushButton, QSizePolicy)
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QUrl
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QUrl, QSize
 from PyQt5.QtGui import QFont, QPixmap, QFontMetrics
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+import qtawesome as qta
 
 from utils.logger import log
 from resources.styles import (
@@ -50,6 +51,10 @@ class ElidedLabel(QLabel):
     def resizeEvent(self, event):
         self.update_text()
         super().resizeEvent(event)
+
+    def minimumSizeHint(self):
+        # 레이아웃이 라벨을 줄일 수 있는 너비 최소값을 400으로 설정
+        return QSize(400, super().minimumSizeHint().height())
 
     def update_text(self):
         # 너비가 0이거나 텍스트가 없으면 리턴
@@ -250,28 +255,29 @@ class TaskWidget(QFrame):
             self.right_clicked.emit(self.task_id, event.globalPos())
         super().mousePressEvent(event)
     
-    def create_action_button(self, text, tooltip, callback, color="#555555"):
-        """액션 버튼 생성"""
-        btn = QPushButton(text)
+    def create_action_button(self, icon_name, tooltip, callback, color="#555555"):
+        """액션 버튼 생성 (QtAwesome 아이콘 사용)"""
+        btn = QPushButton()
         btn.setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
+        btn.setIcon(qta.icon(icon_name, color=color))
+        btn.setIconSize(QSize(int(BUTTON_SIZE * 1), int(BUTTON_SIZE * 1)))
         btn.setCursor(Qt.PointingHandCursor)
         btn.setToolTip(tooltip)
         btn.clicked.connect(callback)
-        btn.setStyleSheet(get_action_button_style(color))
+        btn.setStyleSheet(get_action_button_style())
         return btn
     
     def _get_button_configs(self, state):
         """상태별 버튼 설정 반환"""
-        # 버튼 설정: (아이콘, 툴팁, 시그널, 색상)
-        # 버튼 설정: (아이콘, 툴팁, 시그널, 색상)
-        pause_btn = ("⏸", STR.TOOLTIP_PAUSE, self.pause_requested, COLOR_BTN_RED)
-        delete_btn = ("🗑️", STR.TOOLTIP_CANCEL, self.delete_file_requested, COLOR_BTN_RED)
-        resume_btn = ("▶", STR.TOOLTIP_RESUME, self.resume_requested, COLOR_BTN_GREEN)
-        remove_btn = ("❌", STR.TOOLTIP_REMOVE, self.remove_requested, COLOR_BTN_GRAY)
-        play_btn = ("▶", STR.TOOLTIP_PLAY, self.play_requested, COLOR_BTN_GREEN)
-        folder_btn = ("📂", STR.TOOLTIP_OPEN_FOLDER, self.open_folder_requested, COLOR_BTN_BLUE)
-        file_del_btn = ("🗑️", STR.TOOLTIP_DELETE_FILE, self.delete_file_requested, COLOR_BTN_RED)
-        retry_btn = ("↻", STR.TOOLTIP_RETRY, self.retry_requested, COLOR_BTN_ORANGE)
+        # 버튼 설정: (MDI 아이콘명, 툴팁, 시그널, 색상)
+        pause_btn = ("mdi.pause", STR.TOOLTIP_PAUSE, self.pause_requested, COLOR_BTN_RED)
+        delete_btn = ("mdi.delete", STR.TOOLTIP_CANCEL, self.delete_file_requested, COLOR_BTN_RED)
+        resume_btn = ("mdi.play", STR.TOOLTIP_RESUME, self.resume_requested, COLOR_BTN_GREEN)
+        remove_btn = ("mdi.close", STR.TOOLTIP_REMOVE, self.remove_requested, COLOR_BTN_GRAY)
+        play_btn = ("mdi.play", STR.TOOLTIP_PLAY, self.play_requested, COLOR_BTN_GREEN)
+        folder_btn = ("mdi.folder-open", STR.TOOLTIP_OPEN_FOLDER, self.open_folder_requested, COLOR_BTN_BLUE)
+        file_del_btn = ("mdi.delete", STR.TOOLTIP_DELETE_FILE, self.delete_file_requested, COLOR_BTN_RED)
+        retry_btn = ("mdi.refresh", STR.TOOLTIP_RETRY, self.retry_requested, COLOR_BTN_ORANGE)
         
         # 상태별 버튼 목록
         button_configs = {

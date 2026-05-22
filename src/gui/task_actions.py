@@ -83,6 +83,15 @@ class TaskActions:
         if not task: 
             return
         
+        was_individually_paused = self._scheduler.is_task_paused(task_id)
+        
+        # 전체 토글이 정지 상태라면 전체 재개 (사용자 편의성)
+        if not self.main_window.toggle_enabled:
+            self.main_window.toggle_download()
+            # 만약 개별 일시정지가 아니었다면 toggle_download에서 이미 큐에 추가되었으므로 종료
+            if not was_individually_paused:
+                return
+        
         # 스케줄러에서 일시정지 플래그 제거
         self._scheduler.resume_task(task_id)
         
@@ -97,9 +106,6 @@ class TaskActions:
         # 2. 큐에 작업 다시 추가 (저장된 settings와 meta 사용)
         settings = task.settings if task.settings else self._settings.copy()
         
-        # 이어받기 플래그 추가 (덮어쓰기 방지)
-        settings['is_resume'] = True
-        
         meta = task.meta
         url = task.url
         
@@ -109,11 +115,15 @@ class TaskActions:
             return
 
         # 우선순위 1 (이어받기 작업)를 스케줄러에 추가
-        self._scheduler.add_task(1, task_id, url, settings, meta)
+        self._scheduler.add_task(1, task_id, url, settings, meta, is_resume=True)
         self.main_window.update_progress_ui()
 
     def retry_task(self, task_id: int) -> None:
         """다운로드 재시도"""
+        # 전체 토글이 정지 상태라면 전체 재개 (사용자 편의성)
+        if not self.main_window.toggle_enabled:
+            self.main_window.toggle_download()
+            
         task = self._get_task(task_id)
         if not task: 
             return
@@ -348,3 +358,30 @@ class TaskActions:
             self.main_window.remove_task_from_list(task_id)
         
         return True
+
+    def remove_all_completed_from_list(self) -> bool:
+        """
+        목록에서 완료된 모든 작업을 제거
+        """
+        completed_ids = [task.id for task in self.main_window.tasks if task.status == TaskStatus.FINISHED]
+        count = len(completed_ids)
+        
+        if count == 0:
+            return False
+        
+        if count > 1:
+            from gui.widgets.message_dialog import MessageDialog
+            from PyQt5.QtWidgets import QDialog
+            
+            dialog = MessageDialog(STR.TITLE_REMOVE_CONFIRM,
+                                   STR.MSG_REMOVE_COMPLETED_CONFIRM.format(count=count),
+                                   MessageDialog.QUESTION, self.main_window, show_cancel=False)
+                                   
+            if dialog.exec_() != QDialog.Accepted:
+                return False
+                
+        for task_id in completed_ids:
+            self.main_window.remove_task_from_list(task_id)
+            
+        return True
+

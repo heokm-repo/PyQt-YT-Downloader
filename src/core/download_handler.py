@@ -16,7 +16,8 @@ from constants import (
     CONCURRENT_FRAGMENT_DOWNLOADS, LOUDNORM_FILTER, OUTPUT_TEMPLATE, AUDIO_CHANNELS,
     FORMAT_BESTAUDIO, DEFAULT_FORMAT,
     YOUTUBE_PLAYLIST_URL_PREFIX, YOUTUBE_SHORTS_PATH,
-    DOMAIN_YOUTU_BE, AUDIO_FORMATS
+    DOMAIN_YOUTU_BE, AUDIO_FORMATS,
+    YTDL_TEMP_DIR
 )
 from locales.strings import STR
 
@@ -264,7 +265,7 @@ def fetch_metadata(url, settings=None):
 # 다운로드 옵션 빌더
 # =====================================================================
 
-def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings=None):
+def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings=None, is_resume=False):
     """
     기본 yt-dlp 옵션 생성
     
@@ -274,16 +275,18 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
         is_playlist: 플레이리스트 여부
         progress_hook: 진행률 훅 함수
         settings: 설정 딕셔너리 (선택적)
+        is_resume: 이어받기 여부
     
     Returns:
         기본 옵션 딕셔너리
     """
     # 출력 템플릿은 settings에서 가져오되, 없으면 기본값 사용
+    # [중요] outtmpl은 상대 경로만 사용 → --paths home: 과 함께 사용해야 --paths temp: 가 동작함
     output_template = settings.get('output_template', OUTPUT_TEMPLATE) if settings else OUTPUT_TEMPLATE
-    output_tmpl = os.path.join(save_path, output_template)
     
     opts = {
-        'outtmpl': output_tmpl,
+        'outtmpl': output_template,
+        'home_path': save_path,  # --paths home: 용 (기본 저장 경로)
         'progress_hooks': [progress_hook],
         'noplaylist': not is_playlist,
         'quiet': True,
@@ -291,9 +294,14 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
         'keepvideo': False,  # [중요] 병합 후 원본(임시 파일) 삭제
     }
     
+    # 임시 파일 전용 폴더 (.ytdl_temp)
+    temp_path = os.path.join(save_path, YTDL_TEMP_DIR)
+    os.makedirs(temp_path, exist_ok=True)
+    opts['temp_path'] = temp_path
+    
     # 이어받기(resume)가 아닐 때만 덮어쓰기 허용
     # resume일 때는 .part 파일을 유지하며 이어받기
-    if settings and not settings.get('is_resume', False):
+    if not is_resume:
         opts['overwrites'] = True
     
     if ffmpeg_path:
@@ -433,13 +441,13 @@ def _merge_postprocessor_args(existing_opts: dict, new_opts: dict) -> dict:
     return existing_opts
 
 
-def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook) -> dict:
+def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook, is_resume=False) -> dict:
     """
     모든 옵션을 조립하여 최종 yt-dlp 옵션 딕셔너리 생성
     """
     # 기본 옵션들 병합
     ydl_opts = {}
-    ydl_opts.update(_build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings))
+    ydl_opts.update(_build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings, is_resume))
     ydl_opts.update(_build_format_options(settings))
     ydl_opts.update(_build_advanced_options(settings))
     
@@ -453,11 +461,14 @@ def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_h
 # 다운로드 실행 (범용)
 # =====================================================================
 
-def download_video(url, settings, progress_hook):
+def download_video(url, settings, progress_hook, is_resume=False, stop_check=None):
     """
     영상 다운로드 핵심 로직 (범용)
     - YtDlpWrapper를 사용하여 subprocess로 실행
     - YouTube 및 기타 모든 yt-dlp 지원 사이트 대응
+    
+    Args:
+        stop_check: 정지/일시정지 확인 콜백 (True 반환 시 즉시 중단)
     """
     if not url: 
         return False, ERROR_INVALID_URL
@@ -479,12 +490,12 @@ def download_video(url, settings, progress_hook):
     ffmpeg_path = get_ffmpeg_path()
     
     # 모든 옵션 조립
-    ydl_opts = _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook)
+    ydl_opts = _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook, is_resume)
 
     # YtDlpWrapper로 다운로드 실행
     try:
         wrapper = YtDlpWrapper(ytdlp_path, ffmpeg_path)
-        success, message = wrapper.download(clean_url, ydl_opts, progress_hook)
+        success, message = wrapper.download(clean_url, ydl_opts, progress_hook, is_resume, stop_check)
         
         if success:
             return True, MSG_DOWNLOAD_COMPLETE

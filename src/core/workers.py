@@ -60,9 +60,9 @@ class DownloadWorker(QThread):
     # 헬퍼 메서드들
     # ============================================================
     
-    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict]]:
+    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool]]:
         """
-        Queue에서 가져온 데이터를 파싱하여 (task_id, url, settings, metadata) 튜플 반환.
+        Queue에서 가져온 데이터를 파싱하여 (task_id, url, settings, metadata, is_resume) 튜플 반환.
         종료 신호이거나 파싱 실패 시 None 반환.
         """
         if task_wrapper is None:
@@ -76,13 +76,17 @@ class DownloadWorker(QThread):
         else:
             task = task_wrapper
 
-        if len(task) == 4:
+        if len(task) == 5:
+            task_id, url, task_settings, metadata, is_resume = task
+        elif len(task) == 4:
             task_id, url, task_settings, metadata = task
+            is_resume = False
         else:
             task_id, url, task_settings = task
             metadata = {}
+            is_resume = False
         
-        return task_id, url, task_settings, metadata
+        return task_id, url, task_settings, metadata, is_resume
 
     def _should_skip_task(self, task_id: int) -> bool:
         """개별 작업 일시정지 여부 확인. 스킵해야 하면 True 반환."""
@@ -90,6 +94,18 @@ class DownloadWorker(QThread):
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
                 self.download_queue.task_done()
+                return True
+        return False
+
+    def _stop_check(self) -> bool:
+        """정지/일시정지 여부를 빠르게 확인 (매 stdout 라인마다 호출됨)"""
+        if self.stop_event.is_set():
+            return True
+        if not self.pause_event.is_set():
+            return True
+        scheduler = self.parent()
+        if scheduler and hasattr(scheduler, 'is_task_paused'):
+            if scheduler.is_task_paused(self.current_task_id):
                 return True
         return False
 
@@ -149,23 +165,21 @@ class DownloadWorker(QThread):
         try:
             video_title = metadata.get('title', '')
             if video_title:
-                safe_title = unicodedata.normalize('NFC', video_title)
-                fullwidth_map = str.maketrans({
-                    '<': '＜', '>': '＞', ':': '：', '"': '＂',
-                    '/': '／', '\\': '＼', '|': '｜', '?': '？', '*': '＊'
-                })
-                safe_title = safe_title.translate(fullwidth_map)
+                import re
+                # 영문, 숫자, 한글 등 주요 문자만 남겨서 비교 (특수기호 제거)
+                clean_title = re.sub(r'[^\w가-힣]', '', video_title).lower()
                 
-                for file_path in save_dir.iterdir():
-                    if not file_path.is_file():
-                        continue
-                    
-                    f_stem = unicodedata.normalize('NFC', file_path.stem)
-                    
-                    if safe_title.lower() in f_stem.lower():
-                        if file_path.suffix.lower() in MEDIA_EXTENSIONS:
-                            final_path = str(file_path.resolve())
-                            break
+                if clean_title:
+                    for file_path in save_dir.iterdir():
+                        if not file_path.is_file():
+                            continue
+                        
+                        clean_stem = re.sub(r'[^\w가-힣]', '', file_path.stem).lower()
+                        
+                        if clean_title in clean_stem:
+                            if file_path.suffix.lower() in MEDIA_EXTENSIONS:
+                                final_path = str(file_path.resolve())
+                                break
                             
         except Exception as e:
             log.warning(f"파일 경로 찾기 실패 (task_id={task_id}): {e}")
@@ -202,7 +216,7 @@ class DownloadWorker(QThread):
                 if task_data is None:
                     break
                 
-                task_id, url, current_settings, metadata = task_data
+                task_id, url, current_settings, metadata, is_resume = task_data
 
                 if self._should_skip_task(task_id):
                     continue
@@ -228,7 +242,7 @@ class DownloadWorker(QThread):
                 self._init_progress_tracking(task_id, metadata)
 
                 success, message = download_handler.download_video(
-                    url, current_settings, self._progress_hook
+                    url, current_settings, self._progress_hook, is_resume, self._stop_check
                 )
                 
                 if not success and MSG_PAUSED_BY_USER in str(message):

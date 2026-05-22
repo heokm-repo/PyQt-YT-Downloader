@@ -4,9 +4,10 @@ from typing import Optional
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLineEdit, QPushButton, QLabel, QFrame,
                              QSlider, QDialog, QScrollArea,
-                             QApplication, QShortcut)
-from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent
-from PyQt5.QtGui import QFont, QKeySequence
+                             QApplication, QShortcut, QGraphicsDropShadowEffect)
+from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent, QSize
+from PyQt5.QtGui import QFont, QKeySequence, QColor
+import qtawesome as qta
 
 from gui.windows.settings_dialog import SettingsDialog, load_settings, save_settings
 from core.workers import PlaylistAnalysisWorker
@@ -18,6 +19,8 @@ from gui.context_menu import ContextMenuBuilder
 from gui.task_actions import TaskActions
 from gui.widgets.task_item import TaskWidget
 from gui.widgets.toggle_button import ToggleButton
+from gui.widgets.resizable_mixin import ResizableMixin
+from gui.widgets.window_state_manager import save_window_state, restore_window_state
 from utils.logger import log
 import constants  # 동적 언어 문자열을 항상 최신 값으로 사용하기 위해 모듈 자체도 임포트
 from locales import DEFAULT_LANGUAGE
@@ -34,9 +37,12 @@ from constants import (
 )
 from data.models import DownloadTask
 from core.scheduler import DownloadScheduler
+from constants import YTDL_TEMP_DIR
 from resources.styles import (
-    MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, TITLE_BAR_STYLE,
-    MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, URL_INPUT_CONTAINER_STYLE, URL_INPUT_STYLE,
+    MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, CENTRAL_WIDGET_MAXIMIZED_STYLE,
+    TITLE_BAR_STYLE,
+    MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, MAXIMIZE_BUTTON_STYLE,
+    URL_INPUT_CONTAINER_STYLE, URL_INPUT_STYLE,
     DOWNLOAD_BUTTON_STYLE, SETTINGS_BUTTON_STYLE, STATUS_BAR_STYLE,
     STATUS_LABEL_STYLE, PROGRESS_SLIDER_STYLE, EMPTY_LABEL_STYLE,
     # Moved Constants
@@ -54,11 +60,14 @@ from resources.styles import (
     EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE,
     STATUS_BAR_HEIGHT, STATUS_BAR_MARGINS, STATUS_BAR_SPACING,
     STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE,
-    PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX, PROGRESS_SLIDER_DEFAULT
+    PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX, PROGRESS_SLIDER_DEFAULT,
+    # 바텀업 최소 크기 상수
+    MIN_URL_INPUT_WIDTH, MIN_DOWNLOAD_BUTTON_WIDTH,
+    MIN_TITLE_LABEL_WIDTH, MIN_STATUS_LABEL_WIDTH
 )
 
 
-class YTDownloaderPyQt5(QMainWindow):
+class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     def __init__(self):
         super().__init__()
         
@@ -69,6 +78,13 @@ class YTDownloaderPyQt5(QMainWindow):
         self.setWindowTitle(APP_TITLE)
         self.setGeometry(MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT) 
         self.setStyleSheet(MAIN_WINDOW_STYLE)
+        
+        # 가로 805px, 세로 500px을 가로 스크롤바 없이 최상의 UI를 보여줄 수 있는 최소 크기로 강제 지정
+        self.setMinimumSize(805, 500)
+        
+        # 리사이징 초기화
+        self._init_resizable(enabled=True)
+        self._is_maximized_state = False
         
         # 윈도우 이동 변수
         self.oldPos = None
@@ -106,7 +122,23 @@ class YTDownloaderPyQt5(QMainWindow):
         self.setup_ui()
         # 생성된 UI에 현재 언어 문자열 적용
         self.apply_language_to_ui()
-        self.center_window()
+        
+        # 저장된 창 상태 복원 (실패 시 화면 중앙 배치)
+        from gui.widgets.window_state_manager import load_window_state
+        state = load_window_state("MainWindow")
+        restored = restore_window_state("MainWindow", self, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
+        if not restored:
+            self.center_window()
+        elif state and state.get('maximized', False):
+            # restore_window_state가 showMaximized()를 호출했으므로
+            # 내부 상태 플래그와 UI도 동기화
+            self._is_maximized_state = True
+            central = self.centralWidget()
+            if central:
+                central.setStyleSheet(CENTRAL_WIDGET_MAXIMIZED_STYLE)
+            if hasattr(self, '_main_layout'):
+                self._main_layout.setContentsMargins(8, 8, 8, 8)
+            self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
         
         # 스마트 Ctrl+V 단축키 설정
         self.paste_shortcut = QShortcut(QKeySequence.Paste, self)
@@ -139,21 +171,21 @@ class YTDownloaderPyQt5(QMainWindow):
         self.setCentralWidget(central_widget)
         
         # 전체 레이아웃 (마진 최소화)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
-        main_layout.setSpacing(MAIN_LAYOUT_SPACING) 
+        self._main_layout = QVBoxLayout(central_widget)
+        self._main_layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
+        self._main_layout.setSpacing(MAIN_LAYOUT_SPACING) 
         
         # 1. 커스텀 타이틀 바
-        self.create_custom_title_bar(main_layout)
+        self.create_custom_title_bar(self._main_layout)
         
         # 2. URL 입력 섹션
-        self.create_url_section(main_layout)
+        self.create_url_section(self._main_layout)
         
         # 3. 작업 목록 섹션 (QScrollArea로 변경됨)
-        self.create_task_list_section(main_layout)
+        self.create_task_list_section(self._main_layout)
         
         # 4. 상태 표시줄
-        self.create_status_bar(main_layout)
+        self.create_status_bar(self._main_layout)
 
     def apply_language_to_ui(self):
         """현재 언어 설정에 맞게 UI 텍스트를 갱신"""
@@ -193,20 +225,35 @@ class YTDownloaderPyQt5(QMainWindow):
         self.app_title_label = QLabel(APP_TITLE)
         self.app_title_label.setFont(QFont(TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE, QFont.Bold))
         self.app_title_label.setStyleSheet(f"color: {APP_TITLE_COLOR};")
+        self.app_title_label.setMinimumWidth(MIN_TITLE_LABEL_WIDTH)
         title_layout.addWidget(self.app_title_label)
         
         title_layout.addStretch(1)
         
         # 최소화 버튼
-        minimize_btn = QPushButton(BTN_MINIMIZE)
+        minimize_btn = QPushButton()
+        minimize_btn.setIcon(qta.icon('mdi.window-minimize', color='#999999'))
+        minimize_btn.setIconSize(QSize(20, 20))
         minimize_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
         minimize_btn.setCursor(Qt.PointingHandCursor)
         minimize_btn.clicked.connect(self.showMinimized)
         minimize_btn.setStyleSheet(MINIMIZE_BUTTON_STYLE)
         title_layout.addWidget(minimize_btn)
         
+        # 최대화/복구 버튼
+        self.maximize_btn = QPushButton()
+        self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
+        self.maximize_btn.setIconSize(QSize(20, 20))
+        self.maximize_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
+        self.maximize_btn.setCursor(Qt.PointingHandCursor)
+        self.maximize_btn.clicked.connect(self._toggle_maximize)
+        self.maximize_btn.setStyleSheet(MAXIMIZE_BUTTON_STYLE)
+        title_layout.addWidget(self.maximize_btn)
+        
         # 닫기 버튼
-        close_btn = QPushButton(BTN_TEXT_CLOSE_X)
+        close_btn = QPushButton()
+        close_btn.setIcon(qta.icon('mdi.close', color='#999999'))
+        close_btn.setIconSize(QSize(20, 20))
         close_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.clicked.connect(self.close)
@@ -215,19 +262,82 @@ class YTDownloaderPyQt5(QMainWindow):
         
         layout.addWidget(title_frame)
 
-    # 윈도우 드래그
+    # ── 최대화/복구 토글 ──────────────────────────────
+    
+    def _toggle_maximize(self):
+        """최대화 ↔ 복구 토글"""
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
+
+    # ── 마우스 이벤트 (리사이즈 + 드래그 이동 통합) ──────
+    
     def mousePressEvent(self, event):
         self.setFocus()
         if event.button() == Qt.LeftButton:
+            # 리사이즈 우선
+            if self.resizable_mouse_press(event):
+                return
+            # 리사이즈 영역이 아니면 드래그 이동
             self.oldPos = event.globalPos()
+    
     def mouseMoveEvent(self, event):
+        # 리사이즈 중이면 리사이즈 처리
+        if self.resizable_mouse_move(event):
+            return
+        # 드래그 이동
         if self.oldPos is not None and event.buttons() == Qt.LeftButton:
+            # 최대화 상태에서 드래그 시 복구 후 이동
+            if self._is_maximized_state:
+                self.showNormal()
+                self.oldPos = event.globalPos()
+                return
             delta = QPoint(event.globalPos() - self.oldPos)
             self.move(self.x() + delta.x(), self.y() + delta.y())
             self.oldPos = event.globalPos()
+    
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
+            if self.resizable_mouse_release(event):
+                return
             self.oldPos = None
+    
+    def mouseDoubleClickEvent(self, event):
+        """타이틀 바 더블클릭 → 최대화/복구"""
+        if event.button() == Qt.LeftButton:
+            # 타이틀 바 영역에서만 동작 (상단 TITLE_BAR_HEIGHT + 약간의 여유)
+            if event.pos().y() <= TITLE_BAR_HEIGHT + 10:
+                self._toggle_maximize()
+                return
+        super().mouseDoubleClickEvent(event)
+    
+    def changeEvent(self, event):
+        """창 상태 변경 이벤트 감지 (에어로 스냅, Win+Up 등 OS 레벨 최대화 대응)"""
+        if event.type() == QEvent.WindowStateChange:
+            if self.isMaximized() and not self._is_maximized_state:
+                # OS에 의해 최대화됨 → 내부 상태 및 UI 동기화
+                self._is_maximized_state = True
+                central = self.centralWidget()
+                if central:
+                    central.setStyleSheet(CENTRAL_WIDGET_MAXIMIZED_STYLE)
+                if hasattr(self, '_main_layout'):
+                    self._main_layout.setContentsMargins(8, 8, 8, 8)
+                if hasattr(self, 'maximize_btn'):
+                    self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
+                log.info("창 최대화 됨 (MainWindow)")
+            elif not self.isMaximized() and not self.isMinimized() and self._is_maximized_state:
+                # OS에 의해 복원됨 → 내부 상태 및 UI 동기화
+                self._is_maximized_state = False
+                central = self.centralWidget()
+                if central:
+                    central.setStyleSheet(CENTRAL_WIDGET_STYLE)
+                if hasattr(self, '_main_layout'):
+                    self._main_layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
+                if hasattr(self, 'maximize_btn'):
+                    self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
+                log.info("창 기본 크기로 복구 됨 (MainWindow)")
+        super().changeEvent(event)
     
     def eventFilter(self, source, event):
         """이벤트 필터: 빈 공간 클릭 감지 (스크롤 영역, 상태바)"""
@@ -272,10 +382,10 @@ class YTDownloaderPyQt5(QMainWindow):
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText(STR.MAIN_URL_PLACEHOLDER)
         self.url_input.setFixedHeight(URL_INPUT_HEIGHT)
+        self.url_input.setMinimumWidth(MIN_URL_INPUT_WIDTH)
         self.url_input.setFont(QFont(URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE))
         self.url_input.setStyleSheet(URL_INPUT_STYLE)
         self.url_input.returnPressed.connect(self.start_download) # 엔터키 지원
-        self.url_input.textChanged.connect(self.on_url_changed)
         container_layout.addWidget(self.url_input, 1)
         
         btn_group = QFrame()
@@ -286,16 +396,17 @@ class YTDownloaderPyQt5(QMainWindow):
         self.download_btn = QPushButton(STR.BTN_DOWNLOAD)
         self.download_btn.setFixedHeight(DOWNLOAD_BUTTON_HEIGHT)
         # 기본 최소 너비만 설정하고, 실제 너비는 텍스트 길이에 따라 동적으로 조정
-        self.download_btn.setMinimumWidth(DOWNLOAD_BUTTON_WIDTH)
+        self.download_btn.setMinimumWidth(MIN_DOWNLOAD_BUTTON_WIDTH)
         self.download_btn.setFont(QFont(DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE, QFont.Bold))
         self.download_btn.setCursor(Qt.PointingHandCursor)
         self.download_btn.clicked.connect(self.start_download)
         self.download_btn.setStyleSheet(DOWNLOAD_BUTTON_STYLE)
         btn_layout.addWidget(self.download_btn)
 
-        self.settings_btn = QPushButton(SETTINGS_BUTTON_TEXT)
+        self.settings_btn = QPushButton()
+        self.settings_btn.setIcon(qta.icon('mdi.cog', color='#555555'))
+        self.settings_btn.setIconSize(QSize(26, 26))
         self.settings_btn.setFixedSize(SETTINGS_BUTTON_SIZE, SETTINGS_BUTTON_SIZE)
-        self.settings_btn.setFont(QFont(SETTINGS_BUTTON_FONT_FAMILY, SETTINGS_BUTTON_FONT_SIZE))
         self.settings_btn.setCursor(Qt.PointingHandCursor)
         self.settings_btn.clicked.connect(self.open_download_options)
         self.settings_btn.setStyleSheet(SETTINGS_BUTTON_STYLE)
@@ -308,6 +419,8 @@ class YTDownloaderPyQt5(QMainWindow):
     def create_task_list_section(self, layout):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        # 가로 스크롤바가 생기지 않도록 차단
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setStyleSheet("background: transparent; border: none;")
         
         self.scroll_content = QWidget()
@@ -350,6 +463,7 @@ class YTDownloaderPyQt5(QMainWindow):
         self.status_label = QLabel(STR.MAIN_STATUS_READY)
         self.status_label.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
         self.status_label.setStyleSheet(STATUS_LABEL_STYLE)
+        self.status_label.setMinimumWidth(MIN_STATUS_LABEL_WIDTH)
         s_layout.addWidget(self.status_label)
         
         self.progress_slider = QSlider(Qt.Horizontal)
@@ -461,6 +575,7 @@ class YTDownloaderPyQt5(QMainWindow):
             'retry': self._retry_selected_tasks,
             'delete_file': self._delete_files_for_selected,
             'remove': self._remove_selected_from_list,
+            'remove_all_completed': self._remove_all_completed_from_list,
         }
         
         # 메뉴 빌드 및 표시
@@ -497,6 +612,11 @@ class YTDownloaderPyQt5(QMainWindow):
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.remove_selected_from_list(task_ids)
 
+    def _remove_all_completed_from_list(self):
+        """완료된 모든 작업들을 목록에서 제거"""
+        self.selection_manager.clear(self.task_widgets)
+        self.task_actions.remove_all_completed_from_list()
+
     def remove_task_from_list(self, task_id):
         """목록에서 항목 제거 (파일 유지)"""
         widget = self.task_widgets.get(task_id)
@@ -529,14 +649,14 @@ class YTDownloaderPyQt5(QMainWindow):
         
         if self.toggle_enabled:
             self.status_label.setText(STR.MSG_DL_ENABLED)
-            self.scheduler.resume_all()  # 워커 재개
             
-            # 전체 일시정지로 인해 일시정지된 작업들을 큐에 다시 추가
+            # 일시정지된 모든 작업들을 큐에 다시 추가 (개별 일시정지 포함)
+            # 워커 재개(resume_all) 전에 큐에 추가해야 우선순위에 맞게 올바른 순서로 가져감
             for task in self.tasks:
                 if task.status == TaskStatus.PAUSED:
-                    # 개별 일시정지 플래그가 설정된 작업은 제외
+                    # 개별 일시정지 플래그가 있었다면 해제
                     if self.scheduler.is_task_paused(task.id):
-                        continue
+                        self.scheduler.resume_task(task.id)
                     
                     # 작업을 다시 큐에 추가
                     widget = self.task_widgets.get(task.id)
@@ -553,6 +673,7 @@ class YTDownloaderPyQt5(QMainWindow):
                     # 우선순위 1 (이어받기 작업)로 큐에 추가
                     self.scheduler.add_task(1, task.id, task.url, settings, meta)
             
+            self.scheduler.resume_all()  # 대기열 정리가 끝난 후 워커 재개
             self.update_progress_ui()
         else:
             self.status_label.setText(STR.MSG_DL_PAUSED)
@@ -572,9 +693,6 @@ class YTDownloaderPyQt5(QMainWindow):
     def center_window(self):
         screen = self.screen().geometry()
         self.move((screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2)
-
-    def on_url_changed(self):
-        self.download_btn.setEnabled(bool(self.url_input.text().strip()))
 
     # --- 다운로드 시작 및 작업 등록 ---
 
@@ -851,7 +969,7 @@ class YTDownloaderPyQt5(QMainWindow):
     def _enable_url_input(self):
         """URL 입력창 활성화"""
         self.url_input.setEnabled(True)
-        self.download_btn.setEnabled(bool(self.url_input.text().strip()))
+        self.download_btn.setEnabled(True)
 
     def _handle_playlist_error(self, error_msg: str):
         """플레이리스트 에러 처리"""
@@ -1043,8 +1161,48 @@ class YTDownloaderPyQt5(QMainWindow):
                 # 모든 일시정지된 작업 재개
                 for task in paused_tasks:
                     self.resume_task(task.id)
+            else:
+                # 재개 거부 → 임시 파일 정리 + 작업 상태를 FAILED로 변경
+                self._cleanup_temp_files(paused_tasks)
+
+    def _cleanup_temp_files(self, tasks):
+        """임시 폴더(.ytdl_temp) 내용물 삭제"""
+        import shutil
+        cleaned_dirs = set()
+        for task in tasks:
+            save_path = task.settings.get('download_folder') or task.settings.get('save_path')
+            if not save_path or save_path in cleaned_dirs:
+                # 상태만 변경
+                task.status = TaskStatus.FAILED
+                widget = self.task_widgets.get(task.id)
+                if widget:
+                    widget.set_failed(STR.STATUS_PAUSED_CANCELLED)
+                continue
+            
+            temp_dir = os.path.join(save_path, YTDL_TEMP_DIR)
+            if os.path.isdir(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                    log.info(f"임시 폴더 삭제: {temp_dir}")
+                except Exception as e:
+                    log.warning(f"임시 폴더 삭제 실패: {temp_dir}: {e}")
+            cleaned_dirs.add(save_path)
+            
+            # 작업 상태를 FAILED로 변경 (재시도 가능)
+            task.status = TaskStatus.FAILED
+            widget = self.task_widgets.get(task.id)
+            if widget:
+                widget.set_failed(STR.STATUS_PAUSED_CANCELLED)
 
     def closeEvent(self, event):
+        # 창 상태 저장
+        save_window_state("MainWindow", self)
+        
+        # 다운로드 중인 작업들을 PAUSED 상태로 변경
+        for task in self.tasks:
+            if task.status == TaskStatus.DOWNLOADING:
+                task.status = TaskStatus.PAUSED
+        
         # 종료 전 작업 목록 저장
         self.task_manager.save_tasks(self.tasks)
         

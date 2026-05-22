@@ -22,13 +22,13 @@ class MessageDialog(BaseDialog):
     QUESTION = "question"
     
     def __init__(self, title, message, dialog_type=INFO, parent=None, show_cancel=False, buttons=None):
-        icon_text = "ℹ️"
+        icon_text = "mdi.information"
         if dialog_type == self.WARNING:
-            icon_text = "⚠️"
+            icon_text = "mdi.alert"
         elif dialog_type == self.ERROR:
-            icon_text = "❌"
+            icon_text = "mdi.close-circle"
         elif dialog_type == self.QUESTION:
-            icon_text = "❓"
+            icon_text = "mdi.help-circle"
 
         show_close = not show_cancel and dialog_type != self.QUESTION and not buttons
 

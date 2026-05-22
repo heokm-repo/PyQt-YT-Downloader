@@ -5,6 +5,7 @@
 from typing import List, Dict, Callable, TYPE_CHECKING
 
 from PyQt5.QtWidgets import QMenu, QAction
+import qtawesome as qta
 
 from constants import TaskStatus
 from locales.strings import STR
@@ -65,38 +66,44 @@ class ContextMenuBuilder:
         
         # 재생 (완료된 단일 항목)
         if status_flags['finished'] and count == 1:
-            self._add_action(menu, STR.MENU_PLAY, lambda: _log_and_call('play', callbacks.get('play')))
+            self._add_action(menu, STR.MENU_PLAY, lambda: _log_and_call('play', callbacks.get('play')), 'mdi.play', '#4CAF50')
         
         # 폴더 열기 (단일 항목만)
         if status_flags['finished'] and count == 1:
-            self._add_action(menu, STR.MENU_OPEN_FOLDER, lambda: _log_and_call('open_folder', callbacks.get('open_folder')))
+            self._add_action(menu, STR.MENU_OPEN_FOLDER, lambda: _log_and_call('open_folder', callbacks.get('open_folder')), 'mdi.folder-open', '#2196F3')
 
         # URL 복사 (단일 항목만)
         if count == 1:
-            self._add_action(menu, STR.MENU_COPY_URL, lambda: _log_and_call('copy_url', callbacks.get('copy_url')))
+            self._add_action(menu, STR.MENU_COPY_URL, lambda: _log_and_call('copy_url', callbacks.get('copy_url')), 'mdi.content-copy', '#666666')
         
         menu.addSeparator()
         
         # 일시정지
         if status_flags['downloading'] or status_flags['waiting']:
-            self._add_action(menu, f"{STR.MENU_PAUSE}{suffix}", lambda: _log_and_call('pause', callbacks.get('pause')))
+            self._add_action(menu, f"{STR.MENU_PAUSE}{suffix}", lambda: _log_and_call('pause', callbacks.get('pause')), 'mdi.pause', '#F44336')
         
         # 이어받기
         if status_flags['paused']:
-            self._add_action(menu, f"{STR.MENU_RESUME}{suffix}", lambda: _log_and_call('resume', callbacks.get('resume')))
+            self._add_action(menu, f"{STR.MENU_RESUME}{suffix}", lambda: _log_and_call('resume', callbacks.get('resume')), 'mdi.play', '#4CAF50')
         
         # 재시도
         if status_flags['failed']:
-            self._add_action(menu, f"{STR.MENU_RETRY}{suffix}", lambda: _log_and_call('retry', callbacks.get('retry')))
+            self._add_action(menu, f"{STR.MENU_RETRY}{suffix}", lambda: _log_and_call('retry', callbacks.get('retry')), 'mdi.refresh', '#FF9800')
         
         menu.addSeparator()
         
         # 파일 삭제
         if status_flags['finished']:
-            self._add_action(menu, f"{STR.MENU_DELETE_FILE}{suffix}", lambda: _log_and_call('delete_file', callbacks.get('delete_file')))
+            self._add_action(menu, f"{STR.MENU_DELETE_FILE}{suffix}", lambda: _log_and_call('delete_file', callbacks.get('delete_file')), 'mdi.delete', '#F44336')
         
         # 목록에서 제거
-        self._add_action(menu, f"{STR.MENU_REMOVE}{suffix}", lambda: _log_and_call('remove', callbacks.get('remove')))
+        self._add_action(menu, f"{STR.MENU_REMOVE}{suffix}", lambda: _log_and_call('remove', callbacks.get('remove')), 'mdi.close', '#999999')
+        
+        # 완료된 파일만 목록에서 제거 (전체 목록 중 완료된 항목이 있을 때만 표시)
+        if hasattr(self.parent, 'tasks'):
+            has_completed = any(t.status == TaskStatus.FINISHED for t in self.parent.tasks)
+            if has_completed:
+                self._add_action(menu, STR.MENU_REMOVE_COMPLETED, lambda: _log_and_call('remove_all_completed', callbacks.get('remove_all_completed')), 'mdi.playlist-remove', '#999999')
         
         return menu
     
@@ -110,10 +117,12 @@ class ContextMenuBuilder:
             'failed': any(t.status == TaskStatus.FAILED for t in tasks),
         }
     
-    def _add_action(self, menu: QMenu, text: str, callback: Callable) -> None:
+    def _add_action(self, menu: QMenu, text: str, callback: Callable, icon_name: str = None, icon_color: str = '#666666') -> None:
         """메뉴에 액션 추가"""
         if callback is None:
             return
         action = QAction(text, self.parent)
+        if icon_name:
+            action.setIcon(qta.icon(icon_name, color=icon_color))
         action.triggered.connect(callback)
         menu.addAction(action)

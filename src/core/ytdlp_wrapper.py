@@ -11,7 +11,7 @@ import re
 import os
 from typing import Dict, Callable, Optional, Tuple, List
 from utils.logger import log
-from constants import YTDLP_TIMEOUT, YTDLP_RETRIES, DEFAULT_ENCODING
+from constants import YTDLP_TIMEOUT, YTDLP_RETRIES, DEFAULT_ENCODING, MSG_PAUSED_BY_USER
 
 
 class YtDlpWrapper:
@@ -36,23 +36,48 @@ class YtDlpWrapper:
         )
         
         # [download] Destination: filename.mp4
-        self.destination_pattern = re.compile(r'\[download\] Destination: (.+)')
+        # [ExtractAudio] Destination: filename.mp3
+        self.destination_pattern = re.compile(r'\[(?:download|ExtractAudio|VideoConvertor|ffmpeg)\] Destination:\s*"?(.+?)"?$')
+        
+        # [Merger] Merging formats into "filename.mp4"
+        self.merger_pattern = re.compile(r'\[Merger\] Merging formats into\s*"(.+?)"$')
         
         # [download] 100% of 10.5MiB in 00:04
         self.complete_pattern = re.compile(r'\[download\] 100%')
     
-    def _kill_process(self, process: subprocess.Popen) -> None:
-        """프로세스를 안전하게 종료"""
+    def _kill_process(self, process: subprocess.Popen, graceful: bool = False) -> None:
+        """프로세스를 안전하게 또는 강제로 종료"""
         try:
             if process and process.poll() is None:
-                process.kill()
+                if graceful and os.name == 'nt':
+                    import signal
+                    try:
+                        os.kill(process.pid, signal.CTRL_BREAK_EVENT)
+                        process.wait(timeout=5)
+                        return
+                    except (subprocess.TimeoutExpired, Exception):
+                        pass  # Graceful 실패 → kill fallback
+                
+                # 강제 종료: Windows에서는 자식 프로세스(ffmpeg, 내부 python 등)까지 즉시 모두 종료하기 위해 taskkill 사용
+                if os.name == 'nt':
+                    try:
+                        subprocess.run(
+                            ['taskkill', '/F', '/T', '/PID', str(process.pid)],
+                            capture_output=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW
+                        )
+                    except Exception:
+                        process.kill()
+                else:
+                    process.kill()
+                    
                 process.wait(timeout=5)
         except Exception:
             pass
         finally:
             self.current_process = None
     
-    def download(self, url: str, options: Dict, progress_hook: Callable) -> Tuple[bool, str]:
+    def download(self, url: str, options: Dict, progress_hook: Callable, is_resume: bool = False, stop_check: Callable = None) -> Tuple[bool, str]:
         """
         영상 다운로드 (기존 yt_dlp.YoutubeDL().download()와 동일한 인터페이스)
         
@@ -60,6 +85,8 @@ class YtDlpWrapper:
             url: 다운로드 URL
             options: yt-dlp 옵션 딕셔너리
             progress_hook: 진행률 콜백 함수
+            is_resume: 이어받기 여부
+            stop_check: 정지/일시정지 확인 콜백 (True 반환 시 즉시 중단)
         
         Returns:
             (성공 여부, 에러 메시지)
@@ -68,7 +95,7 @@ class YtDlpWrapper:
         stderr_output = []
         try:
             # 옵션을 CLI 인자로 변환
-            args = self._build_command(url, options)
+            args = self._build_command(url, options, is_resume)
             
             log.info(f"Running yt-dlp: {' '.join(args)}")
             
@@ -80,7 +107,7 @@ class YtDlpWrapper:
                 text=True,
                 encoding=DEFAULT_ENCODING,
                 errors='replace',
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=(subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
             )
             self.current_process = process
             
@@ -110,20 +137,37 @@ class YtDlpWrapper:
                     if not line:
                         break
                     
+                    # [핵심] 매 라인마다 정지/일시정지 확인 → 즉시 반응
+                    if stop_check and stop_check():
+                        log.info("Stop/pause detected via stop_check, killing process forcefully")
+                        self._kill_process(process, graceful=False)
+                        return False, MSG_PAUSED_BY_USER
+                    
                     line = line.strip()
                     
-                    # Destination 파싱 (새 fragment 시작)
+                    # Destination 파싱 (새 fragment 시작 또는 오디오 추출/변환 등)
                     dest_match = self.destination_pattern.search(line)
                     if dest_match:
                         current_file = dest_match.group(1)
-                        log.info(f"Downloading to: {current_file}")
+                        log.info(f"Downloading/Processing to: {current_file}")
                         
-                        # 새 fragment 준비
-                        current_fragment = {
-                            'type': 'video' if 'f' in current_file and 'mp4' in current_file else 'audio',
-                            'total': 0,
-                            'downloaded': 0
-                        }
+                        if '[download]' in line:
+                            # 새 fragment 준비
+                            current_fragment = {
+                                'type': 'video' if 'f' in current_file and 'mp4' in current_file else 'audio',
+                                'total': 0,
+                                'downloaded': 0
+                            }
+                        else:
+                            # 후처리(ExtractAudio 등)에서 Destination 갱신 시
+                            progress_hook({'status': 'postprocessing', 'filename': current_file})
+                            
+                    # Merger 파싱 (비디오/오디오 병합 후 최종 파일명)
+                    merger_match = self.merger_pattern.search(line)
+                    if merger_match:
+                        current_file = merger_match.group(1)
+                        log.info(f"Merging formats into: {current_file}")
+                        progress_hook({'status': 'postprocessing', 'filename': current_file})
                     
                     # 진행률 파싱
                     progress_data = self._parse_progress(line)
@@ -160,7 +204,8 @@ class YtDlpWrapper:
                         progress_hook({'status': 'finished', 'filename': current_file})
             except Exception as hook_error:
                 # progress_hook 예외 (일시정지 등) → 프로세스 즉시 종료
-                self._kill_process(process)
+                log.info("Exception in progress hook, killing process forcefully")
+                self._kill_process(process, graceful=False)
                 raise hook_error
             
             # 프로세스 종료 대기 (타임아웃 포함)
@@ -400,13 +445,14 @@ class YtDlpWrapper:
         else:
             return 0
     
-    def _build_command(self, url: str, options: Dict) -> List[str]:
+    def _build_command(self, url: str, options: Dict, is_resume: bool = False) -> List[str]:
         """
         Python dict 옵션을 CLI 인자로 변환
         
         Args:
             url: 다운로드 URL
             options: yt-dlp 옵션 딕셔너리
+            is_resume: 이어받기 여부
         
         Returns:
             CLI 인자 리스트
@@ -471,8 +517,18 @@ class YtDlpWrapper:
         if 'concurrent_fragment_downloads' in options:
             args.extend(['--concurrent-fragments', str(options['concurrent_fragment_downloads'])])
         
+        # 기본 저장 경로 (--paths home:)
+        if 'home_path' in options:
+            args.extend(['--paths', f'home:{options["home_path"]}'])
+        
+        # 임시 파일 전용 경로 (--paths temp:)
+        if 'temp_path' in options:
+            args.extend(['--paths', f'temp:{options["temp_path"]}'])
+        
         # 덮어쓰기
-        if options.get('overwrites'):
+        if is_resume:
+            args.append('--no-overwrites')
+        elif options.get('overwrites'):
             args.append('--force-overwrites')
         
         # 기타 기본 옵션

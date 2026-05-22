@@ -53,11 +53,11 @@ class DownloadScheduler(QObject):
         self.stop_event.clear()
         self.adjust_worker_count(max_workers)
     
-    def add_task(self, priority: int, task_id: int, url: str, settings: dict, metadata: dict = None):
+    def add_task(self, priority: int, task_id: int, url: str, settings: dict, metadata: dict = None, is_resume: bool = False):
         """다운로드 큐에 작업 추가"""
         if metadata is None:
             metadata = {}
-        self.download_queue.put((priority, task_id, url, settings, metadata))
+        self.download_queue.put((priority, task_id, url, settings, metadata, is_resume))
     
     def pause_all(self):
         """모든 다운로드 일시정지"""

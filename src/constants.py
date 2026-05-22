@@ -16,7 +16,7 @@ KEY_USE_ACCELERATION = 'use_acceleration'
 KEY_LANGUAGE = 'language'
 
 # 기본값 (Defaults)
-APP_VERSION = 'v2.0.1'  # 앱 버전
+APP_VERSION = 'v2.0.2'  # 앱 버전
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
@@ -98,6 +98,9 @@ PLAYLIST_VIDEO_URL_TEMPLATE = "https://www.youtube.com/watch?v={video_id}"
 DEFAULT_PLAYLIST_TITLE = "PlayList"
 DEFAULT_UPLOADER = "Unknown"
 DEFAULT_VIDEO_TITLE = "No Title"
+
+# 임시 파일 폴더
+YTDL_TEMP_DIR = '.ytdl_temp'
 
 # 다운로드 설정 상수
 CONCURRENT_FRAGMENT_DOWNLOADS = 6  # 멀티 스레드 다운로드 수

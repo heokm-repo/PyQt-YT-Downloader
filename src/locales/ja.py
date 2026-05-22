@@ -31,7 +31,8 @@ STRINGS = {
     'TITLE_SETTINGS': "設定",
 
     # Section: Save Location
-    'TITLE_FOLDER_SELECT': "ダウンロードフォルダを選択",
+    'TITLE_FOLDER_SELECT': "フォルダーの選択",
+    'TITLE_LICENSE': "ライセンス情報",
     'SETTINGS_SEC_LOCATION': "保存場所",
     'SETTINGS_BTN_BROWSE': "参照",
 
@@ -64,6 +65,7 @@ STRINGS = {
     'SETTINGS_LABEL_VERSION': "現在のバージョン:",
     'SETTINGS_BTN_CHECK_UPDATE': "更新を確認",
     'SETTINGS_BTN_UNINSTALL': "アプリを削除",
+    'SETTINGS_BTN_LICENSE': "ライセンス情報",
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "ダウンロードフォルダを選択してください。",
@@ -81,6 +83,7 @@ STRINGS = {
     
     'STATUS_PAUSED': '一時停止',
     'STATUS_PAUSED_SAVED': '一時停止 (保存済み)',
+    'STATUS_PAUSED_CANCELLED': 'キャンセル済み (一時ファイル削除済み)',
     'STATUS_IN_PROGRESS': '進行中',
 
     
@@ -134,7 +137,7 @@ STRINGS = {
 
 
 
-    
+
     # Init & Update
     'TITLE_INIT': "YT Downloader 初期化",
     'TITLE_INIT_SETUP': "初期設定",
@@ -181,7 +184,8 @@ STRINGS = {
     # 6. Toast / Info Messages
     # =========================================================================
     'MSG_READY': "準備完了",
-    'MSG_SMART_PASTE': "スマート貼り付け: ダウンロード開始",
+    'MSG_SMART_PASTE': "クリップボードからURLを貼り付けて追加しました。",
+    'MSG_LICENSE_INFO': "Icons by Font Awesome (SIL OFL 1.1)\nMaterial Design Icons (Apache 2.0)\n\nオープンソースライセンス:\n- yt-dlp (The Unlicense)\n- FFmpeg (GPL / LGPL)\n- QuickJS (MIT)\n\nこのソフトウェアは GNU General Public License v3.0 に基づいて配布されています。",
     'MSG_DL_ENABLED': "ダウンロード有効化",
     'MSG_DL_PAUSED': "ダウンロード一時停止",
     'MSG_DL_CANCELLED': "キャンセルされました。",
@@ -234,14 +238,15 @@ STRINGS = {
     'TOOLTIP_NORMALIZE': "音量を放送基準(-14 LUFS)に正規化します。\n変換に時間がかかります。",
     'TOOLTIP_ACCEL': "ファイルを分割して並行ダウンロードします。\n速度が向上します。\n(選択時は最大ダウンロード数が1に固定されます)",
 
-    'MENU_PLAY': "▶ 再生",
-    'MENU_OPEN_FOLDER': "📂 フォルダを開く",
-    'MENU_COPY_URL': "🔗 URLをコピー",
-    'MENU_PAUSE': "⏸ 一時停止",
-    'MENU_RESUME': "▶ 再開",
-    'MENU_RETRY': "↻ 再試行",
-    'MENU_DELETE_FILE': "🗑️ ファイルを削除",
-    'MENU_REMOVE': "❌ リストから削除",
+    'MENU_PLAY': "再生",
+    'MENU_OPEN_FOLDER': "フォルダを開く",
+    'MENU_COPY_URL': "URLをコピー",
+    'MENU_PAUSE': "一時停止",
+    'MENU_RESUME': "再開",
+    'MENU_RETRY': "再試行",
+    'MENU_DELETE_FILE': "ファイルを削除",
+    'MENU_REMOVE': "リストから削除",
+    'MENU_REMOVE_COMPLETED': "完了した項目のみリストから削除",
 
     # =========================================================================
     # 8. Task Actions & Confirmations
@@ -262,6 +267,7 @@ STRINGS = {
     
     'TITLE_REMOVE_CONFIRM': "削除確認",
     'MSG_REMOVE_CONFIRM': "{count}個の項目をリストから削除しますか？",
+    'MSG_REMOVE_COMPLETED_CONFIRM': "完了した{count}個の項目をリストから削除しますか？",
 
     # =========================================================================
     # 9. Constants & Lists

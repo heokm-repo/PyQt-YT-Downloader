@@ -38,7 +38,8 @@ from resources.styles import (
     SETTINGS_BUTTON_HEIGHT, SETTINGS_BUTTON_WIDTH, SETTINGS_TITLE_BAR_HEIGHT,
     SETTINGS_CLOSE_BUTTON_SIZE, SETTINGS_SHADOW_BLUR_RADIUS, SETTINGS_SHADOW_ALPHA,
     SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, SETTINGS_SECTION_FONT_SIZE,
-    COLOR_DIVIDER
+    COLOR_DIVIDER,
+    MIN_SETTINGS_TAB_WIDTH
 )
 from utils.logger import log
 
@@ -102,10 +103,14 @@ class SettingsDialog(BaseDialog):
             title=STR.TITLE_SETTINGS,
             icon_text=None,
             show_close_btn=True,
-            show_divider=False
+            show_divider=False,
+            resizable=False,
+            window_name="SettingsDialog"
         )
         
-        self.resize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
+        # 저장된 상태 복원 (없으면 기본 크기로 화면 중앙 배치)
+        self.restore_state(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
+        self.setFixedSize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
         
         # 설정 다이얼로그 전용 타이틀 스타일 적용
         self.title_label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, QFont.Bold))
@@ -121,6 +126,7 @@ class SettingsDialog(BaseDialog):
         # 탭 위젯 생성
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(SETTINGS_TAB_STYLE)
+        self.tab_widget.setMinimumWidth(MIN_SETTINGS_TAB_WIDTH)
         
         # 탭 1: 일반 설정 (General)
         general_tab = QWidget()
@@ -311,14 +317,17 @@ class SettingsDialog(BaseDialog):
 
     def _create_option_row(self, parent_layout, text, tooltip, checkbox):
         """옵션 행 생성 (❔ 아이콘 / 텍스트 / 체크박스)"""
+        import qtawesome as qta
+        from PyQt5.QtCore import QSize
+        
         row_layout = QHBoxLayout()
         row_layout.setSpacing(8)
         
-        # 1. 물음표 아이콘
-        help_icon = QLabel("❔")
-        # help_icon.setToolTip(tooltip)  # 기본 툴팁 대신 커스텀 이벤트 사용
-        # help_icon.setCursor(Qt.PointingHandCursor)  # 커서 변경 제거
-        help_icon.setStyleSheet(SETTINGS_HELP_ICON_STYLE)
+        # 1. 물음표 아이콘 (QtAwesome)
+        help_icon = QLabel()
+        help_pixmap = qta.icon('mdi.help-circle-outline', color='#5F428B').pixmap(QSize(22, 22))
+        help_icon.setPixmap(help_pixmap)
+        help_icon.setFixedSize(22, 22)
         
         # 즉시 툴팁 표시를 위한 이벤트 처리
         from PyQt5.QtWidgets import QToolTip
@@ -376,6 +385,15 @@ class SettingsDialog(BaseDialog):
         check_update_btn.setStyleSheet(SETTINGS_UPDATE_BUTTON_STYLE)
         check_update_btn.clicked.connect(self._on_check_update_clicked)
         layout.addWidget(check_update_btn)
+        
+        # 라이선스 정보 버튼
+        license_btn = QPushButton(STR.SETTINGS_BTN_LICENSE)
+        license_btn.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
+        license_btn.setCursor(Qt.PointingHandCursor)
+        license_btn.setFixedHeight(45)
+        license_btn.setStyleSheet(SETTINGS_UPDATE_BUTTON_STYLE)  # 같은 스타일 사용
+        license_btn.clicked.connect(self._show_license_info)
+        layout.addWidget(license_btn)
         
         # 앱 삭제 버튼
         uninstall_btn = QPushButton(STR.SETTINGS_BTN_UNINSTALL)
@@ -467,6 +485,10 @@ class SettingsDialog(BaseDialog):
 
     # ===== 다이얼로그 결과 처리 =====
     
+    def _show_license_info(self):
+        """라이선스 정보 다이얼로그 표시"""
+        MessageDialog(STR.TITLE_LICENSE, STR.MSG_LICENSE_INFO, MessageDialog.INFO, self).exec_()
+        
     def accept(self):
         """저장 버튼 클릭 시 설정 저장"""
         folder_path = self.folder_line.text().strip()

@@ -31,7 +31,8 @@ STRINGS = {
     'TITLE_SETTINGS': "설정",
 
     # Section: Save Location
-    'TITLE_FOLDER_SELECT': "다운로드 폴더 선택",
+    'TITLE_FOLDER_SELECT': "폴더 선택",
+    'TITLE_LICENSE': "라이선스 정보",
     'SETTINGS_SEC_LOCATION': "저장 위치",
     'SETTINGS_BTN_BROWSE': "찾아보기",
 
@@ -64,6 +65,7 @@ STRINGS = {
     'SETTINGS_LABEL_VERSION': "현재 버전:",
     'SETTINGS_BTN_CHECK_UPDATE': "업데이트 확인",
     'SETTINGS_BTN_UNINSTALL': "앱 삭제",
+    'SETTINGS_BTN_LICENSE': "라이선스 정보",
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "다운로드 폴더를 선택해주세요.",
@@ -81,6 +83,7 @@ STRINGS = {
     
     'STATUS_PAUSED': "일시정지됨",
     'STATUS_PAUSED_SAVED': "일시정지됨 (저장됨)",
+    'STATUS_PAUSED_CANCELLED': "취소됨 (임시 파일 삭제됨)",
     'STATUS_IN_PROGRESS': "진행 중",
 
     
@@ -181,7 +184,8 @@ STRINGS = {
     # 6. Toast / Info Messages
     # =========================================================================
     'MSG_READY': "준비됨",
-    'MSG_SMART_PASTE': "스마트 붙여넣기: 다운로드 시작됨",
+    'MSG_SMART_PASTE': "클립보드에서 URL을 붙여넣고 추가했습니다.",
+    'MSG_LICENSE_INFO': "Icons by Font Awesome (SIL OFL 1.1)\nMaterial Design Icons (Apache 2.0)\n\n오픈소스 라이선스:\n- yt-dlp (The Unlicense)\n- FFmpeg (GPL / LGPL)\n- QuickJS (MIT)\n\n이 소프트웨어는 GNU General Public License v3.0에 따라 배포됩니다.",
     'MSG_DL_ENABLED': "다운로드 활성화됨",
     'MSG_DL_PAUSED': "다운로드 일시정지됨",
     'MSG_DL_CANCELLED': "다운로드가 취소되었습니다.",
@@ -235,14 +239,15 @@ STRINGS = {
     'TOOLTIP_NORMALIZE': "음량을 방송 표준(-14 LUFS)으로 평준화합니다.\n변환에 시간이 더 소요됩니다.",
     'TOOLTIP_ACCEL': "파일을 여러 파트로 나누어 동시에 다운로드합니다.\n다운로드 속도가 향상됩니다.\n(선택 시 최대 다운로드 수는 1로 고정)",
 
-    'MENU_PLAY': "▶ 재생",
-    'MENU_OPEN_FOLDER': "📂 폴더 열기",
-    'MENU_COPY_URL': "🔗 URL 복사",
-    'MENU_PAUSE': "⏸ 일시정지",
-    'MENU_RESUME': "▶ 재개",
-    'MENU_RETRY': "↻ 재시도",
-    'MENU_DELETE_FILE': "🗑️ 파일 삭제",
-    'MENU_REMOVE': "❌ 목록에서 제거",
+    'MENU_PLAY': "재생",
+    'MENU_OPEN_FOLDER': "폴더 열기",
+    'MENU_COPY_URL': "URL 복사",
+    'MENU_PAUSE': "일시정지",
+    'MENU_RESUME': "재개",
+    'MENU_RETRY': "재시도",
+    'MENU_DELETE_FILE': "파일 삭제",
+    'MENU_REMOVE': "목록에서 제거",
+    'MENU_REMOVE_COMPLETED': "완료된 항목만 목록에서 제거",
 
     # =========================================================================
     # 8. Task Actions & Confirmations
@@ -263,6 +268,7 @@ STRINGS = {
     
     'TITLE_REMOVE_CONFIRM': "제거 확인",
     'MSG_REMOVE_CONFIRM': "목록에서 {count}개 항목을 제거하시겠습니까?",
+    'MSG_REMOVE_COMPLETED_CONFIRM': "목록에서 완료된 {count}개 항목을 제거하시겠습니까?",
 
     # =========================================================================
     # 9. Constants & Lists

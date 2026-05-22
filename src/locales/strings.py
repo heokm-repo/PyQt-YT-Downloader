@@ -53,6 +53,8 @@ class Strings:
     @property
     def TITLE_FOLDER_SELECT(self):   return get_string('TITLE_FOLDER_SELECT', "Select Download Folder")
     @property
+    def TITLE_LICENSE(self):         return get_string('TITLE_LICENSE', "License Information")
+    @property
     def SETTINGS_SEC_LOCATION(self): return get_string('SETTINGS_SEC_LOCATION', "Save Location")
     @property
     def SETTINGS_BTN_BROWSE(self):   return get_string('SETTINGS_BTN_BROWSE', "Browse")
@@ -108,6 +110,8 @@ class Strings:
     def SETTINGS_BTN_CHECK_UPDATE(self): return get_string('SETTINGS_BTN_CHECK_UPDATE', "Check for Updates")
     @property
     def SETTINGS_BTN_UNINSTALL(self):    return get_string('SETTINGS_BTN_UNINSTALL', "Uninstall App")
+    @property
+    def SETTINGS_BTN_LICENSE(self):      return get_string('SETTINGS_BTN_LICENSE', "License Info")
 
     # Settings Errors
     @property
@@ -133,6 +137,8 @@ class Strings:
     def STATUS_PAUSED(self):        return get_string('STATUS_PAUSED', 'Paused')
     @property
     def STATUS_PAUSED_SAVED(self):  return get_string('STATUS_PAUSED_SAVED', 'Paused (Saved)')
+    @property
+    def STATUS_PAUSED_CANCELLED(self): return get_string('STATUS_PAUSED_CANCELLED', 'Cancelled (Temp files removed)')
     @property
     def STATUS_IN_PROGRESS(self):   return get_string('STATUS_IN_PROGRESS', 'In Progress')
 
@@ -280,6 +286,8 @@ class Strings:
     @property
     def MSG_SMART_PASTE(self):         return get_string('MSG_SMART_PASTE', "Smart Paste: Download started")
     @property
+    def MSG_LICENSE_INFO(self):        return get_string('MSG_LICENSE_INFO', "Icons by Font Awesome (SIL OFL 1.1)\nMaterial Design Icons (Apache 2.0)\n\nThird-Party Software:\n- yt-dlp (The Unlicense)\n- FFmpeg (GPL / LGPL)\n- QuickJS (MIT)\n\nThis software is licensed under the GNU General Public License v3.0.")
+    @property
     def MSG_DL_ENABLED(self):          return get_string('MSG_DL_ENABLED', "Download enabled")
     @property
     def MSG_DL_PAUSED(self):           return get_string('MSG_DL_PAUSED', "Download paused")
@@ -374,23 +382,24 @@ class Strings:
     @property
     def TOOLTIP_ACCEL(self):        return get_string('TOOLTIP_ACCEL', "Download file in multiple parts concurrently.\nIncreases download speed.\n(Max downloads fixed to 1 when selected)")
 
-    # Context Menus (Translated Defaults)
     @property
-    def MENU_PLAY(self):         return get_string('MENU_PLAY', "▶ Play")
+    def MENU_PLAY(self):         return get_string('MENU_PLAY', "Play")
     @property
-    def MENU_OPEN_FOLDER(self):  return get_string('MENU_OPEN_FOLDER', "📂 Open Folder")
+    def MENU_OPEN_FOLDER(self):  return get_string('MENU_OPEN_FOLDER', "Open Folder")
     @property
-    def MENU_COPY_URL(self):     return get_string('MENU_COPY_URL', "🔗 Copy URL")
+    def MENU_COPY_URL(self):     return get_string('MENU_COPY_URL', "Copy URL")
     @property
-    def MENU_PAUSE(self):        return get_string('MENU_PAUSE', "⏸ Pause")
+    def MENU_PAUSE(self):        return get_string('MENU_PAUSE', "Pause")
     @property
-    def MENU_RESUME(self):       return get_string('MENU_RESUME', "▶ Resume")
+    def MENU_RESUME(self):       return get_string('MENU_RESUME', "Resume")
     @property
-    def MENU_RETRY(self):        return get_string('MENU_RETRY', "↻ Retry")
+    def MENU_RETRY(self):        return get_string('MENU_RETRY', "Retry")
     @property
-    def MENU_DELETE_FILE(self):  return get_string('MENU_DELETE_FILE', "🗑️ Delete File")
+    def MENU_DELETE_FILE(self):  return get_string('MENU_DELETE_FILE', "Delete File")
     @property
-    def MENU_REMOVE(self):       return get_string('MENU_REMOVE', "❌ Remove from List")
+    def MENU_REMOVE(self):       return get_string('MENU_REMOVE', "Remove from List")
+    @property
+    def MENU_REMOVE_COMPLETED(self): return get_string('MENU_REMOVE_COMPLETED', "Remove Completed")
 
     # =========================================================================
     # 8. Task Actions & Confirmations
@@ -424,6 +433,8 @@ class Strings:
     def TITLE_REMOVE_CONFIRM(self):     return get_string('TITLE_REMOVE_CONFIRM', "Confirm Remove")
     @property
     def MSG_REMOVE_CONFIRM(self):       return get_string('MSG_REMOVE_CONFIRM', "Remove {count} items from the list?")
+    @property
+    def MSG_REMOVE_COMPLETED_CONFIRM(self): return get_string('MSG_REMOVE_COMPLETED_CONFIRM', "Remove {count} completed items from the list?")
 
     # =========================================================================
     # 9. Constants & Lists
