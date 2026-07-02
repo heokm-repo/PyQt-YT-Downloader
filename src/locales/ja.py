@@ -71,6 +71,7 @@ STRINGS = {
     'ERR_SETTINGS_NO_FOLDER': "ダウンロードフォルダを選択してください。",
     'ERR_SETTINGS_CREATE_FOLDER': "フォルダを作成できません:\n{error}",
     'ERR_SETTINGS_INVALID_FOLDER': "選択したパスは有効なフォルダではありません。",
+    'MSG_DOWNLOAD_FOLDER_FALLBACK': "ダウンロードフォルダを使用できないため、保存先を変更しました。\n\n以前の保存先:\n{old_path}\n\n新しい保存先:\n{new_path}\n\n理由:\n{reason}",
 
     # =========================================================================
     # 4. Status Messages

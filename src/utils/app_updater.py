@@ -8,6 +8,7 @@ import sys
 import subprocess
 import requests
 from packaging import version
+from packaging.version import InvalidVersion
 from constants import APP_VERSION, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, UPDATE_TEMP_FILENAME
 from utils.logger import log
 
@@ -74,7 +75,7 @@ def check_for_updates():
     except requests.exceptions.RequestException as e:
         log.error(f"GitHub API 호출 실패: {e}", exc_info=True)
         return False, None, None
-    except Exception as e:
+    except (InvalidVersion, KeyError, TypeError, ValueError) as e:
         log.error(f"업데이트 확인 중 오류: {e}", exc_info=True)
         return False, None, None
 
@@ -118,7 +119,7 @@ def download_update(download_url, progress_callback=None):
         log.info(f"업데이트 다운로드 완료: {temp_file_path}")
         return temp_file_path
         
-    except Exception as e:
+    except (OSError, requests.exceptions.RequestException, ValueError) as e:
         log.error(f"업데이트 다운로드 실패: {e}", exc_info=True)
         return None
 
@@ -157,6 +158,6 @@ def apply_update(setup_exe_path):
         log.info("Setup 실행 완료, 앱 종료 예정...")
         return True
         
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
         log.error(f"업데이트 적용 실패: {e}", exc_info=True)
         return False

@@ -1,20 +1,19 @@
 import queue
-import os
 import threading
-import unicodedata
-from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import yt_dlp
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from core import download_handler
+from core.download import handler as download_handler
+from core.download.file_finder import find_downloaded_file
+from core.worker_progress import apply_downloading_progress, apply_postprocessing_progress, format_speed
+from core.worker_queue import parse_task_wrapper
 from utils.logger import log
+from utils.settings_store import get_download_folder
 from constants import (
-    MSG_PAUSED_BY_USER, MEDIA_EXTENSIONS, QUEUE_TIMEOUT_SEC,
-    BYTES_PER_KB, BYTES_PER_MB,
-    STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING,
-    EXT_PART, EXT_YTDL
+    MSG_PAUSED_BY_USER, QUEUE_TIMEOUT_SEC,
+    STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING
 )
 from locales.strings import STR
 
@@ -51,6 +50,7 @@ class DownloadWorker(QThread):
         self.stop_event = stop_event
         self.pause_event = pause_event
         self.current_task_id: int = -1
+        self.current_generation: Optional[int] = None
         self.download_progress: Dict[int, Dict[str, Any]] = {}
         self.last_update_times: Dict[int, float] = {}
         self.current_output_path: str = ""
@@ -60,37 +60,30 @@ class DownloadWorker(QThread):
     # 헬퍼 메서드들
     # ============================================================
     
-    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool]]:
+    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool, Optional[int]]]:
         """
-        Queue에서 가져온 데이터를 파싱하여 (task_id, url, settings, metadata, is_resume) 튜플 반환.
-        종료 신호이거나 파싱 실패 시 None 반환.
+        Parse a queue entry into (task_id, url, settings, metadata, is_resume, generation).
+        Return None for shutdown markers or invalid queue entries.
         """
-        if task_wrapper is None:
-            return None
-            
-        if isinstance(task_wrapper, tuple):
-            task = task_wrapper[1:]
-            if task[0] is None:
-                self.download_queue.task_done()
-                return None
-        else:
-            task = task_wrapper
+        task_data, should_mark_done = parse_task_wrapper(task_wrapper)
+        if should_mark_done:
+            self.download_queue.task_done()
+        return task_data
 
-        if len(task) == 5:
-            task_id, url, task_settings, metadata, is_resume = task
-        elif len(task) == 4:
-            task_id, url, task_settings, metadata = task
-            is_resume = False
-        else:
-            task_id, url, task_settings = task
-            metadata = {}
-            is_resume = False
-        
-        return task_id, url, task_settings, metadata, is_resume
-
-    def _should_skip_task(self, task_id: int) -> bool:
-        """개별 작업 일시정지 여부 확인. 스킵해야 하면 True 반환."""
+    def _should_skip_task(self, task_id: int, generation: Optional[int] = None) -> bool:
+        """Return True when the queued task should be skipped."""
         scheduler = self.parent()
+        if scheduler and generation is not None and hasattr(scheduler, 'is_current_generation'):
+            if not scheduler.is_current_generation(task_id, generation):
+                log.info(f"Skipping stale queued task (task_id={task_id}, generation={generation})")
+                self.download_queue.task_done()
+                return True
+
+        if scheduler and hasattr(scheduler, 'is_task_cancelled'):
+            if scheduler.is_task_cancelled(task_id):
+                self.download_queue.task_done()
+                return True
+
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
                 self.download_queue.task_done()
@@ -104,6 +97,12 @@ class DownloadWorker(QThread):
         if not self.pause_event.is_set():
             return True
         scheduler = self.parent()
+        if scheduler and self.current_generation is not None and hasattr(scheduler, 'is_current_generation'):
+            if not scheduler.is_current_generation(self.current_task_id, self.current_generation):
+                return True
+        if scheduler and hasattr(scheduler, 'is_task_cancelled'):
+            if scheduler.is_task_cancelled(self.current_task_id):
+                return True
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(self.current_task_id):
                 return True
@@ -146,52 +145,12 @@ class DownloadWorker(QThread):
         다운로드 완료된 파일의 경로를 찾아서 반환.
         찾지 못하면 빈 문자열 반환.
         """
-        final_path = ""
-        
-        if self.current_output_path:
-            try:
-                captured_path = Path(self.current_output_path).resolve()
-                if captured_path.exists():
-                    return str(captured_path)
-            except Exception:
-                pass
-        
-        save_path = settings.get('download_folder') or settings.get('save_path') or os.getcwd()
-        save_dir = Path(save_path)
-        
-        if not save_dir.exists():
-            return final_path
-            
-        try:
-            video_title = metadata.get('title', '')
-            if video_title:
-                import re
-                # 영문, 숫자, 한글 등 주요 문자만 남겨서 비교 (특수기호 제거)
-                clean_title = re.sub(r'[^\w가-힣]', '', video_title).lower()
-                
-                if clean_title:
-                    for file_path in save_dir.iterdir():
-                        if not file_path.is_file():
-                            continue
-                        
-                        clean_stem = re.sub(r'[^\w가-힣]', '', file_path.stem).lower()
-                        
-                        if clean_title in clean_stem:
-                            if file_path.suffix.lower() in MEDIA_EXTENSIONS:
-                                final_path = str(file_path.resolve())
-                                break
-                            
-        except Exception as e:
-            log.warning(f"파일 경로 찾기 실패 (task_id={task_id}): {e}")
-        
-        return final_path
+        save_path = get_download_folder(settings)
+        return find_downloaded_file(self.current_output_path, metadata, save_path, task_id)
 
     def _format_speed(self, speed: float) -> str:
         """바이트/초를 읽기 쉬운 형식으로 변환"""
-        if speed > BYTES_PER_MB:
-            return f"{speed / BYTES_PER_MB:.1f} MB/s"
-        else:
-            return f"{speed / BYTES_PER_KB:.1f} KB/s"
+        return format_speed(speed)
 
     # ============================================================
     # 메인 실행 메서드
@@ -216,12 +175,13 @@ class DownloadWorker(QThread):
                 if task_data is None:
                     break
                 
-                task_id, url, current_settings, metadata, is_resume = task_data
+                task_id, url, current_settings, metadata, is_resume, generation = task_data
 
-                if self._should_skip_task(task_id):
+                if self._should_skip_task(task_id, generation):
                     continue
                 
                 self.current_task_id = task_id
+                self.current_generation = generation
                 self.current_output_path = ""
                 
                 metadata, meta_ok = self._process_metadata(task_id, url, metadata, current_settings)
@@ -235,6 +195,7 @@ class DownloadWorker(QThread):
                         log.error(f"지원되지 않는 URL (task_id={task_id}): {url}")
                         self.download_finished.emit(False, error_msg, task_id, "")
                         self.download_queue.task_done()
+                        self.current_generation = None
                         continue
                 
                 self.task_started.emit(task_id)
@@ -248,6 +209,7 @@ class DownloadWorker(QThread):
                 if not success and MSG_PAUSED_BY_USER in str(message):
                     self.download_finished.emit(False, STR.STATUS_PAUSED, task_id, "")
                     self.download_queue.task_done()
+                    self.current_generation = None
                     continue
 
                 if task_id in self.download_progress:
@@ -259,6 +221,7 @@ class DownloadWorker(QThread):
                 
                 self.download_finished.emit(success, message, task_id, final_path)
                 self.download_queue.task_done()
+                self.current_generation = None
                 
                 if self.retire_flag:
                     break
@@ -273,11 +236,13 @@ class DownloadWorker(QThread):
         error_task_id = -1
         if task_wrapper is not None:
             try:
-                if isinstance(task_wrapper, tuple) and len(task_wrapper) > 1:
+                if isinstance(task_wrapper, tuple) and len(task_wrapper) == 7:
+                    error_task_id = task_wrapper[2]
+                elif isinstance(task_wrapper, tuple) and len(task_wrapper) > 1:
                     error_task_id = task_wrapper[1]
                 self.download_queue.task_done()
-            except Exception:
-                pass
+            except (IndexError, TypeError, ValueError) as cleanup_error:
+                log.debug(f"Failed to mark errored queue entry done: {cleanup_error}")
         error_msg = str(e)
         log.error(f"다운로드 오류 (task_id={error_task_id}): {error_msg}", exc_info=True)
         self.download_finished.emit(False, f"오류: {error_msg}", error_task_id, "")
@@ -292,6 +257,9 @@ class DownloadWorker(QThread):
         
         task_id = self.current_task_id
         scheduler = self.parent()
+        if scheduler and hasattr(scheduler, 'is_task_cancelled'):
+            if scheduler.is_task_cancelled(task_id):
+                raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
                 raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
@@ -307,88 +275,16 @@ class DownloadWorker(QThread):
             elif status in [STATUS_POSTPROCESSING, STATUS_FINISHED]:
                 self._handle_postprocessing_status(d, status, task_id)
                 
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Progress update handling failed (task_id={task_id}): {e}", exc_info=True)
 
     def _handle_downloading_status(self, d: Dict[str, Any], task_id: int) -> None:
         """다운로드 중 상태 처리"""
-        current_real_total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-        downloaded = d.get('downloaded_bytes', 0) or 0
-        current_filename = d.get('filename', '')
-        
         if task_id not in self.download_progress:
             return
 
-        progress_info = self.download_progress[task_id]
-        
-        import os
-        clean_current = os.path.basename(current_filename)
-        for ext in [EXT_PART, EXT_YTDL]:
-            if clean_current.endswith(ext):
-                clean_current = clean_current[:-len(ext)]
-                break
-            
-        saved_video_name = progress_info['video'].get('filename')
-        if saved_video_name: 
-            saved_video_name = os.path.basename(saved_video_name)
-            
-        saved_audio_name = progress_info['audio'].get('filename')
-        if saved_audio_name: 
-            saved_audio_name = os.path.basename(saved_audio_name)
+        apply_downloading_progress(d, self.download_progress[task_id])
 
-        is_video_file = False
-        is_audio_file = False
-        
-        if saved_video_name and clean_current == saved_video_name:
-            is_video_file = True
-        elif saved_audio_name and clean_current == saved_audio_name:
-            is_audio_file = True
-        else:
-            if saved_video_name is None and saved_audio_name is None:
-                progress_info['video']['filename'] = clean_current
-                is_video_file = True
-            elif saved_video_name is None:
-                progress_info['video']['filename'] = clean_current
-                is_video_file = True
-            elif saved_audio_name is None:
-                progress_info['audio']['filename'] = clean_current
-                is_audio_file = True
-
-        if is_video_file:
-            progress_info['video']['downloaded'] = downloaded
-            cumulative_downloaded = downloaded
-            
-        elif is_audio_file:
-            progress_info['audio']['downloaded'] = downloaded
-            cumulative_downloaded = progress_info['video']['total'] + downloaded
-        else:
-            cumulative_downloaded = downloaded
-
-        video_total = progress_info['video']['total']
-        audio_total = progress_info['audio']['total']
-        audio_est = progress_info.get('audio_size_est', 0)
-        
-        if audio_total <= 0 and audio_est > 0:
-            current_total_plan = video_total + audio_est
-        else:
-            current_total_plan = video_total + audio_total
-        
-        if current_total_plan <= 0:
-            current_total_plan = current_real_total if current_real_total > 0 else 1
-
-        percent = (cumulative_downloaded / current_total_plan) * 100
-        if percent > 100.0:
-            percent = 100.0
-        
-        d['_percent_str'] = f"{percent:.1f}%"
-        d['downloaded_bytes'] = cumulative_downloaded
-        d['total_bytes'] = current_total_plan
-        d['total_bytes_estimate'] = current_total_plan
-        
-        speed = d.get('speed')
-        if speed:
-            d['_speed_str'] = self._format_speed(speed)
-        
         import time
         current_time = time.time()
         # 쓰레드 부하를 줄여 UI 프리징/렉을 방지하기 위해 0.1초 딜레이(100ms) 적용
@@ -400,48 +296,9 @@ class DownloadWorker(QThread):
         """후처리/완료 상태 처리"""
         if task_id not in self.download_progress:
             return
-            
-        progress_info = self.download_progress[task_id]
-        
-        if status == STATUS_POSTPROCESSING:
-            d['_percent_str'] = STR.WORKER_MSG_PROCESSING
-            d['_speed_str'] = STR.WORKER_MSG_CONVERTING
-            
-            total_size = progress_info.get('total_size_est', 0)
-            if total_size > 0:
-                d['downloaded_bytes'] = total_size
-                d['total_bytes'] = total_size
-                d['total_bytes_estimate'] = total_size
-                    
-        elif status == STATUS_FINISHED:
-            import os
-            current_filename = d.get('filename', '')
-            clean_current = os.path.basename(current_filename)
-            for ext in [EXT_PART, EXT_YTDL]:
-                if clean_current.endswith(ext):
-                    clean_current = clean_current[:-len(ext)]
-                    break
 
-            saved_audio_name = progress_info['audio'].get('filename')
-            if saved_audio_name: 
-                saved_audio_name = os.path.basename(saved_audio_name)
-            
-            audio_total = progress_info['audio']['total']
-            is_audio_file = (saved_audio_name and clean_current == saved_audio_name)
-            
-            if audio_total > 0 and not is_audio_file:
-                return
-
-            d['_percent_str'] = "100%"
-            d['_speed_str'] = STR.WORKER_MSG_COMPLETED
-            
-            total_size = progress_info.get('total_size_est', 0)
-            if total_size > 0:
-                d['downloaded_bytes'] = total_size
-                d['total_bytes'] = total_size
-                d['total_bytes_estimate'] = total_size
-        
-        self.progress_updated.emit(d, task_id)
+        if apply_postprocessing_progress(d, status, self.download_progress[task_id]):
+            self.progress_updated.emit(d, task_id)
 
 
 class StartupWorker(QThread):
@@ -452,7 +309,7 @@ class StartupWorker(QThread):
 
     def run(self):
         try:
-            from utils.bin_manager import check_binaries_exist, check_updates_available
+            from utils.bin.manager import check_binaries_exist, check_updates_available
             from utils.app_updater import check_for_updates
             from locales.strings import STR
             import time

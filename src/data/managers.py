@@ -6,7 +6,6 @@ import os
 import json
 import sqlite3
 import datetime
-from PyQt5.QtWidgets import QDialog
 
 from utils.utils import get_user_data_path
 from utils.logger import log
@@ -208,7 +207,6 @@ class DuplicateChecker:
     
     def __init__(self, history_manager, parent_widget=None):
         self.history_manager = history_manager
-        self.parent_widget = parent_widget
     
     def is_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
         """
@@ -267,37 +265,9 @@ class DuplicateChecker:
     
     def check_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
         """
-        중복 다운로드 체크 (extractor + 확장자 포함) + UI 확인
-        - 같은 extractor + ID이고 확장자도 같으면 경고
-        - 같은 ID라도 extractor가 다르면 OK
-        - 같은 extractor + ID라도 확장자가 다르면 OK
-        
-        Args:
-            extractor: 추출기(사이트) 식별자
-            video_id: 비디오 ID
-            current_task_id: 현재 작업 ID
-            tasks: 작업 목록 (DownloadTask 리스트)
-            target_ext: 대상 확장자 (기본값: 'mp4')
-        
-        Returns:
-            bool: True면 중복으로 간주하여 취소, False면 다운로드 진행
+        중복 다운로드 여부만 반환합니다. 사용자 확인은 GUI 계층에서 처리합니다.
         """
-        is_dup, message, duplicate_task = self.is_duplicate(
+        is_dup, _message, _duplicate_task = self.is_duplicate(
             extractor, video_id, current_task_id, tasks, target_ext
         )
-        
-        if not is_dup:
-            return False
-        
-        # 확인 대화상자 표시
-        from gui.widgets.message_dialog import MessageDialog
-        
-        dialog = MessageDialog(STR.MSG_DUPLICATE_CHECK, message, 
-                               MessageDialog.QUESTION, self.parent_widget, show_cancel=False)
-        
-        # 사용자가 "아니요"를 선택한 경우 (Reject) True 반환 (중복 취소)
-        # MessageDialog의 QUESTION 타입은 
-        # Yes -> accept -> Accepted
-        # No -> reject -> Rejected
-        
-        return dialog.exec_() != QDialog.Accepted
+        return is_dup

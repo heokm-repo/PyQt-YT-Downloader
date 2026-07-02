@@ -46,7 +46,12 @@ class DownloadScheduler(QObject):
         
         # 개별 작업 일시정지 플래그 (task_id -> bool) - 스레드 안전을 위한 Lock 추가
         self.task_paused_flags = {}
+        self.task_cancelled_flags = set()
         self._paused_flags_lock = threading.Lock()
+
+        # Keep only the latest queued run valid for each task_id.
+        self.task_generations = {}
+        self._generations_lock = threading.Lock()
     
     def initialize(self, max_workers: int):
         """스케줄러 초기화 및 워커 시작"""
@@ -54,10 +59,21 @@ class DownloadScheduler(QObject):
         self.adjust_worker_count(max_workers)
     
     def add_task(self, priority: int, task_id: int, url: str, settings: dict, metadata: dict = None, is_resume: bool = False):
-        """다운로드 큐에 작업 추가"""
+        """Add a download task to the queue."""
         if metadata is None:
             metadata = {}
-        self.download_queue.put((priority, task_id, url, settings, metadata, is_resume))
+        with self._paused_flags_lock:
+            self.task_cancelled_flags.discard(task_id)
+        with self._generations_lock:
+            generation = self.task_generations.get(task_id, 0) + 1
+            self.task_generations[task_id] = generation
+        self.download_queue.put((priority, generation, task_id, url, settings, metadata, is_resume))
+        return generation
+
+    def is_current_generation(self, task_id: int, generation: int) -> bool:
+        """Return whether a queued task generation is still current."""
+        with self._generations_lock:
+            return self.task_generations.get(task_id) == generation
     
     def pause_all(self):
         """모든 다운로드 일시정지"""
@@ -82,6 +98,19 @@ class DownloadScheduler(QObject):
             if task_id in self.task_paused_flags:
                 del self.task_paused_flags[task_id]
     
+    def cancel_task(self, task_id: int):
+        """Cancel queued or currently running work for a task."""
+        with self._paused_flags_lock:
+            self.task_paused_flags.pop(task_id, None)
+            self.task_cancelled_flags.add(task_id)
+        with self._generations_lock:
+            self.task_generations[task_id] = self.task_generations.get(task_id, 0) + 1
+
+    def is_task_cancelled(self, task_id: int) -> bool:
+        """Return whether a task was cancelled by the UI."""
+        with self._paused_flags_lock:
+            return task_id in self.task_cancelled_flags
+
     def is_task_paused(self, task_id: int) -> bool:
         """개별 작업이 일시정지 상태인지 확인 (스레드 안전)"""
         with self._paused_flags_lock:
@@ -147,7 +176,7 @@ class DownloadScheduler(QObject):
         
         # 워커에게 종료 신호 전송 (큐에 종료 마커 추가)
         for _ in self.workers:
-            self.download_queue.put((SCHEDULER_PRIORITY_NORMAL, None))
+            self.download_queue.put((SCHEDULER_PRIORITY_NORMAL, -1, None))
         
         # 워커들이 정리할 시간을 줌
         for worker in self.workers:

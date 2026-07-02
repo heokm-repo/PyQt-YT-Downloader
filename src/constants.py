@@ -16,7 +16,7 @@ KEY_USE_ACCELERATION = 'use_acceleration'
 KEY_LANGUAGE = 'language'
 
 # 기본값 (Defaults)
-APP_VERSION = 'v2.0.2'  # 앱 버전
+APP_VERSION = 'v2.1.0'  # 앱 버전
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
@@ -161,7 +161,6 @@ APPDATA_DIR_NAME = "YTDownloader"
 
 # Bin Manager Constants
 FFMPEG_ZIP_NAME_WIN = "ffmpeg-master-latest-win64-gpl.zip"
-FFMPEG_ZIP_NAME_LINUX = "ffmpeg-master-latest-linux64-gpl.tar.xz"
 FFMPEG_EXE_INTERNAL_PATH = "bin/ffmpeg.exe"
 FFMPEG_EXE_INTERNAL_PATH_ROOT = "ffmpeg.exe"
 
@@ -178,8 +177,6 @@ YOUTUBE_URL_PATTERNS = [
     r'(?:https?://)?(?:www\.)?youtube\.com/live/([^&\n?#]+)',
     r'(?:https?://)?(?:www\.)?youtube\.com/(?:embed|v)/([^&\n?#]+)'
 ]
-PATH_MAC_APP_DATA = '~/Library/Application Support'
-PATH_LINUX_APP_DATA = '~/.local/share'
 
 # Main Constants
 ORGANIZATION_NAME = "YTDownloader"

@@ -16,6 +16,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEngi
 from PyQt5.QtNetwork import QNetworkCookie
 
 from utils.utils import get_user_data_path
+from utils.cookie_store import get_cookie_file_path
 from utils.logger import log
 from locales.strings import STR
 from resources.styles import (
@@ -28,20 +29,6 @@ YOUTUBE_LOGIN_URL = "https://accounts.google.com/ServiceLogin?service=youtube&ui
 
 # 쿠키 안정화를 위한 URL (yt-dlp 공식 권장)
 YOUTUBE_ROBOTS_URL = "https://www.youtube.com/robots.txt"
-
-# 쿠키 파일 이름
-COOKIE_FILENAME = "cookies.txt"
-
-
-def get_cookie_file_path():
-    """쿠키 파일 경로를 반환합니다."""
-    return os.path.join(get_user_data_path(), COOKIE_FILENAME)
-
-
-def cookie_file_exists():
-    """쿠키 파일이 존재하는지 확인합니다."""
-    return os.path.exists(get_cookie_file_path())
-
 
 def _extract_cookie_data(cookie: QNetworkCookie) -> dict:
     """
@@ -58,7 +45,8 @@ def _extract_cookie_data(cookie: QNetworkCookie) -> dict:
     if expiry.isValid():
         try:
             expires = int(expiry.toSecsSinceEpoch())
-        except Exception:
+        except (OverflowError, RuntimeError, TypeError) as e:
+            log.debug(f"Cookie expiry conversion failed, using fallback expiry: {e}")
             expires = int(datetime.now().timestamp()) + 365 * 24 * 3600
     else:
         # 세션 쿠키: 1년 후 만료로 설정
@@ -181,8 +169,8 @@ class LoginBrowser(QDialog):
             data = _extract_cookie_data(cookie)
             key = f"{data['domain']}|{data['name']}"
             self._cookies[key] = data
-        except Exception:
-            pass
+        except (AttributeError, KeyError, RuntimeError, TypeError, UnicodeError) as e:
+            log.debug(f"Failed to cache added cookie: {e}")
     
     def _on_cookie_removed(self, cookie: QNetworkCookie):
         """쿠키가 제거될 때 호출"""
@@ -191,8 +179,8 @@ class LoginBrowser(QDialog):
             name = cookie.name().data().decode('utf-8', errors='replace')
             key = f"{domain}|{name}"
             self._cookies.pop(key, None)
-        except Exception:
-            pass
+        except (AttributeError, RuntimeError, TypeError, UnicodeError) as e:
+            log.debug(f"Failed to remove cached cookie: {e}")
     
     def _on_url_changed(self, url: QUrl):
         """URL 변경 감지"""
@@ -291,7 +279,7 @@ class LoginBrowser(QDialog):
                 try:
                     shutil.rmtree(path)
                     log.info(f"Cleaned up {folder}")
-                except Exception as e:
+                except OSError as e:
                     log.warning(f"Failed to clean up {folder}: {e}")
     
     
@@ -302,13 +290,13 @@ class LoginBrowser(QDialog):
             cookie_store = profile.cookieStore()
             cookie_store.cookieAdded.disconnect(self._on_cookie_added)
             cookie_store.cookieRemoved.disconnect(self._on_cookie_removed)
-        except Exception:
-            pass
+        except (RuntimeError, TypeError) as e:
+            log.debug(f"Failed to disconnect cookie signals during login browser close: {e}")
         
         try:
             self.web_view.stop()
             self.web_view.setUrl(QUrl("about:blank"))
-        except Exception:
-            pass
+        except RuntimeError as e:
+            log.debug(f"Failed to stop login browser web view during close: {e}")
         
         super().closeEvent(event)

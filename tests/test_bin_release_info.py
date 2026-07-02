@@ -1,0 +1,92 @@
+import os
+import sys
+import unittest
+
+ROOT = os.path.dirname(os.path.dirname(__file__))
+SRC = os.path.join(ROOT, "src")
+TEST_APPDATA = os.path.join(ROOT, "tests", ".appdata")
+os.makedirs(TEST_APPDATA, exist_ok=True)
+os.environ["APPDATA"] = TEST_APPDATA
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
+
+from utils.bin.release_info import (
+    ffmpeg_release_info,
+    find_asset_download_url,
+    normalize_release_tag,
+    quickjs_release_info,
+    release_version_from_published_or_tag,
+    ytdlp_release_info,
+)
+
+
+class BinReleaseInfoTests(unittest.TestCase):
+    def test_normalize_release_tag_removes_v_prefix(self):
+        self.assertEqual(normalize_release_tag("v2024.01.30"), "2024.01.30")
+        self.assertEqual(normalize_release_tag(None), "")
+
+    def test_release_version_from_published_or_tag_prefers_published_date(self):
+        data = {"published_at": "2026-07-01T12:34:56Z", "tag_name": "latest"}
+
+        self.assertEqual(release_version_from_published_or_tag(data), "2026.07.01")
+
+    def test_release_version_from_published_or_tag_falls_back_to_tag(self):
+        self.assertEqual(
+            release_version_from_published_or_tag({"tag_name": "v1.2.3"}),
+            "1.2.3",
+        )
+
+    def test_find_asset_download_url_matches_exact_name(self):
+        data = {
+            "assets": [
+                {"name": "other.exe", "browser_download_url": "wrong"},
+                {"name": "yt-dlp.exe", "browser_download_url": "right"},
+            ]
+        }
+
+        self.assertEqual(find_asset_download_url(data, exact_name="yt-dlp.exe"), "right")
+
+    def test_find_asset_download_url_matches_name_substring(self):
+        data = {
+            "assets": [
+                {"name": "ffmpeg-master-latest-win64-gpl.zip", "browser_download_url": "zip"},
+            ]
+        }
+
+        self.assertEqual(find_asset_download_url(data, name_contains="win64-gpl.zip"), "zip")
+
+    def test_ytdlp_release_info_returns_version_and_url(self):
+        data = {
+            "tag_name": "v2024.01.30",
+            "assets": [{"name": "yt-dlp.exe", "browser_download_url": "url"}],
+        }
+
+        self.assertEqual(ytdlp_release_info(data, "yt-dlp.exe"), ("2024.01.30", "url"))
+
+    def test_ytdlp_release_info_returns_none_without_asset(self):
+        self.assertEqual(ytdlp_release_info({"tag_name": "v1", "assets": []}, "yt-dlp.exe"), (None, None))
+
+    def test_ffmpeg_release_info_uses_published_date_and_matching_asset(self):
+        data = {
+            "published_at": "2026-07-01T12:34:56Z",
+            "assets": [
+                {"name": "ffmpeg-master-latest-win64-gpl.zip", "browser_download_url": "url"},
+            ],
+        }
+
+        self.assertEqual(
+            ffmpeg_release_info(data, "ffmpeg-master-latest-win64-gpl.zip"),
+            ("2026.07.01", "url"),
+        )
+
+    def test_quickjs_release_info_returns_exact_asset(self):
+        data = {
+            "tag_name": "v0.9.0",
+            "assets": [{"name": "qjs-windows-x86_64.exe", "browser_download_url": "url"}],
+        }
+
+        self.assertEqual(quickjs_release_info(data, "qjs-windows-x86_64.exe"), ("0.9.0", "url"))
+
+
+if __name__ == "__main__":
+    unittest.main()

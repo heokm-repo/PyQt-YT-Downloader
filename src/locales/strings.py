@@ -120,6 +120,12 @@ class Strings:
     def ERR_SETTINGS_CREATE_FOLDER(self):  return get_string('ERR_SETTINGS_CREATE_FOLDER', "Cannot create folder:\n{error}")
     @property
     def ERR_SETTINGS_INVALID_FOLDER(self): return get_string('ERR_SETTINGS_INVALID_FOLDER', "The selected path is not a valid folder.")
+    @property
+    def MSG_DOWNLOAD_FOLDER_FALLBACK(self):
+        return get_string(
+            'MSG_DOWNLOAD_FOLDER_FALLBACK',
+            "The download folder could not be used, so it was changed.\n\nPrevious folder:\n{old_path}\n\nNew folder:\n{new_path}\n\nReason:\n{reason}"
+        )
 
     # =========================================================================
     # 4. Status Messages

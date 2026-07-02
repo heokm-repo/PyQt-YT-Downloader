@@ -4,9 +4,7 @@ import re
 from typing import Optional
 from constants import (
     APPDATA_DIR_NAME,
-    YOUTUBE_URL_PATTERNS,
-    PATH_MAC_APP_DATA,
-    PATH_LINUX_APP_DATA
+    YOUTUBE_URL_PATTERNS
 )
 
 
@@ -17,30 +15,19 @@ def get_base_path() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_user_data_path() -> str:
-    """
-    OS별 표준 사용자 데이터 경로 반환
-    Windows: %APPDATA%\YTDownloader
-    macOS: ~/Library/Application Support/YTDownloader
-    Linux: ~/.local/share/YTDownloader
-    """
-    if sys.platform == 'win32':
-        base_path = os.getenv('APPDATA')
-    elif sys.platform == 'darwin':
-        base_path = os.path.expanduser(PATH_MAC_APP_DATA)
-    else:
-        base_path = os.path.expanduser(PATH_LINUX_APP_DATA)
-
+    """Return the Windows app data directory used by this application."""
+    base_path = os.getenv('APPDATA')
     if not base_path:
         return get_base_path()
-    
+
     data_path = os.path.join(base_path, APPDATA_DIR_NAME)
-    
+
     if not os.path.exists(data_path):
         try:
             os.makedirs(data_path, exist_ok=True)
         except OSError:
             return get_base_path()
-            
+
     return data_path
 
 def get_ffmpeg_path() -> Optional[str]:
@@ -48,7 +35,7 @@ def get_ffmpeg_path() -> Optional[str]:
     FFmpeg 실행 파일 경로 반환
     - bin_manager에서 관리하는 외부 바이너리 사용
     """
-    from utils.bin_manager import get_ffmpeg_path as get_bin_ffmpeg
+    from utils.bin.manager import get_ffmpeg_path as get_bin_ffmpeg
     return get_bin_ffmpeg()
 
 def validate_url(url: str) -> bool:
@@ -62,7 +49,7 @@ def validate_url(url: str) -> bool:
         from urllib.parse import urlparse
         result = urlparse(url)
         return all([result.scheme in ('http', 'https'), result.netloc])
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return False
 
 def is_youtube_url(url: str) -> bool:

@@ -58,3 +58,6 @@ Desktop.ini
 
 # macOS
 .DS_Store
+
+# Test runtime data
+tests/.appdata/

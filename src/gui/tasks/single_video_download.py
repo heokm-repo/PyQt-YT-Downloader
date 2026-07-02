@@ -1,0 +1,66 @@
+"""Planning helpers for single-video downloads."""
+
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping, Optional, Sequence
+
+from gui.tasks.duplicate_check_target import (
+    DuplicateCheckTarget,
+    build_duplicate_check_target_from_values,
+)
+
+
+@dataclass(frozen=True)
+class SingleVideoDownloadPlan:
+    clean_url: str
+    video_id: Optional[str]
+    extractor: str
+    settings: dict
+    duplicate_target: Optional[DuplicateCheckTarget]
+
+
+def build_single_video_download_plan(
+    clean_url: str,
+    video_id: Optional[str],
+    extractor: Optional[str],
+    settings: Mapping[str, Any],
+) -> SingleVideoDownloadPlan:
+    """Return normalized inputs needed to register a single-video download."""
+    current_settings = dict(settings)
+    effective_extractor = extractor or "unknown"
+    return SingleVideoDownloadPlan(
+        clean_url=clean_url,
+        video_id=video_id,
+        extractor=effective_extractor,
+        settings=current_settings,
+        duplicate_target=build_duplicate_check_target_from_values(
+            video_id,
+            effective_extractor,
+            current_settings,
+        ),
+    )
+
+
+def single_video_duplicate_cancelled(
+    duplicate_checker: Any,
+    duplicate_target: Optional[DuplicateCheckTarget],
+    tasks: Sequence[Any],
+    confirm_duplicate: Callable[[str], bool] | None = None,
+) -> bool:
+    """Return True when a duplicate single-video download should be cancelled."""
+    if not duplicate_target:
+        return False
+
+    is_duplicate, message, _duplicate_task = duplicate_checker.is_duplicate(
+        duplicate_target.extractor,
+        duplicate_target.video_id,
+        -1,
+        list(tasks),
+        duplicate_target.target_format,
+    )
+    if not is_duplicate:
+        return False
+
+    if confirm_duplicate is None:
+        return True
+
+    return not confirm_duplicate(message)

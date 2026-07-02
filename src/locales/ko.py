@@ -71,6 +71,7 @@ STRINGS = {
     'ERR_SETTINGS_NO_FOLDER': "다운로드 폴더를 선택해주세요.",
     'ERR_SETTINGS_CREATE_FOLDER': "폴더를 생성할 수 없습니다:\n{error}",
     'ERR_SETTINGS_INVALID_FOLDER': "선택한 경로가 유효한 폴더가 아닙니다.",
+    'MSG_DOWNLOAD_FOLDER_FALLBACK': "다운로드 폴더를 사용할 수 없어 저장 위치가 변경되었습니다.\n\n이전 저장 위치:\n{old_path}\n\n새 저장 위치:\n{new_path}\n\n사유:\n{reason}",
 
     # =========================================================================
     # 4. Status Messages

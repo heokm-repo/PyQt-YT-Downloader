@@ -1,26 +1,92 @@
-import os
 from typing import Optional
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLineEdit, QPushButton, QLabel, QFrame,
-                             QSlider, QDialog, QScrollArea,
-                             QApplication, QShortcut, QGraphicsDropShadowEffect)
-from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent, QSize
-from PyQt5.QtGui import QFont, QKeySequence, QColor
-import qtawesome as qta
+from PyQt5.QtWidgets import (
+    QApplication,
+    QDialog,
+    QMainWindow,
+    QShortcut,
+)
+from PyQt5.QtCore import Qt, pyqtSlot, QPoint, QEvent, QTimer
+from PyQt5.QtGui import QKeySequence
 
-from gui.windows.settings_dialog import SettingsDialog, load_settings, save_settings
+from gui.windows.settings_dialog import SettingsDialog
+from utils.settings_store import (
+    consume_download_folder_fallback_notice,
+    load_settings,
+    save_settings,
+)
 from core.workers import PlaylistAnalysisWorker
-from utils.utils import validate_url
+from core.task_metadata import apply_metadata_to_task
+from core.playlist_filter import filter_duplicate_videos
 from core.url_processor import UrlProcessor
 from data.managers import HistoryManager, TaskManager, DuplicateChecker
-from gui.selection_manager import SelectionManager
-from gui.context_menu import ContextMenuBuilder
-from gui.task_actions import TaskActions
-from gui.widgets.task_item import TaskWidget
-from gui.widgets.toggle_button import ToggleButton
-from gui.widgets.resizable_mixin import ResizableMixin
-from gui.widgets.window_state_manager import save_window_state, restore_window_state
+from gui.main_window.click_deselect import should_clear_selection_for_click
+from gui.tasks.selection_manager import SelectionManager
+from core.scheduler_settings import target_worker_count
+from gui.tasks.single_video_download import (
+    build_single_video_download_plan,
+    single_video_duplicate_cancelled,
+)
+from gui.main_window.smart_paste import extract_valid_clipboard_url
+from gui.settings.settings_apply_plan import build_settings_apply_plan
+from gui.dialogs.settings_fallback_notice import show_download_folder_fallback_notice
+from gui.tasks.context_menu import ContextMenuBuilder
+from gui.tasks.download_completion import (
+    FailedDownloadAction,
+    apply_failed_download_result,
+    persist_download_output,
+    record_successful_download,
+)
+from gui.tasks.duplicate_check_target import duplicate_target_format
+from gui.main_window.download_toggle import (
+    build_download_toggle_plan,
+    mark_downloading_tasks_paused,
+    pause_downloading_tasks,
+    resume_paused_tasks,
+)
+from gui.tasks.paused_task_cleanup import cleanup_cancelled_paused_tasks
+from gui.tasks.playlist_registration import build_playlist_registration_decision
+from gui.tasks.playlist_task_plan import build_playlist_task_plans
+from gui.tasks.task_actions import TaskActions
+from gui.tasks.task_context_callbacks import build_task_context_callbacks
+from gui.tasks.task_load_plan import build_loaded_tasks, handle_paused_task_restore
+from gui.tasks.task_registration import register_download_task
+from gui.tasks.task_selection_plan import selected_tasks_for_ids, tasks_except_id
+from gui.tasks.task_status_message import build_task_status_message
+from gui.tasks.task_widget_restore import create_restored_task_widget
+from gui.tasks.task_widget_signals import connect_task_widget_signals
+from gui.main_window.view_state import hide_task_list_if_empty, set_url_entry_enabled, show_task_list
+from gui.main_window.language import MainWindowLanguageTexts, apply_main_window_language
+from gui.dialogs.main_window_messages import (
+    ask_duplicate_confirmation_dialog,
+    ask_playlist_video_preference,
+    confirm_duplicate_overwrite_dialog,
+    confirm_resume_paused_tasks_dialog,
+    show_invalid_url_dialog,
+    show_no_new_videos_dialog,
+    show_playlist_error_dialog,
+)
+from gui.main_window.controls import (
+    create_main_content_layout,
+    create_task_list_section as create_task_list_section_controls,
+    create_status_bar as create_status_bar_controls,
+    create_title_bar,
+    create_url_input_section,
+    set_button_icon,
+)
+from gui.main_window.chrome_state import (
+    build_window_chrome_state,
+    chrome_state_after_window_change,
+    should_continue_window_drag,
+    should_toggle_maximize_from_double_click,
+)
+from gui.main_window.worker_lifecycle import stop_running_worker
+from gui.windowing.resizable_mixin import ResizableMixin
+from gui.windowing.window_state_manager import (
+    load_window_state,
+    save_window_state,
+    restore_window_state,
+)
 from utils.logger import log
 import constants  # 동적 언어 문자열을 항상 최신 값으로 사용하기 위해 모듈 자체도 임포트
 from locales import DEFAULT_LANGUAGE
@@ -30,132 +96,119 @@ from constants import (
     WORKER_TERMINATE_WAIT_MS, WORKER_SHUTDOWN_WAIT_MS,
     APP_TITLE,
     KEY_LANGUAGE, change_language,
-    APP_TITLE,
-    KEY_LANGUAGE, change_language,
-    PLAYLIST_VIDEO_URL_TEMPLATE,
-    BTN_MINIMIZE, BTN_TEXT_CLOSE_X
 )
 from data.models import DownloadTask
 from core.scheduler import DownloadScheduler
-from constants import YTDL_TEMP_DIR
 from resources.styles import (
     MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, CENTRAL_WIDGET_MAXIMIZED_STYLE,
     TITLE_BAR_STYLE,
     MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, MAXIMIZE_BUTTON_STYLE,
-    URL_INPUT_CONTAINER_STYLE, URL_INPUT_STYLE,
-    DOWNLOAD_BUTTON_STYLE, SETTINGS_BUTTON_STYLE, STATUS_BAR_STYLE,
-    STATUS_LABEL_STYLE, PROGRESS_SLIDER_STYLE, EMPTY_LABEL_STYLE,
-    # Moved Constants
     MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT,
-    APP_TITLE_COLOR, MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
-    TITLE_BAR_HEIGHT, TITLE_BAR_MARGINS, TITLE_BAR_SPACING,
-    TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE, TITLE_BAR_BUTTON_SIZE,
-    URL_INPUT_SECTION_HEIGHT, URL_INPUT_CONTAINER_MARGINS, URL_INPUT_CONTAINER_SPACING,
-    URL_INPUT_HEIGHT, URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE,
-    TOGGLE_BUTTON_SIZE, SETTINGS_BUTTON_SIZE,
-    DOWNLOAD_BUTTON_HEIGHT, DOWNLOAD_BUTTON_WIDTH,
-    DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE,
-    SETTINGS_BUTTON_TEXT, SETTINGS_BUTTON_FONT_FAMILY, SETTINGS_BUTTON_FONT_SIZE,
-    TASK_LIST_MARGINS, TASK_LIST_SPACING,
-    EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE,
-    STATUS_BAR_HEIGHT, STATUS_BAR_MARGINS, STATUS_BAR_SPACING,
-    STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE,
-    PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX, PROGRESS_SLIDER_DEFAULT,
-    # 바텀업 최소 크기 상수
-    MIN_URL_INPUT_WIDTH, MIN_DOWNLOAD_BUTTON_WIDTH,
-    MIN_TITLE_LABEL_WIDTH, MIN_STATUS_LABEL_WIDTH
+    MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
+    TITLE_BAR_HEIGHT,
 )
 
 
 class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     def __init__(self):
         super().__init__()
-        
-        # 타이틀 바 제거 (Frameless Window)
+
+        self._configure_window()
+        self._init_runtime_state()
+        self._init_interaction_services()
+        self._init_data_services()
+        self._create_download_scheduler()
+        self._apply_initial_language()
+
+        self.setup_ui()
+        self.apply_language_to_ui()
+        self._restore_saved_window_state()
+        self._register_shortcuts()
+        self.load_tasks_from_file()
+        self._initialize_scheduler()
+        QTimer.singleShot(0, self._show_pending_settings_fallback_notice)
+
+    def _configure_window(self):
+        """Apply fixed main-window flags, geometry, and base styling."""
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        
         self.setWindowTitle(APP_TITLE)
-        self.setGeometry(MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT) 
+        self.setGeometry(MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
         self.setStyleSheet(MAIN_WINDOW_STYLE)
-        
-        # 가로 805px, 세로 500px을 가로 스크롤바 없이 최상의 UI를 보여줄 수 있는 최소 크기로 강제 지정
         self.setMinimumSize(805, 500)
-        
-        # 리사이징 초기화
+
+    def _init_runtime_state(self):
+        """Initialize mutable state owned directly by the main window."""
         self._init_resizable(enabled=True)
         self._is_maximized_state = False
-        
-        # 윈도우 이동 변수
         self.oldPos = None
-        
-        # 데이터 초기화
         self.tasks: list[DownloadTask] = []
-        self.task_widgets = {}  # task_id -> TaskWidget 매핑
+        self.task_widgets = {}
         self.total_tasks_in_queue = 0
-        self.playlist_worker = None  # 플레이리스트 분석 워커
+        self.playlist_worker = None
         self.settings = load_settings()
         self.toggle_enabled = True
-        
-        # 선택 관리
+
+    def _init_interaction_services(self):
+        """Create helpers that coordinate UI interactions."""
         self.selection_manager = SelectionManager()
         self.context_menu_builder = ContextMenuBuilder(self)
         self.task_actions = TaskActions(self)
-        self._click_deselect_targets = []  # 클릭 시 선택 해제할 컨테이너 목록
-        
-        # 매니저 초기화
+        self._click_deselect_targets = []
+
+    def _init_data_services(self):
+        """Create persistence and duplicate-checking services."""
         self.history_manager = HistoryManager()
         self.task_manager = TaskManager()
-        self.duplicate_checker = DuplicateChecker(self.history_manager, self)
-        
-        # 다운로드 스케줄러 초기화
+        self.duplicate_checker = DuplicateChecker(self.history_manager)
+
+    def _create_download_scheduler(self):
+        """Create the scheduler and connect its signals to this window."""
         self.scheduler = DownloadScheduler(self)
         self.scheduler.progress_updated.connect(self.on_progress_updated)
         self.scheduler.download_finished.connect(self.on_download_finished)
         self.scheduler.task_started.connect(self.on_task_started)
         self.scheduler.metadata_fetched.connect(self.on_metadata_fetched)
-        
-        # 언어 설정 적용 (UI 생성 전에 상수 업데이트)
+
+    def _apply_initial_language(self):
+        """Apply the saved language before UI text is created."""
         lang = self.settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
         change_language(lang)
 
-        self.setup_ui()
-        # 생성된 UI에 현재 언어 문자열 적용
-        self.apply_language_to_ui()
-        
-        # 저장된 창 상태 복원 (실패 시 화면 중앙 배치)
-        from gui.widgets.window_state_manager import load_window_state
+    def _restore_saved_window_state(self):
+        """Restore saved geometry or center the window when restore fails."""
         state = load_window_state("MainWindow")
-        restored = restore_window_state("MainWindow", self, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
+        restored = restore_window_state(
+            "MainWindow", self, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT
+        )
         if not restored:
             self.center_window()
-        elif state and state.get('maximized', False):
-            # restore_window_state가 showMaximized()를 호출했으므로
-            # 내부 상태 플래그와 UI도 동기화
-            self._is_maximized_state = True
-            central = self.centralWidget()
-            if central:
-                central.setStyleSheet(CENTRAL_WIDGET_MAXIMIZED_STYLE)
-            if hasattr(self, '_main_layout'):
-                self._main_layout.setContentsMargins(8, 8, 8, 8)
-            self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
-        
-        # 스마트 Ctrl+V 단축키 설정
+        elif state and state.get("maximized", False):
+            self._apply_window_chrome_state(True)
+
+    def _register_shortcuts(self):
+        """Register global shortcuts handled by the main window."""
         self.paste_shortcut = QShortcut(QKeySequence.Paste, self)
         self.paste_shortcut.activated.connect(self.handle_smart_paste)
-        
-        # Ctrl+A 전체 선택 단축키 설정
+
         self.select_all_shortcut = QShortcut(QKeySequence.SelectAll, self)
         self.select_all_shortcut.activated.connect(self.select_all_tasks)
-        
-        # 이전 작업 목록 불러오기
-        self.load_tasks_from_file()
-        
-        # 스케줄러 초기화 (워커 시작)
-        self._initialize_scheduler()
 
     # --- 헬퍼 메서드 ---
     
+    def _show_pending_settings_fallback_notice(self):
+        """Show the settings fallback notice produced while loading or saving settings."""
+        notice = consume_download_folder_fallback_notice()
+        if notice is None:
+            return
+
+        show_download_folder_fallback_notice(
+            self,
+            notice,
+            STR.TITLE_WARNING,
+            STR.MSG_DOWNLOAD_FOLDER_FALLBACK,
+        )
+
     def get_task_by_id(self, task_id: int) -> Optional[DownloadTask]:
         """task_id로 DownloadTask 객체 찾기"""
         return next((t for t in self.tasks if t.id == task_id), None)
@@ -164,105 +217,68 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
     def setup_ui(self):
         self.menuBar().hide()
-        
-        central_widget = QWidget()
-        central_widget.setObjectName("CentralWidget")
-        central_widget.setStyleSheet(CENTRAL_WIDGET_STYLE)
-        self.setCentralWidget(central_widget)
-        
-        # 전체 레이아웃 (마진 최소화)
-        self._main_layout = QVBoxLayout(central_widget)
-        self._main_layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
-        self._main_layout.setSpacing(MAIN_LAYOUT_SPACING) 
-        
-        # 1. 커스텀 타이틀 바
+
+        controls = create_main_content_layout(
+            CENTRAL_WIDGET_STYLE,
+            MAIN_LAYOUT_MARGINS,
+            MAIN_LAYOUT_SPACING,
+        )
+        self.setCentralWidget(controls.central_widget)
+        self._main_layout = controls.main_layout
+
         self.create_custom_title_bar(self._main_layout)
-        
-        # 2. URL 입력 섹션
         self.create_url_section(self._main_layout)
-        
-        # 3. 작업 목록 섹션 (QScrollArea로 변경됨)
         self.create_task_list_section(self._main_layout)
-        
-        # 4. 상태 표시줄
         self.create_status_bar(self._main_layout)
 
+    def _apply_window_chrome_state(self, is_maximized: bool):
+        """Apply the central-widget style, layout margins, and title-bar icon."""
+        chrome_state = build_window_chrome_state(
+            is_maximized,
+            CENTRAL_WIDGET_STYLE,
+            CENTRAL_WIDGET_MAXIMIZED_STYLE,
+            MAIN_LAYOUT_MARGINS,
+        )
+        self._is_maximized_state = chrome_state.is_maximized
+
+        central = self.centralWidget()
+        if central:
+            central.setStyleSheet(chrome_state.central_style)
+        if hasattr(self, '_main_layout'):
+            self._main_layout.setContentsMargins(*chrome_state.layout_margins)
+        if hasattr(self, 'maximize_btn'):
+            set_button_icon(self.maximize_btn, chrome_state.maximize_icon_name)
+
     def apply_language_to_ui(self):
-        """현재 언어 설정에 맞게 UI 텍스트를 갱신"""
-        # constants 모듈에서 최신 문자열을 직접 읽어와 적용한다.
-        # (from constants import ... 으로 가져온 값은 런타임 변경이 반영되지 않기 때문)
-        # 타이틀 바
-        self.setWindowTitle(constants.APP_TITLE)
-        if hasattr(self, "app_title_label"):
-            self.app_title_label.setText(constants.APP_TITLE)
-        # URL 입력 섹션
-        if hasattr(self, "url_input"):
-            self.url_input.setPlaceholderText(STR.MAIN_URL_PLACEHOLDER)
-        if hasattr(self, "download_btn"):
-            self.download_btn.setText(STR.BTN_DOWNLOAD)
-            # 텍스트 길이에 맞춰 버튼 최소 너비를 재조정 (언어별 길이 대응)
-            fm = self.download_btn.fontMetrics()
-            text_width = fm.boundingRect(self.download_btn.text()).width()
-            # 여백/패딩을 고려해 약간 여유를 더해줌
-            self.download_btn.setMinimumWidth(text_width + 30)
-        # 빈 상태 메시지
-        if hasattr(self, "empty_label"):
-            self.empty_label.setText(STR.MAIN_EMPTY_STATE)
-        # 상태바 기본 텍스트 (현재 작업이 없을 때만 갱신)
-        if hasattr(self, "status_label") and not self.tasks:
-            self.status_label.setText(STR.MAIN_STATUS_READY)
+        """Apply current localized strings to existing UI controls."""
+        apply_main_window_language(
+            self,
+            MainWindowLanguageTexts(
+                title=constants.APP_TITLE,
+                url_placeholder=STR.MAIN_URL_PLACEHOLDER,
+                download_text=STR.BTN_DOWNLOAD,
+                empty_text=STR.MAIN_EMPTY_STATE,
+                ready_text=STR.MAIN_STATUS_READY,
+            ),
+            has_tasks=bool(self.tasks),
+        )
 
     def create_custom_title_bar(self, layout):
-        title_frame = QFrame()
-        title_frame.setFixedHeight(TITLE_BAR_HEIGHT)
-        title_frame.setStyleSheet(TITLE_BAR_STYLE)
-        
-        title_layout = QHBoxLayout(title_frame)
-        title_layout.setContentsMargins(*TITLE_BAR_MARGINS)
-        title_layout.setSpacing(TITLE_BAR_SPACING)
-        
-        # 로고/제목
-        self.app_title_label = QLabel(APP_TITLE)
-        self.app_title_label.setFont(QFont(TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE, QFont.Bold))
-        self.app_title_label.setStyleSheet(f"color: {APP_TITLE_COLOR};")
-        self.app_title_label.setMinimumWidth(MIN_TITLE_LABEL_WIDTH)
-        title_layout.addWidget(self.app_title_label)
-        
-        title_layout.addStretch(1)
-        
-        # 최소화 버튼
-        minimize_btn = QPushButton()
-        minimize_btn.setIcon(qta.icon('mdi.window-minimize', color='#999999'))
-        minimize_btn.setIconSize(QSize(20, 20))
-        minimize_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
-        minimize_btn.setCursor(Qt.PointingHandCursor)
-        minimize_btn.clicked.connect(self.showMinimized)
-        minimize_btn.setStyleSheet(MINIMIZE_BUTTON_STYLE)
-        title_layout.addWidget(minimize_btn)
-        
-        # 최대화/복구 버튼
-        self.maximize_btn = QPushButton()
-        self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
-        self.maximize_btn.setIconSize(QSize(20, 20))
-        self.maximize_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
-        self.maximize_btn.setCursor(Qt.PointingHandCursor)
-        self.maximize_btn.clicked.connect(self._toggle_maximize)
-        self.maximize_btn.setStyleSheet(MAXIMIZE_BUTTON_STYLE)
-        title_layout.addWidget(self.maximize_btn)
-        
-        # 닫기 버튼
-        close_btn = QPushButton()
-        close_btn.setIcon(qta.icon('mdi.close', color='#999999'))
-        close_btn.setIconSize(QSize(20, 20))
-        close_btn.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.clicked.connect(self.close)
-        close_btn.setStyleSheet(CLOSE_BUTTON_STYLE)
-        title_layout.addWidget(close_btn)
-        
-        layout.addWidget(title_frame)
+        controls = create_title_bar(
+            APP_TITLE,
+            TITLE_BAR_STYLE,
+            MINIMIZE_BUTTON_STYLE,
+            MAXIMIZE_BUTTON_STYLE,
+            CLOSE_BUTTON_STYLE,
+            self.showMinimized,
+            self._toggle_maximize,
+            self.close,
+        )
+        self.app_title_label = controls.title_label
+        self.maximize_btn = controls.maximize_button
+        layout.addWidget(controls.frame)
 
-    # ── 최대화/복구 토글 ──────────────────────────────
+    # --- Window maximize toggle ---
     
     def _toggle_maximize(self):
         """최대화 ↔ 복구 토글"""
@@ -287,7 +303,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         if self.resizable_mouse_move(event):
             return
         # 드래그 이동
-        if self.oldPos is not None and event.buttons() == Qt.LeftButton:
+        if should_continue_window_drag(self.oldPos, event.buttons(), Qt.LeftButton):
             # 최대화 상태에서 드래그 시 복구 후 이동
             if self._is_maximized_state:
                 self.showNormal()
@@ -304,192 +320,94 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self.oldPos = None
     
     def mouseDoubleClickEvent(self, event):
-        """타이틀 바 더블클릭 → 최대화/복구"""
-        if event.button() == Qt.LeftButton:
-            # 타이틀 바 영역에서만 동작 (상단 TITLE_BAR_HEIGHT + 약간의 여유)
-            if event.pos().y() <= TITLE_BAR_HEIGHT + 10:
-                self._toggle_maximize()
-                return
+        """Toggle maximize when the title bar is double-clicked."""
+        if should_toggle_maximize_from_double_click(
+            event.button(),
+            Qt.LeftButton,
+            event.pos().y(),
+            TITLE_BAR_HEIGHT,
+        ):
+            self._toggle_maximize()
+            return
         super().mouseDoubleClickEvent(event)
     
     def changeEvent(self, event):
-        """창 상태 변경 이벤트 감지 (에어로 스냅, Win+Up 등 OS 레벨 최대화 대응)"""
+        """Sync custom chrome when the OS changes the window state."""
         if event.type() == QEvent.WindowStateChange:
-            if self.isMaximized() and not self._is_maximized_state:
-                # OS에 의해 최대화됨 → 내부 상태 및 UI 동기화
-                self._is_maximized_state = True
-                central = self.centralWidget()
-                if central:
-                    central.setStyleSheet(CENTRAL_WIDGET_MAXIMIZED_STYLE)
-                if hasattr(self, '_main_layout'):
-                    self._main_layout.setContentsMargins(8, 8, 8, 8)
-                if hasattr(self, 'maximize_btn'):
-                    self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
-                log.info("창 최대화 됨 (MainWindow)")
-            elif not self.isMaximized() and not self.isMinimized() and self._is_maximized_state:
-                # OS에 의해 복원됨 → 내부 상태 및 UI 동기화
-                self._is_maximized_state = False
-                central = self.centralWidget()
-                if central:
-                    central.setStyleSheet(CENTRAL_WIDGET_STYLE)
-                if hasattr(self, '_main_layout'):
-                    self._main_layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
-                if hasattr(self, 'maximize_btn'):
-                    self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
-                log.info("창 기본 크기로 복구 됨 (MainWindow)")
+            chrome_state = chrome_state_after_window_change(
+                self.isMaximized(),
+                self.isMinimized(),
+                self._is_maximized_state,
+            )
+            if chrome_state is not None:
+                self._apply_window_chrome_state(chrome_state)
+                if chrome_state:
+                    log.info("Window maximized (MainWindow)")
+                else:
+                    log.info("Window restored (MainWindow)")
         super().changeEvent(event)
     
     def eventFilter(self, source, event):
-        """이벤트 필터: 빈 공간 클릭 감지 (스크롤 영역, 상태바)"""
-        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
-            # 등록된 컨테이너에서 클릭이 발생했을 때만 선택 해제
-            if source in self._click_deselect_targets:
-                # 클릭 위치에 TaskWidget이 있는지 확인
-                click_pos = event.pos()
-                child_at_pos = source.childAt(click_pos)
-                
-                # 클릭된 위치에 자식 위젯이 없거나, TaskWidget이 아닌 경우에만 선택 해제
-                is_card_click = False
-                if child_at_pos:
-                    # 부모를 따라 올라가며 TaskWidget인지 확인
-                    widget = child_at_pos
-                    while widget:
-                        if widget in self.task_widgets.values():
-                            is_card_click = True
-                            break
-                        widget = widget.parent()
-                
-                if not is_card_click:
-                    self.selection_manager.clear(self.task_widgets)
-                    self.setFocus()
+        """Clear selection when registered background areas are clicked."""
+        if (
+            event.type() == QEvent.MouseButtonPress
+            and event.button() == Qt.LeftButton
+            and should_clear_selection_for_click(
+                source,
+                event.pos(),
+                self._click_deselect_targets,
+                self.task_widgets.values(),
+            )
+        ):
+            self.selection_manager.clear(self.task_widgets)
+            self.setFocus()
         return super().eventFilter(source, event)
 
     def create_url_section(self, layout):
-        input_container = QFrame()
-        input_container.setFixedHeight(URL_INPUT_SECTION_HEIGHT)
-        input_container.setStyleSheet(URL_INPUT_CONTAINER_STYLE)
-        
-        container_layout = QHBoxLayout(input_container)
-        container_layout.setContentsMargins(*URL_INPUT_CONTAINER_MARGINS)
-        container_layout.setSpacing(URL_INPUT_CONTAINER_SPACING)
-        
-        self.toggle_btn = ToggleButton()
-        self.toggle_btn.setFixedSize(TOGGLE_BUTTON_SIZE, TOGGLE_BUTTON_SIZE)
-        self.toggle_btn.setCursor(Qt.PointingHandCursor)
-        self.toggle_btn.clicked.connect(self.toggle_download)
-        container_layout.addWidget(self.toggle_btn)
-        
-        self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText(STR.MAIN_URL_PLACEHOLDER)
-        self.url_input.setFixedHeight(URL_INPUT_HEIGHT)
-        self.url_input.setMinimumWidth(MIN_URL_INPUT_WIDTH)
-        self.url_input.setFont(QFont(URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE))
-        self.url_input.setStyleSheet(URL_INPUT_STYLE)
-        self.url_input.returnPressed.connect(self.start_download) # 엔터키 지원
-        container_layout.addWidget(self.url_input, 1)
-        
-        btn_group = QFrame()
-        btn_layout = QHBoxLayout(btn_group)
-        btn_layout.setContentsMargins(0, 0, 0, 0)
-        btn_layout.setSpacing(0)
-        
-        self.download_btn = QPushButton(STR.BTN_DOWNLOAD)
-        self.download_btn.setFixedHeight(DOWNLOAD_BUTTON_HEIGHT)
-        # 기본 최소 너비만 설정하고, 실제 너비는 텍스트 길이에 따라 동적으로 조정
-        self.download_btn.setMinimumWidth(MIN_DOWNLOAD_BUTTON_WIDTH)
-        self.download_btn.setFont(QFont(DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE, QFont.Bold))
-        self.download_btn.setCursor(Qt.PointingHandCursor)
-        self.download_btn.clicked.connect(self.start_download)
-        self.download_btn.setStyleSheet(DOWNLOAD_BUTTON_STYLE)
-        btn_layout.addWidget(self.download_btn)
-
-        self.settings_btn = QPushButton()
-        self.settings_btn.setIcon(qta.icon('mdi.cog', color='#555555'))
-        self.settings_btn.setIconSize(QSize(26, 26))
-        self.settings_btn.setFixedSize(SETTINGS_BUTTON_SIZE, SETTINGS_BUTTON_SIZE)
-        self.settings_btn.setCursor(Qt.PointingHandCursor)
-        self.settings_btn.clicked.connect(self.open_download_options)
-        self.settings_btn.setStyleSheet(SETTINGS_BUTTON_STYLE)
-        btn_layout.addWidget(self.settings_btn)
-        
-        container_layout.addWidget(btn_group)
-        
-        layout.addWidget(input_container)
+        controls = create_url_input_section(
+            STR.MAIN_URL_PLACEHOLDER,
+            STR.BTN_DOWNLOAD,
+            self.toggle_download,
+            self.start_download,
+            self.open_download_options,
+        )
+        self.toggle_btn = controls.toggle_button
+        self.url_input = controls.url_input
+        self.download_btn = controls.download_button
+        self.settings_btn = controls.settings_button
+        layout.addWidget(controls.frame)
 
     def create_task_list_section(self, layout):
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        # 가로 스크롤바가 생기지 않도록 차단
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setStyleSheet("background: transparent; border: none;")
-        
-        self.scroll_content = QWidget()
-        self.scroll_content.setStyleSheet("background: transparent;")
-
-        self.scroll_content.installEventFilter(self)
-        self._click_deselect_targets.append(self.scroll_content)
-        
-        self.task_layout = QVBoxLayout(self.scroll_content)
-        self.task_layout.setContentsMargins(*TASK_LIST_MARGINS)
-        self.task_layout.setSpacing(TASK_LIST_SPACING) # 간격 약간 증가
-        
-        self.task_layout.addStretch()
-        
-        self.scroll_area.setWidget(self.scroll_content)
+        controls = create_task_list_section_controls(STR.ERR_START_FAIL)
+        controls.scroll_content.installEventFilter(self)
+        self._click_deselect_targets.append(controls.scroll_content)
+        self.scroll_area = controls.scroll_area
+        self.scroll_content = controls.scroll_content
+        self.task_layout = controls.task_layout
+        self.empty_label = controls.empty_label
         layout.addWidget(self.scroll_area, 1)
-        
-        # 빈 상태 라벨
-        self.empty_label = QLabel(STR.ERR_START_FAIL)
-        self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setFont(QFont(EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE))
-        self.empty_label.setStyleSheet(EMPTY_LABEL_STYLE)
-        
         layout.addWidget(self.empty_label)
-        self.scroll_area.hide()
 
     def create_status_bar(self, layout):
-        status_container = QFrame()
-        status_container.setFixedHeight(STATUS_BAR_HEIGHT)
-        status_container.setStyleSheet(STATUS_BAR_STYLE)
-        
-        # 상태바 빈 공간 클릭 감지
-        status_container.installEventFilter(self)
-        self._click_deselect_targets.append(status_container)
-        
-        s_layout = QHBoxLayout(status_container)
-        s_layout.setContentsMargins(*STATUS_BAR_MARGINS)
-        s_layout.setSpacing(STATUS_BAR_SPACING)
-        
-        self.status_label = QLabel(STR.MAIN_STATUS_READY)
-        self.status_label.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
-        self.status_label.setStyleSheet(STATUS_LABEL_STYLE)
-        self.status_label.setMinimumWidth(MIN_STATUS_LABEL_WIDTH)
-        s_layout.addWidget(self.status_label)
-        
-        self.progress_slider = QSlider(Qt.Horizontal)
-        self.progress_slider.setRange(PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX)
-        self.progress_slider.setValue(PROGRESS_SLIDER_DEFAULT)
-        self.progress_slider.setStyleSheet(PROGRESS_SLIDER_STYLE)
-        self.progress_slider.setEnabled(False)
-        s_layout.addWidget(self.progress_slider, 1)
-        
-        layout.addWidget(status_container)
-
+        controls = create_status_bar_controls(STR.MAIN_STATUS_READY)
+        controls.frame.installEventFilter(self)
+        self._click_deselect_targets.append(controls.frame)
+        self.status_label = controls.status_label
+        self.progress_slider = controls.progress_slider
+        layout.addWidget(controls.frame)
 
     # --- 키보드 단축키 핸들러 ---
     
     def handle_smart_paste(self):
-        """Ctrl+V 핸들러: 입력창 포커스 시 붙여넣기, 그 외에는 자동 다운로드"""
+        """Paste into the URL input or start a download from a valid clipboard URL."""
         focused_widget = QApplication.focusWidget()
         if focused_widget == self.url_input:
             self.url_input.paste()
             return
 
-        clipboard = QApplication.clipboard()
-        text = clipboard.text().strip()
-        
-        if text and validate_url(text):
-            self.url_input.setText(text)
+        url = extract_valid_clipboard_url(QApplication.clipboard().text())
+        if url:
+            self.url_input.setText(url)
             self.start_download()
             self.status_label.setText(STR.MSG_SMART_PASTE)
 
@@ -524,17 +442,8 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     # --- 시그널 연결 ---
     
     def _connect_task_widget_signals(self, task_widget):
-        """TaskWidget의 시그널을 메인 윈도우에 연결"""
-        task_widget.remove_requested.connect(self.remove_task_from_list)
-        task_widget.pause_requested.connect(self.pause_task)
-        task_widget.resume_requested.connect(self.resume_task)
-        task_widget.retry_requested.connect(self.retry_task)
-        task_widget.play_requested.connect(self.play_file)
-        task_widget.open_folder_requested.connect(self.open_folder)
-        task_widget.delete_file_requested.connect(lambda tid: self.delete_file(tid, True))
-        # 선택 및 컨텍스트 메뉴 시그널
-        task_widget.clicked.connect(self.on_task_clicked)
-        task_widget.right_clicked.connect(self.show_context_menu)
+        """Connect TaskWidget signals to main-window handlers."""
+        connect_task_widget_signals(task_widget, self)
 
     # --- 선택 관리 메서드 ---
     
@@ -556,32 +465,17 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.selection_manager.select_all(self.task_widgets)
     
     def show_context_menu(self, task_id, global_pos):
-        """우클릭 컨텍스트 메뉴 표시"""
-        # 클릭한 항목이 선택되지 않았으면 해당 항목만 선택
+        """Show the task context menu."""
         if not self.selection_manager.is_selected(task_id):
             self.selection_manager.handle_click(task_id, 0, self.task_widgets, self.task_layout)
-        
-        # 선택된 작업 목록 가져오기
+
         selected_ids = self.selection_manager.get_selected_ids()
-        selected_tasks = [t for t in self.tasks if t.id in selected_ids]
-        
-        # 콜백 딕셔너리 구성
-        callbacks = {
-            'play': lambda: self.play_file(selected_ids[0]) if selected_ids else None,
-            'open_folder': self._open_folders_for_selected,
-            'copy_url': lambda: self.task_actions.copy_url(selected_ids[0]) if selected_ids else None,
-            'pause': self._pause_selected_tasks,
-            'resume': self._resume_selected_tasks,
-            'retry': self._retry_selected_tasks,
-            'delete_file': self._delete_files_for_selected,
-            'remove': self._remove_selected_from_list,
-            'remove_all_completed': self._remove_all_completed_from_list,
-        }
-        
-        # 메뉴 빌드 및 표시
+        selected_tasks = selected_tasks_for_ids(selected_ids, self.tasks)
+        callbacks = build_task_context_callbacks(self, selected_ids)
+
         menu = self.context_menu_builder.build(selected_tasks, callbacks)
         menu.exec_(global_pos)
-    
+
     def _pause_selected_tasks(self):
         """선택된 작업들 일시정지"""
         self.task_actions.pause_selected(self.selection_manager.get_selected_ids())
@@ -618,77 +512,50 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.task_actions.remove_all_completed_from_list()
 
     def remove_task_from_list(self, task_id):
-        """목록에서 항목 제거 (파일 유지)"""
+        """Remove a task card from the list without deleting its file."""
         widget = self.task_widgets.get(task_id)
-        if not widget: return
+        if not widget:
+            return
         
-        # 선택 목록에서도 제거
         self.selection_manager.remove_from_selection(task_id)
 
         self.task_layout.removeWidget(widget)
         widget.deleteLater()
         
         del self.task_widgets[task_id]
-        
-        self.tasks = [t for t in self.tasks if t.id != task_id]
-        
-        if not self.task_widgets:
-            self.empty_label.show()
-            self.scroll_area.hide()
-        
+        self.tasks = tasks_except_id(self.tasks, task_id)
+        hide_task_list_if_empty(self.task_widgets, self.scroll_area, self.empty_label)
         self.update_progress_ui()
 
-    # --- 전체 다운로드 토글 ---
+    # --- Global download toggle ---
 
     def update_toggle_button_style(self):
         self.toggle_btn.setPlaying(self.toggle_enabled)
 
     def toggle_download(self):
-        self.toggle_enabled = not self.toggle_enabled
+        plan = build_download_toggle_plan(
+            self.toggle_enabled,
+            STR.MSG_DL_ENABLED,
+            STR.MSG_DL_PAUSED,
+        )
+        self.toggle_enabled = plan.enabled
         self.update_toggle_button_style()
-        
-        if self.toggle_enabled:
-            self.status_label.setText(STR.MSG_DL_ENABLED)
-            
-            # 일시정지된 모든 작업들을 큐에 다시 추가 (개별 일시정지 포함)
-            # 워커 재개(resume_all) 전에 큐에 추가해야 우선순위에 맞게 올바른 순서로 가져감
-            for task in self.tasks:
-                if task.status == TaskStatus.PAUSED:
-                    # 개별 일시정지 플래그가 있었다면 해제
-                    if self.scheduler.is_task_paused(task.id):
-                        self.scheduler.resume_task(task.id)
-                    
-                    # 작업을 다시 큐에 추가
-                    widget = self.task_widgets.get(task.id)
-                    if widget:
-                        widget.set_status('waiting')
-                        widget.status_label.setText(STR.STATUS_WAITING_DOTS)
-                    
-                    task.status = TaskStatus.WAITING
-                    
-                    # 저장된 settings와 meta 사용
-                    settings = task.settings if task.settings else self.settings.copy()
-                    meta = task.meta if task.meta else {}
-                    
-                    # 우선순위 1 (이어받기 작업)로 큐에 추가
-                    self.scheduler.add_task(1, task.id, task.url, settings, meta)
-            
-            self.scheduler.resume_all()  # 대기열 정리가 끝난 후 워커 재개
-            self.update_progress_ui()
+        self.status_label.setText(plan.status_text)
+
+        if plan.enabled:
+            resume_paused_tasks(
+                self.tasks,
+                self.task_widgets,
+                self.scheduler,
+                self.settings,
+                STR.STATUS_WAITING_DOTS,
+            )
+            self.scheduler.resume_all()
         else:
-            self.status_label.setText(STR.MSG_DL_PAUSED)
-            
-            # 다운로드 중인 작업들의 상태를 미리 PAUSED로 변경
-            # (워커에서 예외 발생 시 올바른 상태로 처리되도록)
-            for task in self.tasks:
-                if task.status == TaskStatus.DOWNLOADING:
-                    task.status = TaskStatus.PAUSED
-                    widget = self.task_widgets.get(task.id)
-                    if widget:
-                        widget.set_paused()
-            
-            self.scheduler.pause_all()  # 워커 일시정지
-            self.update_progress_ui()
+            pause_downloading_tasks(self.tasks, self.task_widgets)
+            self.scheduler.pause_all()
+
+        self.update_progress_ui()
         
     def center_window(self):
         screen = self.screen().geometry()
@@ -697,109 +564,107 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     # --- 다운로드 시작 및 작업 등록 ---
 
     def _create_and_register_task(
-        self, 
-        task_id: int, 
-        url: str, 
+        self,
+        task_id: int,
+        url: str,
         video_id: Optional[str] = None,
-        extractor: str = 'unknown',
-        title_override: Optional[str] = None
+        extractor: str = "unknown",
+        title_override: Optional[str] = None,
     ) -> DownloadTask:
-        """
-        TaskWidget 생성 및 작업 등록 (중복 코드 제거)
-        
-        Args:
-            task_id: 작업 ID
-            url: 비디오 URL
-            video_id: 비디오 ID (선택적)
-            extractor: 추출기(사이트) 식별자
-            title_override: 제목 오버라이드 (선택적, 플레이리스트용)
-            
-        Returns:
-            생성된 DownloadTask 객체
-        """
-        # DownloadTask 생성 (설정 복사)
-        current_settings = self.settings.copy()
-
-        # TaskWidget 생성
-        task_widget = TaskWidget(task_id, url, current_settings, self)
-        if title_override:
-            fmt = current_settings.get('format', 'mp4').upper()
-            task_widget.title_label.setText(f"[{fmt}] {title_override}")
-            
-        self._connect_task_widget_signals(task_widget)
-        
-        self.task_layout.insertWidget(0, task_widget)
-        self.task_widgets[task_id] = task_widget
-        
-        task = DownloadTask(
-            id=task_id,
-            url=url,
-            video_id=video_id,
-            extractor=extractor,
-            settings=current_settings
+        """Create a task widget, register the task, and enqueue it."""
+        return register_download_task(
+            task_id,
+            url,
+            self.settings,
+            self,
+            self.task_layout,
+            self.task_widgets,
+            self._connect_task_widget_signals,
+            self.tasks,
+            self.scheduler,
+            video_id,
+            extractor,
+            title_override,
         )
-        self.tasks.append(task)
-        
-        # 스케줄러에 추가 (우선순위 3: 일반 작업)
-        self.scheduler.add_task(3, task_id, url, current_settings)
-        
-        return task
 
     def _show_task_list(self):
-        """작업 목록 UI 표시"""
-        if self.scroll_area.isHidden():
-            self.empty_label.hide()
-            self.scroll_area.show()
+        """Show the task-list UI."""
+        show_task_list(self.scroll_area, self.empty_label)
 
     def _handle_playlist_download(self, clean_url: str):
-        """플레이리스트 다운로드 처리"""
-        # 기존 플레이리스트 워커가 실행 중이면 종료
-        if self.playlist_worker and self.playlist_worker.isRunning():
-            self.playlist_worker.terminate()
-            self.playlist_worker.wait(WORKER_TERMINATE_WAIT_MS)
-        
+        """Start playlist analysis after stopping any previous analysis worker."""
+        worker_stop = stop_running_worker(self.playlist_worker, WORKER_TERMINATE_WAIT_MS)
+        if worker_stop.timed_out:
+            log.warning("Previous playlist worker did not stop before timeout.")
+
         self.status_label.setText(STR.MSG_ANALYZING_PLAYLIST)
-        self.url_input.setEnabled(False)  # 분석 중 입력 비활성화
-        self.download_btn.setEnabled(False)
-        
-        # 플레이리스트 분석 워커 생성 및 시작 (정제된 URL 사용)
+        set_url_entry_enabled(self.url_input, self.download_btn, False)
+
         self.playlist_worker = PlaylistAnalysisWorker(clean_url, self)
         self.playlist_worker.analysis_finished.connect(self.on_playlist_analysis_finished)
         self.playlist_worker.start()
 
-    def _handle_single_video_download(self, clean_url: str, video_id: Optional[str], extractor: str = 'unknown'):
-        """단일 영상 다운로드 처리 (범용)"""
-        # 중복 다운로드 체크 (큐에 넣기 전에 확인)
-        current_settings = self.settings.copy()
-        target_format = current_settings.get('format', 'mp4')
-        
-        if video_id and self.duplicate_checker.check_duplicate(extractor, video_id, -1, self.tasks[:], target_format):
-            # 사용자가 다시 다운로드하지 않기로 선택한 경우
+    def _handle_single_video_download(self, clean_url: str, video_id: Optional[str], extractor: str = "unknown"):
+        """Handle registration for a single video download."""
+        plan = build_single_video_download_plan(
+            clean_url,
+            video_id,
+            extractor,
+            self.settings,
+        )
+
+        if single_video_duplicate_cancelled(
+            self.duplicate_checker,
+            plan.duplicate_target,
+            self.tasks[:],
+            lambda message: confirm_duplicate_overwrite_dialog(
+                self,
+                STR.MSG_DUPLICATE_CHECK,
+                message,
+            ),
+        ):
             self.status_label.setText(STR.MSG_DL_CANCELLED)
             return
-        
-        # 중복이 아니거나 사용자가 다시 다운로드하기로 선택한 경우
+
         self.total_tasks_in_queue += 1
         task_id = self.total_tasks_in_queue
-        
-        # TaskWidget 생성 및 작업 등록
-        self._create_and_register_task(task_id, clean_url, video_id, extractor)
-        
+        self._create_and_register_task(
+            task_id,
+            plan.clean_url,
+            plan.video_id,
+            plan.extractor,
+        )
+
         self.status_label.setText(STR.MSG_ADDED_QUEUE)
         self.update_progress_ui()
 
     def start_download(self):
         """다운로드 시작 - 오케스트레이션"""
         url = self.url_input.text().strip()
-        
-        # URL 처리 (검증, 정제, 사용자 선택)
-        result = UrlProcessor.process_url(url, self)
+        prefer_playlist = False
+
+        if UrlProcessor.requires_playlist_preference(url):
+            preference = ask_playlist_video_preference(
+                self,
+                STR.TITLE_CHOICE,
+                STR.MSG_CHOICE_PLAYLIST,
+                STR.BTN_CHOICE_ALL,
+                STR.BTN_CHOICE_VIDEO,
+                STR.BTN_CANCEL,
+            )
+            if preference is None:
+                return
+            prefer_playlist = preference
+
+        # URL 처리 (검증, 정제)
+        result = UrlProcessor.process_url(url, prefer_playlist=prefer_playlist)
         if not result:
+            show_invalid_url_dialog(self, STR.TITLE_ERROR, STR.ERR_INVALID_URL)
             return
-        
+
         self.url_input.clear()
         self._show_task_list()
-        
+
         # 플레이리스트 vs 단일 영상 분기
         if result.is_playlist:
             self._handle_playlist_download(result.clean_url)
@@ -829,390 +694,206 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     @pyqtSlot(bool, str, int, str)
     def on_download_finished(self, success, message, task_id, final_path):
         widget = self.task_widgets.get(task_id)
-        if not widget: return
-        
+        if not widget:
+            return
+
         task = self.get_task_by_id(task_id)
-        if task and final_path:
-             # 절대 경로로 변환 및 저장
-            if not os.path.isabs(final_path):
-                final_path = os.path.abspath(final_path)
-            task.output_path = final_path
-        
-            # 파일 성공 시 용량 저장 (Persistence)
-            if success and os.path.exists(final_path):
-                try:
-                    size = os.path.getsize(final_path)
-                    task.meta['file_size'] = size
-                except Exception as e:
-                    log.warning(f"파일 크기 저장 실패: {e}")
+        persist_download_output(task, final_path, success)
 
         if success:
-            if task: 
-                task.status = TaskStatus.FINISHED
-                # 설정에서 포맷(확장자) 가져오기
-                task_format = task.settings.get('format', 'mp4')
-                self.history_manager.add_to_history(task.extractor, task.video_id, task.meta, task_format)
-            
-            widget.set_finished(file_size=task.meta.get('file_size') if task else None)
+            file_size = record_successful_download(task, self.history_manager)
+            widget.set_finished(file_size=file_size)
         else:
-            if message == STR.STATUS_PAUSED:
-                # 이미 PAUSED 상태인 경우 (전체 일시정지로 미리 처리됨) - 중복 처리 방지
-                if task and task.status == TaskStatus.PAUSED:
-                    log.debug(f"Task {task_id}: 이미 일시정지 상태, 중복 처리 스킵")
-                    return
-                
-                # WAITING 상태인 경우 - 재개 중이므로 무시
-                if task and task.status == TaskStatus.WAITING:
-                    log.info(f"Task {task_id}: 이전 작업의 일시정지 신호 무시됨 (현재 재개 중)")
-                    return
+            action = apply_failed_download_result(task, widget, message, STR.STATUS_PAUSED)
+            if action == FailedDownloadAction.IGNORE_ALREADY_PAUSED:
+                log.debug(f"Task {task_id}: already paused; skipping duplicate pause handling")
+                return
+            if action == FailedDownloadAction.IGNORE_RESUMING:
+                log.info(f"Task {task_id}: ignored stale pause signal while resuming")
+                return
 
-                if task: task.status = TaskStatus.PAUSED
-                widget.set_paused()
-            else:
-                if task: task.status = TaskStatus.FAILED
-                widget.set_failed(message)
-        
-        # 워커 정리는 스케줄러가 자동으로 처리
-            
         self.update_progress_ui()
 
     def update_progress_ui(self):
-        """상태별 작업 수를 계산하여 UI 업데이트"""
-        if not self.tasks:
-            self.status_label.setText(STR.MSG_READY)
-            return
-        
-        # 상태별 카운트
-        total_tasks = len(self.tasks)  # 전체 작업 수 (실제 존재하는 작업)
-        finished_count = 0  # 완료된 작업
-        failed_count = 0    # 실패한 작업
-        in_progress_count = 0  # 진행 중인 작업 (Waiting, Downloading, Paused)
-        
-        for task in self.tasks:
-            if task.status == TaskStatus.FINISHED:
-                finished_count += 1
-            elif task.status == TaskStatus.FAILED:
-                failed_count += 1
-            elif task.is_active():
-                in_progress_count += 1
-        
-        # 오류가 있으면 오류 메시지 표시
-        if failed_count > 0:
-            msg = STR.MSG_ERROR_COUNT.format(count=failed_count)
-        else:
-            # 정상 상태: 완료된 작업 수 / 전체 작업 수
-            msg = STR.MSG_COMPLETED_COUNT.format(finished=finished_count, total=total_tasks)
-        
-        self.status_label.setText(msg)
+        """Update the status bar from current task progress."""
+        self.status_label.setText(
+            build_task_status_message(
+                self.tasks,
+                STR.MSG_READY,
+                STR.MSG_ERROR_COUNT,
+                STR.MSG_COMPLETED_COUNT,
+            )
+        )
 
-    # --- 설정 관리 ---
+    # --- Settings management ---
 
     def open_download_options(self):
-        """설정 다이얼로그 열기"""
+        """Open the settings dialog and apply accepted changes."""
         dialog = SettingsDialog(self.settings.copy(), self)
-        if dialog.exec_() == QDialog.Accepted:
-            new_settings = dialog.get_new_settings()
-            
-            old_max = self.settings.get('max_downloads', 3)
-            new_max = new_settings.get('max_downloads', 3)
-            old_accel = self.settings.get('use_acceleration', False)
-            new_accel = new_settings.get('use_acceleration', False)
-            
-            self.settings = new_settings
-            save_settings(self.settings)
+        if dialog.exec_() != QDialog.Accepted:
+            return
 
-            # 언어 변경 반영
-            lang = self.settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
-            change_language(lang)
-            self.apply_language_to_ui()
-            
-            # 설정 변경 시 동적으로 워커 수 조정
-            if old_max != new_max or old_accel != new_accel:
-                target_count = 1 if new_accel else new_max
-                self.scheduler.adjust_worker_count(target_count)
+        new_settings = dialog.get_new_settings()
+        apply_plan = build_settings_apply_plan(self.settings, new_settings)
+        self.settings = new_settings
+        save_settings(self.settings)
+
+        change_language(apply_plan.language)
+        self.apply_language_to_ui()
+
+        if apply_plan.adjust_worker_count:
+            self.scheduler.adjust_worker_count(apply_plan.worker_count)
+
+        self._show_pending_settings_fallback_notice()
 
     def _initialize_scheduler(self):
-        """스케줄러 초기화 (워커 시작)"""
-        use_acceleration = self.settings.get('use_acceleration', False)
-        max_workers = 1 if use_acceleration else int(self.settings.get('max_downloads', 3))
-        self.scheduler.initialize(max_workers)
+        """Initialize scheduler workers from current settings."""
+        self.scheduler.initialize(target_worker_count(self.settings))
     
     @pyqtSlot(int, dict)
     def on_metadata_fetched(self, task_id, metadata):
-        """워커에서 메타데이터를 가져왔을 때 UI 업데이트"""
+        """Update UI and task metadata fetched by the worker."""
         widget = self.task_widgets.get(task_id)
         if not widget:
             return
-        
-        video_id = metadata.get('id')
-        extractor = metadata.get('extractor', 'unknown')
-        if extractor:
-            extractor = extractor.lower()
-        
-        # UI 카드 업데이트
+
         widget.update_metadata(metadata)
-        
-        # tasks 배열의 메타데이터도 업데이트
-        for task in self.tasks:
-            if task.id == task_id:
-                task.meta = metadata
-                # video_id가 없으면 추가
-                if not task.video_id and video_id:
-                    task.video_id = video_id
-                # extractor 업데이트 (메타데이터에서 정확한 값 획득)
-                if extractor and (task.extractor == 'unknown' or not task.extractor):
-                    task.extractor = extractor
-                break
+
+        task = self.get_task_by_id(task_id)
+        if task:
+            apply_metadata_to_task(task, metadata)
 
     # --- 플레이리스트 처리 ---
     
     def _enable_url_input(self):
-        """URL 입력창 활성화"""
-        self.url_input.setEnabled(True)
-        self.download_btn.setEnabled(True)
+        """Enable URL entry controls after playlist analysis."""
+        set_url_entry_enabled(self.url_input, self.download_btn, True)
 
     def _handle_playlist_error(self, error_msg: str):
-        """플레이리스트 에러 처리"""
-        from gui.widgets.message_dialog import MessageDialog
-        
-        error_text = error_msg if error_msg else STR.ERR_PLAYLIST_FETCH
-        MessageDialog("플레이리스트 오류", error_text, 
-                      MessageDialog.WARNING, self).exec_()
+        """Show playlist errors and return the status bar to ready."""
+        show_playlist_error_dialog(
+            self,
+            STR.TITLE_ERROR,
+            error_msg,
+            STR.ERR_PLAYLIST_FETCH,
+        )
         self.status_label.setText(STR.MSG_READY)
 
-    def _filter_duplicate_videos(self, video_ids: list, extractor: str = 'youtube') -> tuple[list, int]:
-        """
-        중복 비디오 필터링
-        
-        Args:
-            video_ids: 비디오 ID 리스트
-            extractor: 추출기(사이트) 식별자
-        
-        Returns:
-            (filtered_ids, duplicate_count) 튜플
-        """
-        duplicate_count = 0
-        filtered_ids = []
-        
-        for video_id in video_ids:
-            # 히스토리 확인 (extractor 포함)
-            if self.history_manager.is_video_downloaded(extractor, video_id):
-                duplicate_count += 1
-                continue
-            # 현재 큐 확인 (extractor 포함)
-            is_in_queue = any(
-                task.extractor == extractor and task.video_id == video_id and task.is_active()
-                for task in self.tasks
-            )
-            if is_in_queue:
-                duplicate_count += 1
-                continue
-            filtered_ids.append(video_id)
-        
-        return filtered_ids, duplicate_count
+    def _filter_duplicate_videos(self, video_ids: list, extractor: str = "youtube") -> tuple[list, int]:
+        """Filter already downloaded or queued playlist videos."""
+        return filter_duplicate_videos(
+            video_ids,
+            self.history_manager,
+            self.tasks,
+            target_format=duplicate_target_format(self.settings),
+            extractor=extractor,
+        )
 
     def _ask_duplicate_confirmation(self, total_count: int, duplicate_count: int) -> bool:
-        """
-        중복 영상 제외 확인 다이얼로그
-        
-        Returns:
-            True: 중복 제외, False: 모두 포함
-        """
-        from gui.widgets.message_dialog import MessageDialog
-        from PyQt5.QtWidgets import QDialog
-        
-        dialog = MessageDialog(
-            STR.TITLE_DUPLICATE,
-            STR.MSG_DUPLICATE_FOUND.format(total=total_count, duplicate=duplicate_count),
-            MessageDialog.QUESTION,
+        """Ask whether duplicate playlist items should be excluded."""
+        return ask_duplicate_confirmation_dialog(
             self,
-            show_cancel=False
+            total_count,
+            duplicate_count,
+            STR.TITLE_DUPLICATE,
+            STR.MSG_DUPLICATE_FOUND,
         )
-        # Yes -> Accepted (중복 제외)
-        return dialog.exec_() == QDialog.Accepted
 
     def _register_playlist_tasks(self, video_ids: list):
-        """플레이리스트 작업들을 등록"""
-        # UI 표시 업데이트
+        """Register download tasks for playlist videos."""
         self._show_task_list()
-        
-        # 각 비디오 ID로 카드 생성 (메타데이터 없이)
         self.status_label.setText(STR.MSG_REGISTERING_PLAYLIST.format(count=len(video_ids)))
         QApplication.processEvents()
-        
-        for video_id in video_ids:
+
+        for plan in build_playlist_task_plans(video_ids, STR.TPL_VIDEO_TITLE):
             self.total_tasks_in_queue += 1
-            task_id = self.total_tasks_in_queue
-            
-            # 비디오 URL 구성
-            video_url = PLAYLIST_VIDEO_URL_TEMPLATE.format(video_id=video_id)
-            
-            # TaskWidget 생성 및 작업 등록
             self._create_and_register_task(
-                task_id, 
-                video_url, 
-                video_id,
-                extractor='youtube',
-                title_override=STR.TPL_VIDEO_TITLE.format(video_id=video_id)
+                self.total_tasks_in_queue,
+                plan.url,
+                plan.video_id,
+                extractor=plan.extractor,
+                title_override=plan.title_override,
             )
-        
+
         self.status_label.setText(STR.MSG_ADDED_PLAYLIST.format(count=len(video_ids)))
         self.update_progress_ui()
 
     @pyqtSlot(str, list, bool, str)
     def on_playlist_analysis_finished(self, url, video_ids, success, error_msg):
-        """플레이리스트 분석 완료 처리 - 오케스트레이션"""
+        """Handle completed playlist analysis."""
         self._enable_url_input()
-        
+
         if not success or not video_ids:
             self._handle_playlist_error(error_msg)
             return
-        
-        # 중복 필터링
+
         filtered_ids, duplicate_count = self._filter_duplicate_videos(video_ids)
-        
-        # 중복 발견 시 사용자 확인
-        if duplicate_count > 0:
-            if self._ask_duplicate_confirmation(len(video_ids), duplicate_count):
-                # 중복 제외 (filtered_ids 그대로 사용)
-                pass
-            else:
-                # 모두 포함
-                filtered_ids = video_ids
-        
-        if not filtered_ids:
-            from gui.widgets.message_dialog import MessageDialog
-            MessageDialog(STR.TITLE_NO_NEW_VIDEOS, STR.MSG_NO_NEW_ITEMS, 
-                          MessageDialog.INFO, self).exec_()
+        decision = build_playlist_registration_decision(
+            video_ids,
+            filtered_ids,
+            duplicate_count,
+            self._ask_duplicate_confirmation,
+        )
+
+        if not decision.has_videos:
+            show_no_new_videos_dialog(self, STR.TITLE_NO_NEW_VIDEOS, STR.MSG_NO_NEW_ITEMS)
             self.status_label.setText(STR.MSG_READY)
             return
-        
-        # 작업 등록
-        self._register_playlist_tasks(filtered_ids)
+
+        self._register_playlist_tasks(decision.video_ids)
 
     # --- 작업 저장/로드 및 종료 처리 ---
 
     def load_tasks_from_file(self):
-        """저장된 작업 목록 불러오기 및 UI 복원"""
+        """Load saved tasks and restore their widgets."""
         loaded_tasks = self.task_manager.load_tasks()
-        
         if not loaded_tasks:
             return
-            
-        if self.scroll_area.isHidden():
-            self.empty_label.hide()
-            self.scroll_area.show()
-            
-        max_id = 0
-        
-        for task_data in loaded_tasks:
-            # 딕셔너리를 DownloadTask 객체로 변환
-            task = DownloadTask.from_dict(task_data)
-            
-            if task.id > max_id:
-                max_id = task.id
-            
-            # TaskWidget 생성 및 신호 연결
-            # 저장된 작업의 경우, 저장 당시의 설정이 있다면 그것을 사용해야 하지만,
-            # 현재 구조상 Task 객체에 settings가 포함되어 있음
-            task_widget = TaskWidget(task.id, task.url, task.settings, self)
-            self._connect_task_widget_signals(task_widget)
-            
-            self.task_layout.insertWidget(0, task_widget)
-            self.task_widgets[task.id] = task_widget
-            
-            # 메타데이터 기반 UI 채우기
-            if task.meta:
-                task_widget.update_metadata(task.meta)
-            
-            # 상태 복원
-            if task.status == TaskStatus.FINISHED:
-                task_widget.set_finished(file_size=task.meta.get('file_size'))
-            elif task.status == TaskStatus.PAUSED:
-                task_widget.set_paused()
-                task_widget.status_label.setText(STR.STATUS_PAUSED_SAVED)
-                task_widget.percent_label.setText(STR.STATUS_WAITING_DOTS)
-            elif task.status == TaskStatus.FAILED:
-                task_widget.set_failed(STR.STATUS_IN_PROGRESS)
-            
+
+        show_task_list(self.scroll_area, self.empty_label)
+
+        loaded_task_objects, max_id = build_loaded_tasks(loaded_tasks)
+        for task in loaded_task_objects:
+            create_restored_task_widget(
+                task,
+                self,
+                self.task_layout,
+                self.task_widgets,
+                self._connect_task_widget_signals,
+            )
             self.tasks.append(task)
-        
-        # ID 카운터 동기화
+
         if max_id > self.total_tasks_in_queue:
             self.total_tasks_in_queue = max_id
         self.update_progress_ui()
-        
-        # 일시정지된 작업이 있는지 확인
-        paused_tasks = [task for task in self.tasks if task.status == TaskStatus.PAUSED]
-        if paused_tasks:
-            # 일시정지된 작업이 있으면 사용자에게 재개 여부 확인
-            from gui.widgets.message_dialog import MessageDialog
-            from PyQt5.QtWidgets import QDialog
-            
-            dialog = MessageDialog(
-                STR.TITLE_RESUME,
-                STR.MSG_RESUME_CONFIRM,
-                MessageDialog.QUESTION,
-                self,
-                show_cancel=False
-            )
-            # Yes -> Accepted
-            if dialog.exec_() == QDialog.Accepted:
-                # 모든 일시정지된 작업 재개
-                for task in paused_tasks:
-                    self.resume_task(task.id)
-            else:
-                # 재개 거부 → 임시 파일 정리 + 작업 상태를 FAILED로 변경
-                self._cleanup_temp_files(paused_tasks)
+
+        handle_paused_task_restore(
+            self.tasks,
+            self._confirm_resume_paused_tasks,
+            self.resume_task,
+            self._cleanup_temp_files,
+        )
+
+    def _confirm_resume_paused_tasks(self):
+        """Ask whether paused loaded tasks should be resumed."""
+        return confirm_resume_paused_tasks_dialog(
+            self,
+            STR.TITLE_RESUME,
+            STR.MSG_RESUME_CONFIRM,
+        )
 
     def _cleanup_temp_files(self, tasks):
-        """임시 폴더(.ytdl_temp) 내용물 삭제"""
-        import shutil
-        cleaned_dirs = set()
-        for task in tasks:
-            save_path = task.settings.get('download_folder') or task.settings.get('save_path')
-            if not save_path or save_path in cleaned_dirs:
-                # 상태만 변경
-                task.status = TaskStatus.FAILED
-                widget = self.task_widgets.get(task.id)
-                if widget:
-                    widget.set_failed(STR.STATUS_PAUSED_CANCELLED)
-                continue
-            
-            temp_dir = os.path.join(save_path, YTDL_TEMP_DIR)
-            if os.path.isdir(temp_dir):
-                try:
-                    shutil.rmtree(temp_dir)
-                    log.info(f"임시 폴더 삭제: {temp_dir}")
-                except Exception as e:
-                    log.warning(f"임시 폴더 삭제 실패: {temp_dir}: {e}")
-            cleaned_dirs.add(save_path)
-            
-            # 작업 상태를 FAILED로 변경 (재시도 가능)
-            task.status = TaskStatus.FAILED
-            widget = self.task_widgets.get(task.id)
-            if widget:
-                widget.set_failed(STR.STATUS_PAUSED_CANCELLED)
+        """Delete paused task temp files and mark them retryable."""
+        cleanup_cancelled_paused_tasks(tasks, self.task_widgets)
 
     def closeEvent(self, event):
-        # 창 상태 저장
         save_window_state("MainWindow", self)
-        
-        # 다운로드 중인 작업들을 PAUSED 상태로 변경
-        for task in self.tasks:
-            if task.status == TaskStatus.DOWNLOADING:
-                task.status = TaskStatus.PAUSED
-        
-        # 종료 전 작업 목록 저장
+        mark_downloading_tasks_paused(self.tasks)
         self.task_manager.save_tasks(self.tasks)
-        
-        # 플레이리스트 분석 워커 종료
-        if self.playlist_worker and self.playlist_worker.isRunning():
-            self.playlist_worker.terminate()  # 먼저 종료 신호 전송
-            if not self.playlist_worker.wait(WORKER_SHUTDOWN_WAIT_MS):
-                log.warning("플레이리스트 워커가 시간 내에 종료되지 않았습니다.")
-        
-        # 스케줄러 종료 (워커 정리)
+
+        worker_stop = stop_running_worker(self.playlist_worker, WORKER_SHUTDOWN_WAIT_MS)
+        if worker_stop.timed_out:
+            log.warning("Playlist worker did not stop before timeout.")
+
         self.scheduler.shutdown()
-        
         event.accept()
