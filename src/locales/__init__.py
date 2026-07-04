@@ -1,27 +1,24 @@
-"""
-언어/로케일 관리 모듈
-언어별 문자열을 로드하고 관리합니다.
-"""
+"""Language and locale management for loading localized strings."""
 from typing import Dict
 import os
 
-# 지원하는 언어 목록
+# Supported languages.
 SUPPORTED_LANGUAGES = {
     'ko': '한국어',
     'ja': '日本語',
     'en': 'English'
 }
 
-# 기본 언어
+# Default language.
 DEFAULT_LANGUAGE = 'en'
 
-# 현재 언어 (런타임에 설정됨)
+# Current language, set at runtime.
 _current_language = DEFAULT_LANGUAGE
 _strings: Dict[str, str] = {}
 
 
 def set_language(lang_code: str):
-    """언어를 설정합니다."""
+    """Set the active language."""
     global _current_language
     
     if lang_code not in SUPPORTED_LANGUAGES:
@@ -32,17 +29,17 @@ def set_language(lang_code: str):
 
 
 def get_language() -> str:
-    """현재 언어 코드를 반환합니다."""
+    """Return the current language code."""
     return _current_language
 
 
 def get_string(key: str, default: str = None) -> str:
-    """언어별 문자열을 가져옵니다."""
+    """Return a localized string."""
     return _strings.get(key, default or key)
 
 
 def _load_strings(lang_code: str):
-    """언어별 문자열을 로드합니다."""
+    """Load strings for a language."""
     global _strings
     
     try:
@@ -53,16 +50,16 @@ def _load_strings(lang_code: str):
             from . import ja
             _strings = ja.STRINGS
         elif lang_code == 'en':
-            # 영어는 기본값이므로 별도 파일 로드 안함 (strings.py의 기본값 사용)
+            # English uses defaults, so no separate file is loaded.
             _strings = {}
         else:
-            # 지원하지 않는 언어는 한국어로 폴백 (또는 영어로 폴백하려면 {} 사용)
+            # Unsupported languages fall back to Korean.
             from . import ko
             _strings = ko.STRINGS
     except ImportError:
-        # 언어 파일을 찾을 수 없으면 빈 딕셔너리 사용 (기본값인 영어 출력)
+        # If the language file is missing, use an empty dict and fall back to English defaults.
         _strings = {}
 
 
-# 초기화: 기본 언어 로드
+# Initialization: load the default language.
 _load_strings(DEFAULT_LANGUAGE)

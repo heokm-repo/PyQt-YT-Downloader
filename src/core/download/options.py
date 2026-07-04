@@ -21,40 +21,40 @@ from utils.logger import log
 
 def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings=None, is_resume=False):
     """
-    기본 yt-dlp 옵션 생성
+    Build base yt-dlp options.
     
     Args:
-        save_path: 저장 경로
-        ffmpeg_path: FFmpeg 경로 (None 가능)
-        is_playlist: 플레이리스트 여부
-        progress_hook: 진행률 훅 함수
-        settings: 설정 딕셔너리 (선택적)
-        is_resume: 이어받기 여부
+        save_path: Output directory.
+        ffmpeg_path: Optional FFmpeg executable path.
+        is_playlist: Whether the task is a playlist.
+        progress_hook: Progress callback.
+        settings: Optional settings dictionary.
+        is_resume: Whether the task is resuming.
     
     Returns:
-        기본 옵션 딕셔너리
+        Base options dictionary.
     """
-    # 출력 템플릿은 settings에서 가져오되, 없으면 기본값 사용
-    # [중요] outtmpl은 상대 경로만 사용 → --paths home: 과 함께 사용해야 --paths temp: 가 동작함
+    # Read the output template from settings, or use the default.
+    # Important: outtmpl must stay relative so --paths home: and --paths temp: work together.
     output_template = settings.get('output_template', OUTPUT_TEMPLATE) if settings else OUTPUT_TEMPLATE
     
     opts = {
         'outtmpl': output_template,
-        'home_path': save_path,  # --paths home: 용 (기본 저장 경로)
+        'home_path': save_path,  # Used by --paths home: as the base output directory.
         'progress_hooks': [progress_hook],
         'noplaylist': not is_playlist,
         'quiet': True,
         'no_warnings': True,
-        'keepvideo': False,  # [중요] 병합 후 원본(임시 파일) 삭제
+        'keepvideo': False,  # Important: delete source temporary files after merging.
     }
     
-    # 임시 파일 전용 폴더 (.ytdl_temp)
+    # Dedicated temporary file directory (.ytdl_temp).
     temp_path = os.path.join(save_path, YTDL_TEMP_DIR)
     os.makedirs(temp_path, exist_ok=True)
     opts['temp_path'] = temp_path
     
-    # 이어받기(resume)가 아닐 때만 덮어쓰기 허용
-    # resume일 때는 .part 파일을 유지하며 이어받기
+    # Allow overwrites only when this is not a resume operation.
+    # Keep .part files when resuming.
     if not is_resume:
         opts['overwrites'] = True
     
@@ -161,17 +161,17 @@ def _build_format_options(settings):
 
 def _build_postprocess_options(settings):
     """
-    후처리 옵션 생성 (오디오 평준화 등)
+    Build postprocess options, including audio normalization.
     
     Args:
-        settings: 설정 딕셔너리
+        settings: Settings dictionary.
     
     Returns:
-        후처리 옵션 딕셔너리
+        Postprocess options dictionary.
     """
     opts = {}
     
-    # 오디오 음량 평준화 (Loudnorm)
+    # Audio loudness normalization (loudnorm).
     if settings.get('normalize_audio'):
         pp_args = {'ffmpeg': ['-af', LOUDNORM_FILTER]}
         opts['postprocessor_args'] = pp_args
@@ -181,22 +181,22 @@ def _build_postprocess_options(settings):
 
 def _build_advanced_options(settings):
     """
-    고급 옵션 생성 (가속, 쿠키, JS 런타임 등)
+    Build advanced options for acceleration, cookies, and JavaScript runtime settings.
     
     Args:
-        settings: 설정 딕셔너리
+        settings: Settings dictionary.
     
     Returns:
-        고급 옵션 딕셔너리
+        Advanced options dictionary.
     """
     opts = {}
     
-    # 가속 (멀티 스레드)
+    # Acceleration using concurrent fragments.
     if settings.get('use_acceleration'):
         concurrent_downloads = settings.get('concurrent_fragment_downloads', CONCURRENT_FRAGMENT_DOWNLOADS)
         opts['concurrent_fragment_downloads'] = concurrent_downloads
     
-    # 인앱 로그인 쿠키 파일 사용
+    # Use cookies from the in-app login flow.
     try:
         from utils.cookie_store import get_cookie_file_path, cookie_file_exists
         if cookie_file_exists():
@@ -206,7 +206,7 @@ def _build_advanced_options(settings):
     except ImportError:
         log.debug("cookie_store module not available, skipping cookie support")
     
-    # QuickJS JS 런타임 경로 (yt-dlp 서명 풀기에 필요)
+    # QuickJS runtime path needed by yt-dlp signature extraction.
     try:
         from utils.bin.manager import get_quickjs_path
         qjs_path = get_quickjs_path()
@@ -245,20 +245,20 @@ def _build_metadata_extract_options(settings: dict | None = None, is_playlist: b
 
 def _merge_postprocessor_args(existing_opts: dict, new_opts: dict) -> dict:
     """
-    후처리 옵션(postprocessor_args) 병합
+    Merge postprocessor_args into existing yt-dlp options.
     
     Args:
-        existing_opts: 기존 옵션 딕셔너리
-        new_opts: 새로 추가할 옵션 딕셔너리
+        existing_opts: Existing options dictionary.
+        new_opts: Newly added options dictionary.
     
     Returns:
-        병합된 옵션 딕셔너리
+        Merged options dictionary.
     """
     if 'postprocessor_args' not in new_opts:
         return existing_opts
     
     if 'postprocessor_args' in existing_opts:
-        # 기존 postprocessor_args와 병합
+        # Merge with existing postprocessor_args.
         existing_pp = existing_opts['postprocessor_args']
         new_pp = new_opts['postprocessor_args']
         if 'ffmpeg' in existing_pp and 'ffmpeg' in new_pp:
@@ -272,20 +272,18 @@ def _merge_postprocessor_args(existing_opts: dict, new_opts: dict) -> dict:
 
 
 def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook, is_resume=False) -> dict:
-    """
-    모든 옵션을 조립하여 최종 yt-dlp 옵션 딕셔너리 생성
-    """
-    # 기본 옵션들 병합
+    """Assemble the final yt-dlp options dictionary."""
+    # Merge base options.
     ydl_opts = {}
     ydl_opts.update(_build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings, is_resume))
     ydl_opts.update(_build_format_options(settings))
     ydl_opts.update(_build_advanced_options(settings))
     
-    # 후처리 옵션은 postprocessor_args 병합이 필요하므로 별도 처리
+    # Merge postprocess options separately because postprocessor_args needs special handling.
     postprocess_opts = _build_postprocess_options(settings)
     ydl_opts = _merge_postprocessor_args(ydl_opts, postprocess_opts)
     
     return ydl_opts
 
 # =====================================================================
-# 다운로드 실행 (범용)
+# Generic download execution.

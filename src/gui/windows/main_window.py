@@ -89,7 +89,7 @@ from gui.windowing.window_state_manager import (
     restore_window_state,
 )
 from utils.logger import log
-import constants  # 동적 언어 문자열을 항상 최신 값으로 사용하기 위해 모듈 자체도 임포트
+import constants  # Import the module too so dynamic language strings are always current.
 from locales import DEFAULT_LANGUAGE
 from locales.strings import STR
 from constants import (
@@ -209,7 +209,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.select_all_shortcut = QShortcut(QKeySequence.SelectAll, self)
         self.select_all_shortcut.activated.connect(self.select_all_tasks)
 
-    # --- 헬퍼 메서드 ---
+    # --- Helper Methods ---
     
     def _show_pending_settings_fallback_notice(self):
         """Show the settings fallback notice produced while loading or saving settings."""
@@ -225,10 +225,10 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         )
 
     def get_task_by_id(self, task_id: int) -> Optional[DownloadTask]:
-        """task_id로 DownloadTask 객체 찾기"""
+        """Find a DownloadTask by task_id."""
         return next((t for t in self.tasks if t.id == task_id), None)
 
-    # --- UI 생성 메서드 ---
+    # --- UI Creation Methods ---
 
     def setup_ui(self):
         self.menuBar().hide()
@@ -370,30 +370,30 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     # --- Window maximize toggle ---
     
     def _toggle_maximize(self):
-        """최대화 ↔ 복구 토글"""
+        """Toggle between maximized and restored states."""
         if self.isMaximized():
             self.showNormal()
         else:
             self.showMaximized()
 
-    # ── 마우스 이벤트 (리사이즈 + 드래그 이동 통합) ──────
+    # -- Mouse Events: Resize and Drag -------------------------------------
     
     def mousePressEvent(self, event):
         self.setFocus()
         if event.button() == Qt.LeftButton:
-            # 리사이즈 우선
+            # Give resizing first priority.
             if self.resizable_mouse_press(event):
                 return
-            # 리사이즈 영역이 아니면 드래그 이동
+            # Drag the window when the cursor is not on a resize edge.
             self.oldPos = event.globalPos()
     
     def mouseMoveEvent(self, event):
-        # 리사이즈 중이면 리사이즈 처리
+        # Handle active resizing.
         if self.resizable_mouse_move(event):
             return
-        # 드래그 이동
+        # Handle dragging.
         if should_continue_window_drag(self.oldPos, event.buttons(), Qt.LeftButton):
-            # 최대화 상태에서 드래그 시 복구 후 이동
+            # Restore before dragging while maximized.
             if self._is_maximized_state:
                 self.showNormal()
                 self.oldPos = event.globalPos()
@@ -492,7 +492,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.task_sort_button.sortChanged.connect(self._handle_task_sort_changed)
         layout.addWidget(controls.frame)
 
-    # --- 키보드 단축키 핸들러 ---
+    # --- Keyboard Shortcut Handlers ---
     
     def handle_smart_paste(self):
         """Paste into the URL input or start a download from a valid clipboard URL."""
@@ -507,57 +507,57 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self.start_download()
             self.status_label.setText(STR.MSG_SMART_PASTE)
 
-    # --- 작업 제어 메서드 (TaskActions로 위임) ---
+    # --- Task Control Methods Delegated To TaskActions ---
 
     def pause_task(self, task_id):
-        """개별 작업 일시 정지"""
+        """Pause one task."""
         self.task_actions.pause_task(task_id)
 
     def resume_task(self, task_id):
-        """일시 정지된 작업을 이어받기"""
+        """Resume a paused task."""
         self.task_actions.resume_task(task_id)
 
     def retry_task(self, task_id):
-        """다운로드 재시도"""
+        """Retry a download."""
         self.task_actions.retry_task(task_id)
 
-    # --- 파일 관련 액션 메서드 (TaskActions로 위임) ---
+    # --- File Action Methods Delegated To TaskActions ---
 
     def play_file(self, task_id):
-        """파일 실행"""
+        """Play a file."""
         self.task_actions.play_file(task_id)
 
     def open_folder(self, task_id):
-        """파일이 있는 폴더 열기"""
+        """Open the folder containing a file."""
         self.task_actions.open_folder(task_id)
 
     def delete_file(self, task_id, confirm=True):
-        """파일 삭제 및 목록 제거"""
+        """Delete a file and remove it from the list."""
         self.task_actions.delete_file(task_id, confirm)
 
-    # --- 시그널 연결 ---
+    # --- Signal Connections ---
     
     def _connect_task_widget_signals(self, task_widget):
         """Connect TaskWidget signals to main-window handlers."""
         connect_task_widget_signals(task_widget, self)
 
-    # --- 선택 관리 메서드 ---
+    # --- Selection Management Methods ---
     
     def on_task_clicked(self, task_id, modifiers):
-        """카드 클릭 처리 (단일/Shift/Ctrl 선택)"""
+        """Handle card clicks for single, Shift, and Ctrl selection."""
         self.selection_manager.handle_click(
             task_id, modifiers, self.task_widgets, self.task_layout
         )
     
     def select_all_tasks(self):
-        """모든 작업 선택 (Ctrl+A)"""
-        # URL 입력창에 포커스가 있으면 기본 동작 수행
+        """Select all tasks with Ctrl+A."""
+        # Let the URL input keep its default behavior when focused.
         focused_widget = QApplication.focusWidget()
         if focused_widget == self.url_input:
             self.url_input.selectAll()
             return
         
-        # 모든 카드 선택
+        # Select all cards.
         self.selection_manager.select_all(self.task_widgets)
     
     def show_context_menu(self, task_id, global_pos):
@@ -573,37 +573,37 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         menu.exec_(global_pos)
 
     def _pause_selected_tasks(self):
-        """선택된 작업들 일시정지"""
+        """Pause selected tasks."""
         self.task_actions.pause_selected(self.selection_manager.get_selected_ids())
     
     def _resume_selected_tasks(self):
-        """선택된 작업들 이어받기"""
+        """Resume selected tasks."""
         self.task_actions.resume_selected(self.selection_manager.get_selected_ids())
     
     def _retry_selected_tasks(self):
-        """선택된 작업들 재시도"""
+        """Retry selected tasks."""
         task_ids = self.selection_manager.get_selected_ids()
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.retry_selected(task_ids)
     
     def _open_folders_for_selected(self):
-        """선택된 작업들의 폴더 열기"""
+        """Open folders for selected tasks."""
         self.task_actions.open_folders_for_selected(self.selection_manager.get_selected_ids())
     
     def _delete_files_for_selected(self):
-        """선택된 작업들의 파일 삭제"""
+        """Delete files for selected tasks."""
         selected_ids = self.selection_manager.get_selected_ids()
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.delete_files_for_selected(selected_ids, self.tasks)
     
     def _remove_selected_from_list(self):
-        """선택된 작업들을 목록에서 제거"""
+        """Remove selected tasks from the list."""
         task_ids = self.selection_manager.get_selected_ids()
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.remove_selected_from_list(task_ids)
 
     def _remove_all_completed_from_list(self):
-        """완료된 모든 작업들을 목록에서 제거"""
+        """Remove all completed tasks from the list."""
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.remove_all_completed_from_list()
 
@@ -657,7 +657,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         screen = self.screen().geometry()
         self.move((screen.width() - self.width()) // 2, (screen.height() - self.height()) // 2)
 
-    # --- 다운로드 시작 및 작업 등록 ---
+    # --- Download Start And Task Registration ---
 
     def _create_and_register_task(
         self,
@@ -737,7 +737,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.update_progress_ui()
 
     def start_download(self):
-        """다운로드 시작 - 오케스트레이션"""
+        """Orchestrate download start."""
         url = self.url_input.text().strip()
         prefer_playlist = False
 
@@ -754,7 +754,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
                 return
             prefer_playlist = preference
 
-        # URL 처리 (검증, 정제)
+        # Process and validate the URL.
         result = UrlProcessor.process_url(url, prefer_playlist=prefer_playlist)
         if not result:
             show_invalid_url_dialog(self, STR.TITLE_ERROR, STR.ERR_INVALID_URL)
@@ -763,13 +763,13 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.url_input.clear()
         self._show_task_list()
 
-        # 플레이리스트 vs 단일 영상 분기
+        # Branch between playlist and single-video handling.
         if result.is_playlist:
             self._handle_playlist_download(result.clean_url)
         else:
             self._handle_single_video_download(result.clean_url, result.video_id, result.extractor or 'unknown')
 
-    # --- 스케줄러 시그널 핸들러 ---
+    # --- Scheduler Signal Handlers ---
         
     @pyqtSlot(int)
     def on_task_started(self, task_id):
@@ -777,7 +777,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         if widget:
             widget.set_started()
             
-            # 태스크 상태 업데이트
+            # Update task state.
             task = self.get_task_by_id(task_id)
             if task: task.status = TaskStatus.DOWNLOADING
         
@@ -865,7 +865,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         if task:
             apply_metadata_to_task(task, metadata)
 
-    # --- 플레이리스트 처리 ---
+    # --- Playlist Handling ---
     
     def _enable_url_input(self):
         """Enable URL entry controls after playlist analysis."""
@@ -944,7 +944,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
         self._register_playlist_tasks(decision.video_ids)
 
-    # --- 작업 저장/로드 및 종료 처리 ---
+    # --- Task Save/Load And Shutdown Handling ---
 
     def load_tasks_from_file(self):
         """Load saved tasks and restore their widgets."""

@@ -1,6 +1,4 @@
-"""
-한국어 문자열 정의 (Korean)
-"""
+"""Korean string definitions."""
 STRINGS = {
     # =========================================================================
     # 1. Common / Global
@@ -59,6 +57,9 @@ STRINGS = {
     'TITLE_LOGIN_BROWSER': "YouTube 로그인",
     'MSG_LOGIN_WAITING': "Google 계정으로 로그인해주세요.",
     'MSG_LOGIN_SUCCESS': "로그인 감지! '저장 및 닫기'를 클릭하세요.",
+    'MSG_LOGIN_STABILIZING': "쿠키 안정화 중...",
+    'ERR_LOGIN_NO_COOKIES': "YouTube 쿠키를 가져오지 못했습니다!",
+    'ERR_LOGIN_SAVE_FAILED': "저장 실패: {error}",
 
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "앱 관리",
@@ -135,6 +136,8 @@ STRINGS = {
     'MSG_INIT_STARTING': "YT Downloader를 시작합니다...",
     'MSG_INIT_FAILED': "초기화 실패",
     'ERR_INIT_DOWNLOAD': "다운로드 중 오류가 발생했습니다.",
+    'MSG_INIT_CANCELLING': "취소 중...",
+    'MSG_INIT_DOWNLOAD_CANCELLED': "다운로드가 취소되었습니다.",
 
 
 
@@ -170,6 +173,10 @@ STRINGS = {
     'ERR_UPDATE_CHECK': "업데이트 확인 중 오류가 발생했습니다:\n{error}",
     'TITLE_UPDATE_DL': "업데이트 진행 중",
     'MSG_UPDATE_DL': "새 버전을 다운로드하는 중입니다...\n잠시만 기다려 주세요.",
+    'MSG_UPDATE_PREPARING': "업데이트 준비 중...",
+    'MSG_UPDATE_DL_STATUS': "업데이트 다운로드 중...",
+    'MSG_UPDATE_INSTALLING': "업데이트 다운로드가 완료되었습니다. 설치 프로그램을 시작합니다...",
+    'MSG_UPDATE_CANCELLED': "업데이트가 취소되었습니다.",
     'ERR_UPDATE_APPLY': "업데이트 적용에 실패했습니다.",
     'ERR_UPDATE_DOWNLOAD': "업데이트 다운로드에 실패했습니다.",
     'MSG_UPDATE_COMPONENTS': "다음 구성 요소에 대한 업데이트가 있습니다:\n\n",

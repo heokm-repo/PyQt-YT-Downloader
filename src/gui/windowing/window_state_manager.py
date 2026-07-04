@@ -1,11 +1,4 @@
-"""
-WindowStateManager — 다중 창 상태 저장/복원 유틸리티
-
-settings.json에 'window_states' 키 아래 각 창(window_name)별로
-위치(x, y), 크기(width, height), 최대화 여부(maximized)를 저장합니다.
-
-안전 복원: 저장된 위치가 현재 모니터 밖이면 화면 중앙으로 초기화합니다.
-"""
+"""Utilities for saving and restoring multi-window state under the window_states settings key."""
 import os
 import json
 from PyQt5.QtWidgets import QApplication, QDesktopWidget
@@ -19,7 +12,7 @@ _WINDOW_STATES_KEY = 'window_states'
 
 
 def _load_all_settings() -> dict:
-    """settings.json 전체를 읽어 dict로 반환"""
+    """Read the full settings.json file as a dictionary."""
     path = os.path.join(get_user_data_path(), _SETTINGS_FILE)
     try:
         if os.path.exists(path):
@@ -31,7 +24,7 @@ def _load_all_settings() -> dict:
 
 
 def _save_all_settings(data: dict):
-    """settings.json 전체를 저장"""
+    """Save the full settings.json file."""
     path = os.path.join(get_user_data_path(), _SETTINGS_FILE)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -42,13 +35,10 @@ def _save_all_settings(data: dict):
 
 
 def _is_visible_on_any_screen(rect: QRect) -> bool:
-    """
-    주어진 rect가 적어도 하나의 모니터 화면 안에 충분히 보이는지 확인.
-    창의 상단 32px과 좌측 50px 이상이 어떤 스크린에 걸쳐 있으면 True.
-    """
+    """Return whether the given rect is sufficiently visible on any monitor."""
     app = QApplication.instance()
     if not app:
-        return True  # 앱이 없으면 체크 불가, 허용
+        return True  # If there is no app instance, the check cannot run; allow it.
 
     desktop = app.desktop()
     if not desktop:
@@ -56,7 +46,7 @@ def _is_visible_on_any_screen(rect: QRect) -> bool:
 
     for i in range(desktop.screenCount()):
         screen_rect = desktop.availableGeometry(i)
-        # 창의 일부(상단+좌측)가 스크린 안에 있는지 확인
+        # Check whether part of the window is visible on screen.
         overlap = screen_rect.intersected(rect)
         if overlap.width() >= 50 and overlap.height() >= 32:
             return True
@@ -66,15 +56,15 @@ def _is_visible_on_any_screen(rect: QRect) -> bool:
 
 def save_window_state(window_name: str, window):
     """
-    창의 현재 상태를 settings.json에 저장합니다.
+    Save a window state into settings.json.
     
     Args:
-        window_name: 창의 고유 이름 (예: "MainWindow", "SettingsDialog")
-        window: QWidget 인스턴스 (geometry(), isMaximized() 사용)
+        window_name: Unique window name.
+        window: QWidget instance exposing geometry() and isMaximized().
     """
     is_maximized = window.isMaximized()
 
-    # 최대화 상태에서는 normalGeometry()를 사용하여 복원 시 정상 크기를 저장
+    # When maximized, store normalGeometry() so restore size remains valid.
     if is_maximized:
         geo = window.normalGeometry()
     else:
@@ -100,13 +90,13 @@ def save_window_state(window_name: str, window):
 
 def load_window_state(window_name: str) -> dict | None:
     """
-    settings.json에서 창 상태를 읽어 반환합니다.
+    Load a saved window state from settings.json.
     
     Args:
-        window_name: 창의 고유 이름
+        window_name: Unique window name.
     
     Returns:
-        {'x', 'y', 'width', 'height', 'maximized'} dict 또는 None (저장된 상태 없음)
+        A dict with x, y, width, height, and maximized, or None if no state was saved.
     """
     all_settings = _load_all_settings()
     states = all_settings.get(_WINDOW_STATES_KEY, {})
@@ -115,23 +105,23 @@ def load_window_state(window_name: str) -> dict | None:
 
 def restore_window_state(window_name: str, window, default_width: int, default_height: int):
     """
-    저장된 상태를 창에 적용합니다. 안전 복원 로직 포함.
+    Apply a saved window state with safe restore behavior.
     
-    저장된 위치가 모니터 밖이면 화면 중앙에 기본 크기로 배치합니다.
+    If the saved position is off-screen, place the window at the center with the default size.
     
     Args:
-        window_name: 창의 고유 이름
-        window: QWidget 인스턴스
-        default_width: 기본 너비 (저장된 상태가 없을 때 사용)
-        default_height: 기본 높이
+        window_name: Unique window name.
+        window: QWidget instance.
+        default_width: Default width when no saved state exists.
+        default_height: Default height.
     
     Returns:
-        True: 상태 복원 성공, False: 기본값 사용 (중앙 배치)
+        True when saved state was restored, False when defaults were used.
     """
     state = load_window_state(window_name)
 
     if state is None:
-        # 저장된 상태 없음 → 기본 크기로 화면 중앙 배치
+        # No saved state: center with the default size.
         _center_window(window, default_width, default_height)
         return False
 
@@ -141,14 +131,14 @@ def restore_window_state(window_name: str, window, default_width: int, default_h
     height = state.get('height', default_height)
     maximized = state.get('maximized', False)
 
-    # 안전 검사: 저장된 위치가 모니터 밖이면 중앙으로 초기화
+    # Safety check: recenter if the saved position is off-screen.
     test_rect = QRect(x, y, width, height)
     if not _is_visible_on_any_screen(test_rect):
         log.info(f"Window '{window_name}' 위치가 화면 밖 → 중앙 초기화")
         _center_window(window, default_width, default_height)
         return False
 
-    # 정상 복원
+    # Normal restore.
     window.setGeometry(x, y, width, height)
 
     if maximized:
@@ -159,7 +149,7 @@ def restore_window_state(window_name: str, window, default_width: int, default_h
 
 
 def _center_window(window, width: int, height: int):
-    """창을 화면 중앙에 기본 크기로 배치"""
+    """Center the window on screen with the default size."""
     window.resize(width, height)
 
     app = QApplication.instance()

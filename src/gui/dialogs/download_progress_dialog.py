@@ -1,61 +1,46 @@
-"""
-초기 바이너리 다운로드 진행 다이얼로그
-- 첫 실행 시 yt-dlp와 ffmpeg 다운로드 진행률 표시
-- 모달 다이얼로그 (취소 불가)
-"""
-from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QProgressBar,
-                             QPushButton)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont
+"""Progress dialog for initial external binary downloads and binary updates."""
+from PyQt5.QtCore import QThread, QTimer, pyqtSignal
 
-from gui.dialogs.base_dialog import BaseDialog
-from gui.widgets.button_sizing import set_text_button_minimum_width
+from gui.dialogs.progress_dialog_base import ProgressDialogBase
 
-from constants import change_language
+from constants import DOWNLOAD_DIALOG_AUTO_CLOSE_MS
 from locales.strings import STR
-from resources.styles import (
-    SETTINGS_LABEL_STYLE, PROGRESS_BAR_STYLE,
-    SETTINGS_FONT_FAMILY,
-    DOWNLOAD_DIALOG_WIDTH, DOWNLOAD_DIALOG_HEIGHT,
-    DETAIL_LABEL_STYLE, INFO_LABEL_STYLE,
-    SETTINGS_CANCEL_BUTTON_STYLE
-)
 from utils.logger import log
 
 
 class DownloadWorker(QThread):
-    """백그라운드에서 바이너리 다운로드 수행"""
-    
+    """Worker that downloads binaries in the background."""
+
     progress = pyqtSignal(str, int, int)  # binary_name, downloaded, total
     finished = pyqtSignal(bool)  # success
     status = pyqtSignal(str)  # status message
-    
+
     def __init__(self, update_mode=False, updates=None):
         super().__init__()
         self.update_mode = update_mode
-        self.updates = updates  # 업데이트할 바이너리 목록
+        self.updates = updates  # Binaries to update.
         self.is_cancelled = False
-    
+
     def cancel(self):
-        """다운로드 취소 요청"""
+        """Request download cancellation."""
         self.is_cancelled = True
-        
+
     def check_cancel(self):
-        """취소 여부 확인 콜백"""
+        """Return whether cancellation was requested."""
         return self.is_cancelled
-    
+
     def run(self):
-        """다운로드 실행"""
+        """Run the download workflow."""
         try:
             if self.update_mode:
                 from utils.bin.manager import update_binaries
-                
+
                 def progress_callback(binary_name, downloaded, total):
                     self.progress.emit(binary_name, downloaded, total)
-                
-                # updates를 전달하여 해당 바이너리만 업데이트
+
+                # Pass the selected binary update set.
                 results = update_binaries(progress_callback, self.updates, self.check_cancel)
-                
+
                 if self.is_cancelled:
                     self.finished.emit(False)
                     return
@@ -64,195 +49,126 @@ class DownloadWorker(QThread):
                 self.finished.emit(success)
             else:
                 from utils.bin.manager import download_initial_binaries
-                
+
                 def progress_callback(binary_name, downloaded, total):
                     self.progress.emit(binary_name, downloaded, total)
-                
+
                 success = download_initial_binaries(progress_callback, self.check_cancel)
-                
+
                 if self.is_cancelled:
                     self.finished.emit(False)
                     return
-                    
+
                 self.finished.emit(success)
-            
+
         except Exception as e:
             log.error(f"Download worker error: {e}")
             self.finished.emit(False)
 
 
-class DownloadProgressDialog(BaseDialog):
-    """초기 바이너리 다운로드 진행 다이얼로그"""
-    
+class DownloadProgressDialog(ProgressDialogBase):
+    """Progress dialog for initial binary downloads and binary updates."""
+
     def __init__(self, parent=None, update_mode=False, updates=None):
         self.update_mode = update_mode
-        self.updates = updates  # 업데이트할 바이너리 목록
+        self.updates = updates  # Binaries to update.
         title_text = STR.TITLE_APP_UPDATE if update_mode else STR.TITLE_INIT
-        
+        info_text = STR.MSG_UPDATE_DL if update_mode else STR.MSG_INIT_INFO
+
         super().__init__(
-            parent=parent, 
-            title=title_text, 
-            icon_text=None, 
-            show_close_btn=False, 
-            show_divider=True
+            parent=parent,
+            title=title_text,
+            status_text=STR.MSG_INIT_DESC,
+            detail_text=STR.MSG_INIT_PREPARING,
+            info_text=info_text,
         )
-        
-        self.setFixedSize(DOWNLOAD_DIALOG_WIDTH, DOWNLOAD_DIALOG_HEIGHT) 
-        
-        self._setup_content()
-        self._setup_buttons()
-        
-        # 다운로드 워커
+
         self.worker = None
         self.download_success = False
-    
-    def _setup_content(self):
-        """UI 구성"""
-        
-        # 상태 메시지
-        self.status_label = QLabel(STR.MSG_INIT_DESC)
-        self.status_label.setFont(QFont(SETTINGS_FONT_FAMILY, 10))
-        self.status_label.setStyleSheet(SETTINGS_LABEL_STYLE)
-        self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setWordWrap(True)
-        self.content_layout.addWidget(self.status_label)
-        
-        # 진행률 바
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setAlignment(Qt.AlignCenter)
-        self.progress_bar.setFixedHeight(25)
-        # Use centralized style, possibly overriding font size if needed
-        self.progress_bar.setStyleSheet(PROGRESS_BAR_STYLE)
-        self.content_layout.addWidget(self.progress_bar)
-        
-        # 상세 정보
-        self.detail_label = QLabel(STR.MSG_INIT_PREPARING)
-        self.detail_label.setFont(QFont(SETTINGS_FONT_FAMILY, 9))
-        self.detail_label.setStyleSheet(DETAIL_LABEL_STYLE)
-        self.detail_label.setAlignment(Qt.AlignCenter)
-        self.content_layout.addWidget(self.detail_label)
-        
-        # 안내 메시지
-        info_text = STR.MSG_UPDATE_DL if self.update_mode else STR.MSG_INIT_INFO
-        info_label = QLabel(info_text)
-        info_label.setFont(QFont(SETTINGS_FONT_FAMILY, 8))
-        # Use a consistent color or define a new constant if reused often
-        info_label.setStyleSheet(INFO_LABEL_STYLE)
-        info_label.setAlignment(Qt.AlignCenter)
-        info_label.setWordWrap(True)
-        self.content_layout.addWidget(info_label)
-        
-        self.content_layout.addStretch()
-        
-    def _setup_buttons(self):
-        """버튼 레이아웃"""
-        # 버튼 레이아웃 (취소 버튼)
-        self.cancel_btn = QPushButton(STR.BTN_CANCEL)
-        self.cancel_btn.setCursor(Qt.PointingHandCursor)
-        self.cancel_btn.setFixedHeight(30)
-        set_text_button_minimum_width(self.cancel_btn)
-        self.cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
-        self.cancel_btn.clicked.connect(self.cancel_download)
-        
-        self.button_layout.addWidget(self.cancel_btn)
-    
+
     def cancel_download(self):
-        """다운로드 취소"""
+        """Cancel the download."""
         if self.worker and self.worker.isRunning():
-            self.status_label.setText(STR.MSG_INIT_FAILED) # Or a specific "Cancelling..." message
-            self.detail_label.setText("Cancelling...")
-            self.cancel_btn.setEnabled(False) # Prevent multiple clicks
+            self.status_label.setText(STR.MSG_INIT_FAILED)
+            self.detail_label.setText(STR.MSG_INIT_CANCELLING)
+            self.cancel_btn.setEnabled(False)
             self.worker.cancel()
-            # Worker will finish shortly with success=False
-            # The _on_finished will be called
         else:
             self.reject()
 
     def start_download(self):
-        """다운로드 시작"""
+        """Start the download."""
         if self.worker is not None:
             return
-        
+
         self.worker = DownloadWorker(self.update_mode, self.updates)
         self.worker.progress.connect(self._on_progress)
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
-        
+
         mode_text = "update" if self.update_mode else "initial download"
         log.info(f"Started binary {mode_text}")
-    
+
     def _on_progress(self, binary_name: str, downloaded: int, total: int):
         """
-        진행률 업데이트
-        
+        Update download progress.
+
         Args:
-            binary_name: 'yt-dlp' 또는 'ffmpeg'
-            downloaded: 다운로드한 바이트
-            total: 전체 바이트
+            binary_name: yt-dlp or ffmpeg.
+            downloaded: Downloaded bytes.
+            total: Total bytes.
         """
         if total > 0:
             percent = int((downloaded / total) * 100)
-            self.progress_bar.setValue(percent)
-            
-            # MB 단위로 변환
+            bounded_percent = self.set_progress_value(percent)
+
             downloaded_mb = downloaded / (1024 * 1024)
             total_mb = total / (1024 * 1024)
-            
-            # 상태 업데이트
+
             display_name = "yt-dlp" if binary_name == "yt-dlp" else "FFmpeg"
             self.status_label.setText(STR.MSG_INIT_DL_STATUS.format(item=display_name))
-            self.detail_label.setText(f"{downloaded_mb:.1f} MB / {total_mb:.1f} MB ({percent}%)")
-    
+            self.detail_label.setText(
+                f"{downloaded_mb:.1f} MB / {total_mb:.1f} MB ({bounded_percent}%)"
+            )
+
     def _on_finished(self, success: bool):
         """
-        다운로드 완료
-        
+        Handle download completion.
+
         Args:
-            success: 성공 여부
+            success: Whether the download succeeded.
         """
         self.download_success = success
-        
+
         if success:
-            self.progress_bar.setValue(100)
+            self.set_progress_value(100)
             self.status_label.setText(STR.MSG_INIT_COMPLETE)
             self.detail_label.setText(STR.MSG_INIT_STARTING)
-            self.cancel_btn.setEnabled(False) 
-            self.cancel_btn.setVisible(False)
+            self.hide_cancel_button()
             log.info("Initial binary download completed successfully")
-            
-            # 잠시 후 닫기 (성공 시에만 자동 닫기)
-            from PyQt5.QtCore import QTimer
-            QTimer.singleShot(1000, self.accept)
-            
+
+            QTimer.singleShot(DOWNLOAD_DIALOG_AUTO_CLOSE_MS, self.accept)
+
         elif self.worker and self.worker.is_cancelled:
             self.download_success = False
             self.status_label.setText(STR.MSG_INIT_FAILED)
-            self.detail_label.setText("Download Cancelled")
+            self.detail_label.setText(STR.MSG_INIT_DOWNLOAD_CANCELLED)
             log.info("Download cancelled by user")
-            self.reject() # Immediately close on cancel failure
-            
+            self.reject()
+
         else:
             self.status_label.setText(STR.MSG_INIT_FAILED)
             self.detail_label.setText(STR.ERR_INIT_DOWNLOAD)
-            self.cancel_btn.setText(STR.BTN_CLOSE) # Change Cancel to Close
-            set_text_button_minimum_width(self.cancel_btn)
-            self.cancel_btn.setEnabled(True)
-            # Re-connect to reject to ensure it closes
+            self.set_cancel_button_to_close()
             try:
                 self.cancel_btn.clicked.disconnect()
             except (TypeError, RuntimeError) as e:
                 log.debug(f"Cancel button was not connected or already cleaned up: {e}")
             self.cancel_btn.clicked.connect(self.reject)
-            
-            log.error("Initial binary download failed")
-            # 실패 시 자동 닫기 제거, 유저가 확인하고 닫도록 함
 
-    
+            log.error("Initial binary download failed")
+
     def exec_(self):
-        """다이얼로그 실행 (자동으로 다운로드 시작)"""
+        """Run the dialog and start downloading automatically."""
         self.start_download()
         return super().exec_()

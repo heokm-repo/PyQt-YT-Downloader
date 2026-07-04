@@ -15,7 +15,15 @@ import time
 from json import JSONDecodeError
 from typing import Callable, Dict, List, Optional, Tuple
 
-from constants import DEFAULT_ENCODING, MSG_PAUSED_BY_USER, YTDLP_TIMEOUT
+from constants import (
+    DEFAULT_ENCODING,
+    MSG_PAUSED_BY_USER,
+    PROCESS_MONITOR_INTERVAL_SEC,
+    PROCESS_TERMINATE_WAIT_SEC,
+    THREAD_JOIN_SHORT_TIMEOUT_SEC,
+    YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC,
+    YTDLP_TIMEOUT,
+)
 from core.ytdlp.command import build_command
 from core.ytdlp.info_command import build_extract_info_command
 from core.ytdlp.info_parser import parse_info_output
@@ -75,7 +83,7 @@ class YtDlpWrapper:
                     import signal
                     try:
                         os.kill(process.pid, signal.CTRL_BREAK_EVENT)
-                        process.wait(timeout=5)
+                        process.wait(timeout=PROCESS_TERMINATE_WAIT_SEC)
                         return
                     except subprocess.TimeoutExpired as exc:
                         log.debug(f"Graceful process termination timed out (pid={process.pid}): {exc}")
@@ -102,7 +110,7 @@ class YtDlpWrapper:
                         log.debug(f"process.kill failed for pid={process.pid}: {kill_error}")
 
                 try:
-                    process.wait(timeout=5)
+                    process.wait(timeout=PROCESS_TERMINATE_WAIT_SEC)
                 except subprocess.TimeoutExpired as exc:
                     log.debug(f"Process did not exit after kill (pid={process.pid}): {exc}")
                 except OSError as exc:
@@ -152,7 +160,7 @@ class YtDlpWrapper:
                         return
                 except Exception as exc:
                     log.debug(f"stop_check monitor error: {exc}")
-                time.sleep(0.1)
+                time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
 
         thread = threading.Thread(target=watch_stop, daemon=True)
         thread.start()
@@ -256,25 +264,25 @@ class YtDlpWrapper:
         stop_requested: threading.Event,
     ) -> Tuple[bool, str]:
         if stop_requested.is_set():
-            self._join_thread(monitor_thread, 1)
-            self._join_thread(stderr_thread, 5)
+            self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
+            self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
             return False, MSG_PAUSED_BY_USER
 
         try:
-            process.wait(timeout=60)
+            process.wait(timeout=YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC)
         except subprocess.TimeoutExpired:
             log.warning("yt-dlp process timeout, killing...")
             self._kill_process(process)
-            self._join_thread(stderr_thread, 5)
+            self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
             return False, "Download timeout"
 
-        self._join_thread(monitor_thread, 1)
+        self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
         if stop_requested.is_set():
-            self._join_thread(stderr_thread, 5)
+            self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
             return False, MSG_PAUSED_BY_USER
 
         self.current_process = None
-        self._join_thread(stderr_thread, 5)
+        self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
         return self._result_from_process_exit(process, stderr_output)
 
     def _result_from_process_exit(
@@ -330,8 +338,8 @@ class YtDlpWrapper:
 
             progress_result = self._run_stdout_progress_loop(process, progress_hook, stop_check)
             if progress_result.stopped:
-                self._join_thread(monitor_thread, 1)
-                self._join_thread(stderr_thread, 5)
+                self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
+                self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
                 return False, MSG_PAUSED_BY_USER
 
             return self._wait_for_download_result(

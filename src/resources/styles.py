@@ -1,19 +1,17 @@
-"""
-애플리케이션 스타일시트 상수 정의
-"""
+"""Application stylesheet constants."""
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 
-# 색상 상수
-COLOR_WAITING = "#D1D3D4"    # 다운로드 대기 / 메타데이터 로딩 중
-COLOR_DOWNLOADING = "#DBC4F0" # 다운로드 중
-COLOR_FINISHED = "#B8E8FC"    # 완료
-COLOR_ERROR = "#FF0000"       # 실패
-COLOR_PAUSED = "#FFE0B2"      # 일시정지 (살구색)
-COLOR_PRIMARY = "#5F428B"     # 메인 퍼플
-COLOR_DEEP_ORANGE = "#E65100" # 진한 주황 (정지 상태 아이콘/테두리)
+# Color constants.
+COLOR_WAITING = "#D1D3D4"    # Waiting for download or metadata loading.
+COLOR_DOWNLOADING = "#DBC4F0" # Downloading.
+COLOR_FINISHED = "#B8E8FC"    # Finished.
+COLOR_ERROR = "#FF0000"       # Failed.
+COLOR_PAUSED = "#FFE0B2"      # Paused state, apricot.
+COLOR_PRIMARY = "#5F428B"     # Main purple.
+COLOR_DEEP_ORANGE = "#E65100" # Deep orange for stopped-state icons and borders.
 
-# 텍스트 색상
+# Text colors.
 COLOR_TEXT_PRIMARY = "#333333"
 COLOR_TEXT_SECONDARY = "#444444"
 COLOR_TEXT_GRAY = "#888888"
@@ -21,22 +19,22 @@ COLOR_TEXT_LIGHT_GRAY = "#999999"
 COLOR_DIVIDER = "#E0E0E0"
 
 # ==========================================
-# 공통 UI 설정 상수는 여기서 관리합니다.
+# Shared UI constants are managed here.
 # ==========================================
 
-# 폰트 설정
+# Font settings.
 SETTINGS_FONT_FAMILY = "Segoe UI"
 SETTINGS_TITLE_FONT_SIZE = 12
 SETTINGS_SECTION_FONT_SIZE = 10
 
-# 다이얼로그 크기 및 레이아웃
+# Dialog sizes and layout.
 SETTINGS_DIALOG_WIDTH = 800
 SETTINGS_DIALOG_HEIGHT = 600
 SETTINGS_CONTAINER_MARGIN = 0
 SETTINGS_CONTENT_MARGIN = (15, 15, 15, 15)
 SETTINGS_CONTENT_SPACING = 10
 
-# UI 요소 크기
+# UI element sizes.
 SETTINGS_INPUT_HEIGHT = 30
 SETTINGS_BUTTON_HEIGHT = 36
 TEXT_BUTTON_WIDTH_PADDING = 30
@@ -48,18 +46,18 @@ SETTINGS_DIALOG_TITLE_BUTTON_SIZE = 24
 SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE = 18
 SETTINGS_CLOSE_BUTTON_SIZE = SETTINGS_DIALOG_TITLE_BUTTON_SIZE
 
-# 그림자 효과
+# Shadow effects.
 SETTINGS_SHADOW_BLUR_RADIUS = 15
 SETTINGS_SHADOW_ALPHA = 30
 
-# 다운로드 다이얼로그 크기
+# Download dialog size.
 DOWNLOAD_DIALOG_WIDTH = 450
 DOWNLOAD_DIALOG_HEIGHT = 250
 
-# 메시지 다이얼로그 버튼 크기
+# Message dialog button size.
 MESSAGE_BTN_HEIGHT = 32
 
-# 스타트업 다이얼로그 스타일
+# Startup dialog style.
 STARTUP_DIALOG_WIDTH = 450
 STARTUP_DIALOG_HEIGHT = 200
 STARTUP_LABEL_STYLE = "color: #555555; font-size: 11pt;"
@@ -76,7 +74,7 @@ QProgressBar::chunk {
 }
 """
 
-# 메인 윈도우 스타일
+# Main window style.
 MAIN_WINDOW_STYLE = """
 QMainWindow {
     background-color: transparent;
@@ -113,23 +111,23 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 """
 
 # ==========================================
-# 메인 윈도우 UI 설정 (constants.py에서 이동)
+# Main-window UI settings moved from constants.py.
 # ==========================================
 
-# 메인 윈도우 크기 및 위치
+# Main-window size and position.
 MAIN_WINDOW_X = 100
 MAIN_WINDOW_Y = 100
 MAIN_WINDOW_WIDTH = 1200
 MAIN_WINDOW_HEIGHT = 800
 
-# 메인 윈도우 제목 및 앱 정보
+# Main-window title and app info.
 APP_TITLE_COLOR = "#5F428B"
 
-# 메인 윈도우 레이아웃
+# Main-window layout.
 MAIN_LAYOUT_MARGINS = (5, 5, 5, 5)
 MAIN_LAYOUT_SPACING = 5
 
-# 타이틀 바
+# Title bar.
 TITLE_BAR_HEIGHT = 30
 TITLE_BAR_MARGINS = (10, 0, 10, 0)
 TITLE_BAR_SPACING = 10
@@ -138,7 +136,7 @@ TITLE_BAR_FONT_SIZE = 11
 TITLE_BAR_BUTTON_SIZE = 30
 TITLE_BAR_BUTTON_ICON_SIZE = 24
 
-# URL 입력 섹션
+# URL input section.
 URL_INPUT_SECTION_HEIGHT = 70
 URL_INPUT_CONTAINER_MARGINS = (10, 8, 10, 8)
 URL_INPUT_CONTAINER_SPACING = 10
@@ -148,23 +146,23 @@ URL_INPUT_FONT_SIZE = 11
 TOGGLE_BUTTON_SIZE = 50
 SETTINGS_BUTTON_SIZE = 40
 
-# 다운로드 버튼
+# Download button.
 DOWNLOAD_BUTTON_HEIGHT = 40
 DOWNLOAD_BUTTON_FONT_FAMILY = "Segoe UI"
 DOWNLOAD_BUTTON_FONT_SIZE = 10
 
-# 설정 버튼
+# Settings button.
 SETTINGS_BUTTON_TEXT = "⚙"
 SETTINGS_BUTTON_FONT_FAMILY = "Segoe UI"
 SETTINGS_BUTTON_FONT_SIZE = 12
 
-# 작업 목록 섹션
+# Task list section.
 TASK_LIST_MARGINS = (10, 0, 10, 0)
 TASK_LIST_SPACING = 10
 EMPTY_STATE_FONT_FAMILY = "Segoe UI"
 EMPTY_STATE_FONT_SIZE = 11
 
-# 상태 표시줄
+# Status bar.
 STATUS_BAR_HEIGHT = 35
 STATUS_BAR_MARGINS = (10, 0, 10, 0)
 STATUS_BAR_SPACING = 10
@@ -179,14 +177,14 @@ PROGRESS_SLIDER_MIN = 0
 PROGRESS_SLIDER_MAX = 100
 PROGRESS_SLIDER_DEFAULT = 0
 
-# 작업 카드 UI 크기 상수
+# Task card UI size constants.
 CARD_HEIGHT = 130
 THUMBNAIL_WIDTH = 160
 THUMBNAIL_HEIGHT = 90
 BUTTON_SIZE = 40
 BUTTON_FONT_SIZE = 15
 
-# 버튼 색상 상수
+# Button color constants.
 COLOR_BTN_RED = "#F44336"
 COLOR_BTN_GREEN = "#4CAF50"
 COLOR_BTN_BLUE = "#2196F3"
@@ -194,10 +192,10 @@ COLOR_BTN_ORANGE = "#FF9800"
 COLOR_BTN_GRAY = "#999999"
 
 # ==========================================
-# 바텀업 최소 크기 상수 (개별 부품)
-# 창 자체의 최소 크기를 강제하지 않고,
-# 각 부품의 최소 너비/높이를 설정하여
-# 레이아웃 시스템이 자연스럽게 창의 최소 크기를 결정합니다.
+# Bottom-up minimum-size constants for individual parts.
+# Do not force a hard minimum on the whole window.
+# Instead, set each part minimum width and height
+# so the layout system naturally determines the window minimum size.
 # ==========================================
 MIN_URL_INPUT_WIDTH = 200
 MIN_DOWNLOAD_BUTTON_WIDTH = 80
@@ -207,7 +205,7 @@ MIN_STATUS_LABEL_WIDTH = 100
 MIN_SETTINGS_TAB_WIDTH = 300
 MIN_SETTINGS_DIALOG_CONTENT_WIDTH = 350
 
-# 중앙 위젯 스타일
+# Central widget style.
 CENTRAL_WIDGET_STYLE = """
 QWidget#CentralWidget {
     background-color: #FFFFFF;
@@ -216,7 +214,7 @@ QWidget#CentralWidget {
 }
 """
 
-# 중앙 위젯 스타일 (최대화 상태)
+# Central widget style for maximized state.
 CENTRAL_WIDGET_MAXIMIZED_STYLE = """
 QWidget#CentralWidget {
     background-color: #FFFFFF;
@@ -225,10 +223,10 @@ QWidget#CentralWidget {
 }
 """
 
-# 타이틀 바 스타일
+# Title-bar style.
 TITLE_BAR_STYLE = "background: transparent; border: none;"
 
-# 최소화 버튼 스타일
+# Minimize button style.
 MINIMIZE_BUTTON_STYLE = """
 QPushButton {
     background-color: transparent;
@@ -242,7 +240,7 @@ QPushButton:hover {
 }
 """
 
-# 닫기 버튼 스타일
+# Close button style.
 CLOSE_BUTTON_STYLE = """
 QPushButton {
     background-color: transparent;
@@ -256,7 +254,7 @@ QPushButton:hover {
 }
 """
 
-# 최대화/복구 버튼 스타일
+# Maximize/restore button style.
 MAXIMIZE_BUTTON_STYLE = """
 QPushButton {
     background-color: transparent;
@@ -270,7 +268,7 @@ QPushButton:hover {
 }
 """
 
-# URL 입력 섹션 스타일
+# URL input section style.
 URL_INPUT_CONTAINER_STYLE = """
 QFrame {
     background-color: #F8F9FA;
@@ -292,7 +290,7 @@ QLineEdit:focus {
 }
 """
 
-# 다운로드 버튼 스타일
+# Download button style.
 DOWNLOAD_BUTTON_STYLE = """
 QPushButton {
     background-color: #5F428B;
@@ -306,7 +304,7 @@ QPushButton:pressed { background-color: #4E3672; }
 QPushButton:disabled { background-color: #E0E0E0; color: #A0A0A0; }
 """
 
-# 설정 버튼 스타일
+# Settings button style.
 SETTINGS_BUTTON_STYLE = """
 QPushButton {
     background-color: #EDEDED;
@@ -319,7 +317,7 @@ QPushButton:hover { background-color: #DCDCDC; }
 QPushButton:pressed { background-color: #CFCFCF; }
 """
 
-# 토글 버튼 스타일 (활성화)
+# Toggle button style when enabled.
 TOGGLE_BUTTON_ENABLED_STYLE = """
 QPushButton {
     border: none;
@@ -333,7 +331,7 @@ QPushButton {
 QPushButton:hover { background-color: #C9A8E8; }
 """
 
-# 토글 버튼 스타일 (비활성화/정지)
+# Toggle button style when disabled or stopped.
 TOGGLE_BUTTON_DISABLED_STYLE = """
 QPushButton {
     border: none;
@@ -347,7 +345,7 @@ QPushButton {
 QPushButton:hover { background-color: #FFCC80; }
 """
 
-# 상태 표시줄 스타일
+# Status-bar style.
 STATUS_BAR_STYLE = "background: transparent;"
 
 STATUS_LABEL_STYLE = "color: #666666;"
@@ -401,7 +399,7 @@ QMenu::indicator {
 }
 """
 
-# 프로그레스 슬라이더 스타일
+# Progress slider style.
 PROGRESS_SLIDER_STYLE = """
 QSlider::groove:horizontal {
     border: none;
@@ -422,24 +420,25 @@ QSlider::handle:horizontal {
 }
 """
 
-# 선택 상태 색상
-COLOR_SELECTED = COLOR_PRIMARY.lstrip('#')  # 선택됨 (메인 테마 색상)
+# Selected-state color.
+COLOR_SELECTED = COLOR_PRIMARY.lstrip('#')  # Selected using the main theme color.
 
-# 작업 카드 스타일
+# Task card style.
 def get_card_style(color_hex, selected=False):
-    """카드 테두리 스타일 생성
+    """
+    Build a card border style.
     
     Args:
-        color_hex: 색상 코드 (예: "#D1D3D4" 또는 "D1D3D4")
-        selected: 선택 상태 여부
+        color_hex: Color code, such as #D1D3D4 or D1D3D4.
+        selected: Whether the card is selected.
     """
-    # # 접두사가 없으면 추가
+    # Add a # prefix if it is missing.
     if not color_hex.startswith('#'):
         color_hex = '#' + color_hex
     
-    # 직접 위젯에 적용되므로 선택자 없이 스타일 정의
+    # Define direct widget styles without selectors.
     if selected:
-        # 선택된 상태: 배경색 변경 + 테두리 강조
+        # Selected state: changed background and emphasized border.
         return f"""
 background-color: #F3E8FF;
 border: 4px solid #{COLOR_SELECTED};
@@ -452,8 +451,8 @@ border: 4px solid {color_hex};
 border-radius: 8px;
 """
 
-# 썸네일 라벨 스타일
-# 썸네일 라벨 스타일
+# Thumbnail label style.
+# Thumbnail label style.
 THUMBNAIL_LABEL_STYLE = """
 QLabel {
     background: #F0F0F0;
@@ -463,7 +462,7 @@ QLabel {
 }
 """
 
-# 제목 라벨 스타일
+# Title label style.
 TITLE_LABEL_STYLE = """
 QLabel {
     color: #333333;
@@ -475,7 +474,7 @@ QLabel {
 }
 """
 
-# 업로더 라벨 스타일
+# Uploader label style.
 UPLOADER_LABEL_STYLE = """
 QLabel {
     color: #888888;
@@ -486,7 +485,7 @@ QLabel {
 }
 """
 
-# 프로그레스 바 스타일
+# Progress bar style.
 PROGRESS_BAR_STYLE = """
 QProgressBar {
     border: none;
@@ -499,20 +498,20 @@ QProgressBar::chunk {
 }
 """
 
-# 프로그레스 바 스타일 (완료)
+# Progress bar style for finished state.
 PROGRESS_BAR_FINISHED_STYLE = """
 QProgressBar { border: none; background: #EAEAEA; border-radius: 3px; }
 QProgressBar::chunk { background-color: #4CAF50; border-radius: 3px; }
 """
 
-# 프로그레스 바 스타일 (실패)
+# Progress bar style for error state.
 PROGRESS_BAR_ERROR_STYLE = """
 QProgressBar { border: none; background: #EAEAEA; border-radius: 3px; }
 QProgressBar::chunk { background-color: #F44336; border-radius: 3px; }
 """
 
-# 퍼센트 라벨 스타일
-# 퍼센트 라벨 스타일
+# Percent label style.
+# Percent label style.
 PERCENT_LABEL_STYLE = """
 QLabel {
     color: #5F428B;
@@ -524,7 +523,7 @@ QLabel {
 }
 """
 
-# 상태 라벨 스타일 (공통)
+# Status label style, shared.
 STATUS_LABEL_NORMAL_STYLE = """
 QLabel {
     color: #666666;
@@ -568,7 +567,7 @@ QLabel {
 }
 """
 
-# 크기 라벨 스타일
+# Size label style.
 SIZE_LABEL_STYLE = """
 QLabel {
     color: #999999;
@@ -579,7 +578,7 @@ QLabel {
 }
 """
 
-# 액션 버튼 스타일
+# Action button style.
 ACTION_BUTTON_STYLE = """
 QPushButton {
     background-color: #F5F5F5;
@@ -593,15 +592,15 @@ QPushButton:pressed { background-color: #D0D0D0; }
 """
 
 def get_action_button_style(color="#555555"):
-    """액션 버튼 스타일 생성 (하위 호환성 유지)"""
+    """Build an action button style for backward compatibility."""
     return ACTION_BUTTON_STYLE
 
-# 빈 상태 라벨 스타일
+# Empty-state label style.
 EMPTY_LABEL_STYLE = "color: #AAAAAA; padding: 20px;"
 
-# ===== 설정 다이얼로그 스타일 =====
+# ===== Settings Dialog Style =====
 
-# 설정 다이얼로그 컨테이너 스타일
+# Settings dialog container style.
 SETTINGS_CONTAINER_STYLE = """
 QFrame#Container {
     background-color: #FFFFFF;
@@ -614,10 +613,10 @@ QLabel {
 }
 """
 
-# 설정 다이얼로그 타이틀 라벨 스타일
+# Settings dialog title label style.
 SETTINGS_TITLE_LABEL_STYLE = "color: #333333;"
 
-# 설정 다이얼로그 닫기 버튼 스타일
+# Settings dialog close button style.
 SETTINGS_CLOSE_BUTTON_STYLE = """
 QPushButton {
     background: transparent;
@@ -632,13 +631,13 @@ QPushButton:hover {
 }
 """
 
-# 설정 다이얼로그 섹션 라벨 스타일
+# Settings dialog section label style.
 SETTINGS_SECTION_LABEL_STYLE = "color: #5F428B; margin-top: 10px; margin-bottom: 5px;"
 
-# 설정 다이얼로그 일반 라벨 스타일
+# Settings dialog regular label style.
 SETTINGS_LABEL_STYLE = "color: #555555;"
 
-# 설정 다이얼로그 찾아보기 버튼 스타일
+# Settings dialog browse button style.
 SETTINGS_BROWSE_BUTTON_STYLE = """
 QPushButton {
     background-color: #F0F0F0;
@@ -652,7 +651,7 @@ QPushButton:hover { background-color: #E0E0E0; }
 QPushButton:pressed { background-color: #D0D0D0; }
 """
 
-# 설정 다이얼로그 입력 필드 스타일
+# Settings dialog input field style.
 SETTINGS_INPUT_STYLE = """
 QLineEdit, QSpinBox {
     border: 1px solid #E0E0E0;
@@ -667,7 +666,7 @@ QSpinBox::up-button, QSpinBox::down-button {
 }
 """
 
-# 설정 다이얼로그 콤보박스 스타일
+# Settings dialog combo-box style.
 SETTINGS_COMBO_STYLE = """
 QComboBox {
     border: 1px solid #E0E0E0;
@@ -742,7 +741,7 @@ QCheckBox::indicator {
 }
 """
 
-# 설정 다이얼로그 취소 버튼 스타일
+# Settings dialog cancel button style.
 SETTINGS_CANCEL_BUTTON_STYLE = """
 QPushButton {
     background-color: #F5F5F5;
@@ -756,7 +755,7 @@ QPushButton {
 QPushButton:hover { background-color: #EEEEEE; }
 """
 
-# 설정 다이얼로그 저장 버튼 스타일
+# Settings dialog save button style.
 SETTINGS_SAVE_BUTTON_STYLE = """
 QPushButton {
     background-color: #5F428B;
@@ -771,7 +770,7 @@ QPushButton:hover { background-color: #70529E; }
 QPushButton:pressed { background-color: #4E3672; }
 """
 
-# 설정 다이얼로그 탭 스타일
+# Settings dialog tab style.
 SETTINGS_TAB_STYLE = """
 QTabWidget::pane {
     border: 1px solid #E0E0E0;
@@ -798,7 +797,7 @@ QTabBar::tab:hover:!selected {
 }
 """
 
-# 설정 다이얼로그 도움말 아이콘 스타일
+# Settings dialog help icon style.
 SETTINGS_HELP_ICON_STYLE = """
 QLabel {
     color: #5F428B;
@@ -807,7 +806,7 @@ QLabel {
 }
 """
 
-# 설정 다이얼로그 업데이트/삭제 버튼 스타일
+# Settings dialog update/delete button style.
 SETTINGS_UPDATE_BUTTON_STYLE = """
 QPushButton {
     background-color: #f0f0f0;
@@ -834,11 +833,11 @@ QPushButton:hover {
 }
 """
 
-# 다운로드 진행 다이얼로그 스타일
+# Download progress dialog style.
 DETAIL_LABEL_STYLE = f"color: {COLOR_TEXT_GRAY};"
 INFO_LABEL_STYLE = f"color: {COLOR_TEXT_LIGHT_GRAY};"
 
-# 메시지 다이얼로그 스타일
+# Message dialog style.
 MESSAGE_TITLE_STYLE = f"color: {COLOR_TEXT_PRIMARY};"
 MESSAGE_BODY_STYLE = f"color: {COLOR_TEXT_SECONDARY};"
 MESSAGE_DIVIDER_STYLE = f"background-color: {COLOR_DIVIDER};"

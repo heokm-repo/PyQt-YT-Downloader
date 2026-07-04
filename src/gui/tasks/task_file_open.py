@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Optional
 
+from constants import WINDOWS_EXPLORER_COMMAND, WINDOWS_EXPLORER_SELECT_PREFIX
 from gui.tasks.task_file_paths import existing_file_path, normalize_output_path, resolve_open_folder_target
 
 
@@ -73,7 +74,7 @@ def open_output_file(
 
 
 def _open_selected_file_in_explorer(path: str) -> None:
-    subprocess.Popen(f'explorer /select,"{path}"')
+    subprocess.Popen([WINDOWS_EXPLORER_COMMAND, f"{WINDOWS_EXPLORER_SELECT_PREFIX}{path}"])
 
 
 def open_output_folder(

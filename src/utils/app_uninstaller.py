@@ -1,31 +1,28 @@
-"""
-앱 삭제 기능 모듈
-Inno Setup 언인스톨러를 통한 앱 삭제
-"""
+"""App uninstall helpers that call the Inno Setup uninstaller."""
 
 import os
 import sys
 import subprocess
 from utils.logger import log
-from constants import APPDATA_DIR_NAME
+from constants import APPDATA_DIR_NAME, INNO_UNINSTALL_ARGS, INNO_UNINSTALLER_FILENAME
 
 
 def uninstall_app():
     """
-    앱 완전 삭제 실행 (Inno Setup 언인스톨러 호출)
+    Start full app uninstall via the Inno Setup uninstaller.
     
     Returns:
-        bool: 성공 여부 (True: 삭제 프로세스 시작, False: 실패)
+        True if the uninstall process started, False otherwise.
     """
     try:
-        # 개발 환경 체크
+        # Development-environment check.
         if not getattr(sys, 'frozen', False):
             log.warning("개발 환경에서는 앱 삭제가 시뮬레이션됩니다.")
             return False
         
-        # 설치 폴더에서 Inno Setup 언인스톨러 찾기
+        # Find the Inno Setup uninstaller in the install directory.
         install_dir = os.path.dirname(sys.executable)
-        uninstaller_path = os.path.join(install_dir, "unins000.exe")
+        uninstaller_path = os.path.join(install_dir, INNO_UNINSTALLER_FILENAME)
         
         if not os.path.exists(uninstaller_path):
             log.error(f"언인스톨러를 찾을 수 없습니다: {uninstaller_path}")
@@ -33,9 +30,9 @@ def uninstall_app():
         
         log.info(f"Inno Setup 언인스톨러 실행: {uninstaller_path}")
         
-        # Inno Setup 언인스톨러를 사일런트 모드로 실행
+        # Run the Inno Setup uninstaller in silent mode.
         subprocess.Popen(
-            [uninstaller_path, '/SILENT'],
+            [uninstaller_path, *INNO_UNINSTALL_ARGS],
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
         )
         

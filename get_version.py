@@ -1,4 +1,4 @@
-"""constants.py에서 APP_VERSION을 읽어 숫자만 출력하는 스크립트"""
+"""Print APP_VERSION from constants.py without the leading v prefix."""
 import re, sys, os
 
 constants_path = os.path.join(os.path.dirname(__file__), 'src', 'constants.py')

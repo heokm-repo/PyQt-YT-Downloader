@@ -1,9 +1,4 @@
-"""
-공통 다이얼로그 기반 클래스
-- 모든 커스텀 다이얼로그(설정, 메시지, 초기화 등)의 부모 클래스
-- 프레임리스 윈도우, 그림자 효과, 드래그 이동 기능 제공
-- resizable=True 시 8방향 리사이징 + 최대화/복구 + 상태 저장 지원
-"""
+"""Shared base class for custom dialogs, with frameless chrome, shadow, dragging, resizing, and saved state support."""
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QGraphicsDropShadowEffect)
 from PyQt5.QtCore import Qt, QPoint, QSize
@@ -24,7 +19,7 @@ from gui.windowing.window_state_manager import save_window_state, restore_window
 from utils.logger import log
 
 class BaseDialog(ResizableMixin, QDialog):
-    """모든 디자인된 다이얼로그의 기본이 되는 클래스"""
+    """Base class for all designed dialogs."""
     
     def __init__(self, parent=None, title="", icon_text=None, show_close_btn=True, 
                  show_divider=True, resizable=False, window_name=None):
@@ -35,7 +30,7 @@ class BaseDialog(ResizableMixin, QDialog):
         
         self.oldPos = None
         self._resizable = resizable
-        self._window_name = window_name  # 상태 저장용 고유 이름
+        self._window_name = window_name  # Unique name for saved window state.
         self._is_maximized = False
         
         # Child classes should populate self.content_layout and self.button_layout
@@ -45,7 +40,7 @@ class BaseDialog(ResizableMixin, QDialog):
         self.container = None
         self.maximize_btn = None
         
-        # ResizableMixin 초기화
+        # Initialize ResizableMixin.
         self._init_resizable(enabled=resizable)
         
         self._setup_base_ui(title, icon_text, show_close_btn, show_divider)
@@ -181,24 +176,24 @@ class BaseDialog(ResizableMixin, QDialog):
         layout.setSpacing(10)
         layout.addStretch()
         return layout
-    # ── 최대화/복구 ──────────────────────────────────────
+    # -- Maximize / Restore -------------------------------------------------
 
     def _toggle_maximize(self):
-        """최대화 ↔ 복구 토글"""
+        """Toggle between maximized and restored states."""
         if self.isMaximized():
             self.showNormal()
         else:
             self.showMaximized()
 
-    # ── 상태 저장/복원 ──────────────────────────────────
+    # -- State Save / Restore -----------------------------------------------
 
     def restore_state(self, default_width, default_height):
-        """저장된 상태를 복원합니다. show() 전에 호출하세요."""
+        """Restore the saved state before showing the dialog."""
         if self._window_name:
             restore_window_state(self._window_name, self, default_width, default_height)
 
     def _save_state(self):
-        """현재 상태를 저장합니다."""
+        """Save the current state."""
         if self._window_name:
             save_window_state(self._window_name, self)
 
@@ -206,22 +201,22 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # 리사이즈 우선
+            # Give resizing first priority.
             if self._resizable and self.resizable_mouse_press(event):
                 return
-            # 리사이즈 영역이 아니면 드래그 이동
+            # Drag the window when the cursor is not on a resize edge.
             self.oldPos = event.globalPos()
 
     def mouseMoveEvent(self, event):
-        # 리사이즈 중이면 리사이즈 처리
+        # Handle active resizing.
         if self._resizable and self.resizable_mouse_move(event):
             return
-        # 드래그 이동
+        # Handle dragging.
         if self.oldPos is not None and event.buttons() == Qt.LeftButton:
-            # 최대화 상태에서 드래그 시 복구 후 이동
+            # Restore before dragging while maximized.
             if self._is_maximized:
                 self.showNormal()
-                # 복구 후 마우스 위치를 기준으로 창 위치 조정
+                # Re-anchor the mouse position after restore.
                 self.oldPos = event.globalPos()
                 return
             delta = QPoint(event.globalPos() - self.oldPos)
@@ -235,12 +230,12 @@ class BaseDialog(ResizableMixin, QDialog):
             self.oldPos = None
 
     def changeEvent(self, event):
-        """창 상태 변경 이벤트 감지 (에어로 스냅, 최대화 버튼 등 모두 포괄)"""
+        """Handle window-state changes from Aero Snap, maximize, and restore actions."""
         from PyQt5.QtCore import QEvent
         if event.type() == QEvent.WindowStateChange:
             name = self._window_name or self.__class__.__name__
             if self.isMaximized() and not self._is_maximized:
-                # OS에 의해 최대화됨 → 내부 상태 및 UI 동기화
+                # Maximized by the OS: sync internal state and UI.
                 self._is_maximized = True
                 self._main_layout.setContentsMargins(8, 8, 8, 8)
                 self.container.setStyleSheet("""
@@ -259,7 +254,7 @@ class BaseDialog(ResizableMixin, QDialog):
                     self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
                 log.info(f"창 최대화 됨 ({name})")
             elif not self.isMaximized() and not self.isMinimized() and self._is_maximized:
-                # OS에 의해 복원됨 → 내부 상태 및 UI 동기화
+                # Restored by the OS: sync internal state and UI.
                 self._is_maximized = False
                 margin = SETTINGS_CONTAINER_MARGIN if 'SETTINGS_CONTAINER_MARGIN' in globals() else 10
                 self._main_layout.setContentsMargins(margin, margin, margin, margin)
@@ -275,15 +270,15 @@ class BaseDialog(ResizableMixin, QDialog):
         super().changeEvent(event)
 
     def mouseDoubleClickEvent(self, event):
-        """타이틀 바 더블클릭 → 최대화/복구"""
+        """Toggle maximize/restore when the title bar is double-clicked."""
         if self._resizable and event.button() == Qt.LeftButton:
-            # 타이틀 바 영역에서만 동작 (상단 40px 이내)
+            # Only react inside the title-bar area (top 40 px).
             if event.pos().y() <= 40:
                 self._toggle_maximize()
                 return
         super().mouseDoubleClickEvent(event)
 
-    # ── 닫기 시 상태 저장 ─────────────────────────────
+    # -- Save State On Close ------------------------------------------------
 
     def closeEvent(self, event):
         if self._resizable:

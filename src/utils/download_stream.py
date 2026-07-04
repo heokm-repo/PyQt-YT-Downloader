@@ -5,6 +5,7 @@ from typing import Callable, Optional
 
 import requests
 
+from constants import HTTP_DOWNLOAD_CHUNK_SIZE, HTTP_DOWNLOAD_TIMEOUT_SEC
 from utils.logger import log
 
 
@@ -22,14 +23,14 @@ def download_file(
             log.info("Download cancelled before start")
             return False
 
-        response = requests.get(url, stream=True, timeout=30)
+        response = requests.get(url, stream=True, timeout=HTTP_DOWNLOAD_TIMEOUT_SEC)
         response.raise_for_status()
 
         total_size = int(response.headers.get('content-length', 0))
         downloaded_size = 0
 
         with open(dest_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in response.iter_content(chunk_size=HTTP_DOWNLOAD_CHUNK_SIZE):
                 if check_cancel and check_cancel():
                     log.info("Download cancelled during transfer")
                     f.close()

@@ -1,7 +1,4 @@
-"""
-작업 액션 클래스
-개별 작업에 대한 액션(일시정지, 재개, 재시도, 파일 작업 등)을 담당
-"""
+"""Actions for individual tasks, including pause, resume, retry, and file operations."""
 import os
 from typing import Optional, List, TYPE_CHECKING
 
@@ -43,34 +40,29 @@ if TYPE_CHECKING:
 
 
 class TaskActions:
-    """
-    작업 관련 액션을 처리하는 클래스
-    
-    Attributes:
-        main_window: 메인 윈도우 참조 (tasks, task_widgets, scheduler 등 접근용)
-    """
+    """Handle task-related actions through the main window reference."""
     
     def __init__(self, main_window):
         self.main_window = main_window
     
-    # --- 헬퍼 메서드 ---
+    # --- Helper Methods ---
     
     def _get_task(self, task_id: int) -> Optional['DownloadTask']:
-        """task_id로 DownloadTask 객체 찾기"""
+        """Find a DownloadTask by task_id."""
         return self.main_window.get_task_by_id(task_id)
     
     def _get_widget(self, task_id: int) -> Optional['TaskWidget']:
-        """task_id로 TaskWidget 찾기"""
+        """Find a TaskWidget by task_id."""
         return self.main_window.task_widgets.get(task_id)
     
     @property
     def _scheduler(self) -> 'DownloadScheduler':
-        """스케줄러 접근"""
+        """Return the scheduler."""
         return self.main_window.scheduler
     
     @property
     def _settings(self) -> dict:
-        """현재 설정 접근"""
+        """Return current settings."""
         return self.main_window.settings
 
     def _confirm_question(self, title: str, message: str) -> bool:
@@ -81,7 +73,7 @@ class TaskActions:
         """Show a warning dialog."""
         show_warning(self.main_window, title, message)
 
-    # --- 작업 제어 메서드 ---
+    # --- Task Control Methods ---
     
     def pause_task(self, task_id: int) -> None:
         """Pause a single waiting or downloading task."""
@@ -100,14 +92,14 @@ class TaskActions:
         self.main_window.update_progress_ui()
 
     def resume_task(self, task_id: int) -> None:
-        """일시 정지된 작업을 이어받기"""
+        """Resume a paused task."""
         task = self._get_task(task_id)
         if not task: 
             return
         
         was_individually_paused = self._scheduler.is_task_paused(task_id)
         
-        # 전체 토글이 정지 상태라면 전체 재개 (사용자 편의성)
+        # If the global toggle is stopped, resume it for user convenience.
         if not self.main_window.toggle_enabled:
             self.main_window.toggle_download()
             if task.status == TaskStatus.WAITING:
@@ -118,7 +110,7 @@ class TaskActions:
         
         self._scheduler.resume_task(task_id)
         
-        # 1. 상태 업데이트
+        # 1. Update state.
         widget = self._get_widget(task_id)
         if widget:
             widget.set_status('waiting')
@@ -126,14 +118,14 @@ class TaskActions:
         
         task.status = TaskStatus.WAITING
         
-        # 2. 큐에 작업 다시 추가 (저장된 settings와 meta 사용)
+        # 2. Requeue the task with its saved settings and metadata.
         resume_plan = build_resume_task_plan(task, self._settings)
         if not resume_plan:
-            # 데이터가 손상된 경우 재시도 로직으로 위임
+            # Delegate corrupted data cases to the retry flow.
             self.retry_task(task_id)
             return
 
-        # 우선순위 1 (이어받기 작업)를 스케줄러에 추가
+        # Add the resume task to the scheduler with priority 1.
         self._scheduler.add_task(
             1,
             task_id,
@@ -169,10 +161,10 @@ class TaskActions:
 
         self.main_window.update_progress_ui()
 
-    # --- 파일 관련 액션 메서드 ---
+    # --- File Action Methods ---
 
     def copy_url(self, task_id: int) -> None:
-        """작업 URL을 클립보드에 복사"""
+        """Copy a task URL to the clipboard."""
         task = self._get_task(task_id)
         if task and task.url:
             from PyQt5.QtWidgets import QApplication
@@ -251,7 +243,7 @@ class TaskActions:
 
         self.main_window.remove_task_from_list(task_id)
 
-    # --- 선택된 작업들에 대한 일괄 액션 ---
+    # --- Bulk Actions For Selected Tasks ---
 
     def pause_selected(self, selected_ids: List[int]) -> None:
         """Pause selected pausable tasks."""
@@ -281,16 +273,16 @@ class TaskActions:
             self.retry_task(task_id)
     
     def open_folders_for_selected(self, selected_ids: List[int]) -> None:
-        """선택된 작업들의 폴더 열기"""
+        """Open folders for selected tasks."""
         for folder in folders_to_open_for_selected(selected_ids, self.main_window.tasks):
             os.startfile(folder)
     
     def delete_files_for_selected(self, selected_ids: List[int], tasks: List['DownloadTask']) -> bool:
         """
-        선택된 작업들의 파일 삭제
+        Delete files for selected tasks.
         
         Returns:
-            bool: 삭제 진행 여부 (사용자가 취소하면 False)
+            True if deletion proceeded, or False if the user cancelled.
         """
         plan = build_delete_files_plan(selected_ids, tasks)
         if not plan.has_tasks:
@@ -309,10 +301,10 @@ class TaskActions:
     
     def remove_selected_from_list(self, selected_ids: List[int]) -> bool:
         """
-        선택된 작업들을 목록에서 제거
+        Remove selected tasks from the list.
         
         Returns:
-            bool: 제거 진행 여부 (사용자가 취소하면 False)
+            True if removal proceeded, or False if the user cancelled.
         """
         plan = build_remove_selected_plan(selected_ids)
         if not plan.has_tasks:
@@ -331,9 +323,7 @@ class TaskActions:
         return True
 
     def remove_all_completed_from_list(self) -> bool:
-        """
-        목록에서 완료된 모든 작업을 제거
-        """
+        """Remove all completed tasks from the list."""
         plan = build_remove_completed_plan(self.main_window.tasks)
         if not plan.has_tasks:
             return False

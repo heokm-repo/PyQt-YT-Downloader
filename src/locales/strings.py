@@ -100,6 +100,12 @@ class Strings:
     def MSG_LOGIN_WAITING(self):        return get_string('MSG_LOGIN_WAITING', "Please log in to your Google account.")
     @property
     def MSG_LOGIN_SUCCESS(self):        return get_string('MSG_LOGIN_SUCCESS', "Login detected! Click 'Save & Close'.")
+    @property
+    def MSG_LOGIN_STABILIZING(self):    return get_string('MSG_LOGIN_STABILIZING', "Stabilizing cookies...")
+    @property
+    def ERR_LOGIN_NO_COOKIES(self):     return get_string('ERR_LOGIN_NO_COOKIES', "No YouTube cookies captured!")
+    @property
+    def ERR_LOGIN_SAVE_FAILED(self):    return get_string('ERR_LOGIN_SAVE_FAILED', "Save failed: {error}")
 
     # Section: App Management
     @property
@@ -237,6 +243,10 @@ class Strings:
     def MSG_INIT_FAILED(self):      return get_string('MSG_INIT_FAILED', "Initialization Failed")
     @property
     def ERR_INIT_DOWNLOAD(self):    return get_string('ERR_INIT_DOWNLOAD', "An error occurred during download.")
+    @property
+    def MSG_INIT_CANCELLING(self):   return get_string('MSG_INIT_CANCELLING', "Cancelling...")
+    @property
+    def MSG_INIT_DOWNLOAD_CANCELLED(self): return get_string('MSG_INIT_DOWNLOAD_CANCELLED', "Download cancelled.")
 
     # Startup Dialog
     @property
@@ -275,6 +285,14 @@ class Strings:
     def TITLE_UPDATE_DL(self):        return get_string('TITLE_UPDATE_DL', "Update in Progress")
     @property
     def MSG_UPDATE_DL(self):          return get_string('MSG_UPDATE_DL', "Downloading the new version...\nPlease wait.")
+    @property
+    def MSG_UPDATE_PREPARING(self):   return get_string('MSG_UPDATE_PREPARING', "Preparing update...")
+    @property
+    def MSG_UPDATE_DL_STATUS(self):   return get_string('MSG_UPDATE_DL_STATUS', "Downloading update...")
+    @property
+    def MSG_UPDATE_INSTALLING(self):  return get_string('MSG_UPDATE_INSTALLING', "Update downloaded. Starting installer...")
+    @property
+    def MSG_UPDATE_CANCELLED(self):   return get_string('MSG_UPDATE_CANCELLED', "Update cancelled.")
     @property
     def ERR_UPDATE_APPLY(self):       return get_string('ERR_UPDATE_APPLY', "Failed to apply the update.")
     @property

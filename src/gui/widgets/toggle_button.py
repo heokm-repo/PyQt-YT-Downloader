@@ -1,6 +1,4 @@
-"""
-재생/정지 토글 버튼 위젯
-"""
+"""Play/stop toggle button widget."""
 import qtawesome as qta
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtCore import Qt, QSize
@@ -11,17 +9,17 @@ from resources.styles import (
 
 
 class ToggleButton(QPushButton):
-    """재생/정지 토글 버튼 (QtAwesome 아이콘 사용)"""
+    """Play/stop toggle button using QtAwesome icons."""
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._is_playing = True  # True: 재생 상태, False: 정지 상태
+        self._is_playing = True  # True means playing, False means stopped.
         self._hover = False
         self.setCursor(Qt.PointingHandCursor)
         self.update_icon()
         
     def setPlaying(self, playing):
-        """재생/정지 상태 설정"""
+        """Set the play/stop state."""
         self._is_playing = playing
         self.update_icon()
     

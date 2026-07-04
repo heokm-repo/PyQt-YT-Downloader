@@ -9,14 +9,14 @@ from core.workers import StartupWorker
 
 
 class StartupDialog(BaseDialog):
-    """앱 시작 시 표시되는 로딩/초기화 다이얼로그"""
+    """Loading dialog shown during startup checks."""
     
     def __init__(self, parent=None):
         super().__init__(
             parent=parent,
             title=STR.TITLE_STARTUP,
             icon_text="mdi.rocket-launch",
-            show_close_btn=False,  # 진행 중 닫기 방지 (로직상 필요하면 추가)
+            show_close_btn=False,  # Prevent closing while checks are running if needed.
             show_divider=True
         )
         self.setFixedSize(STARTUP_DIALOG_WIDTH, STARTUP_DIALOG_HEIGHT)
@@ -25,12 +25,12 @@ class StartupDialog(BaseDialog):
         self._setup_ui()
         
     def _setup_ui(self):
-        # 상태 메시지 라벨
+        # Status message label.
         self.status_label = QLabel(STR.MSG_STARTUP_CHECK_EXT)
         self.status_label.setStyleSheet(STARTUP_LABEL_STYLE)
         self.status_label.setAlignment(Qt.AlignCenter)
         
-        # 무한 대기 프로그레스 바 (Indeterminate)
+        # Indeterminate progress bar.
         self.progress_bar = QProgressBar()
         self.progress_bar.setStyleSheet(STARTUP_PROGRESS_STYLE)
         self.progress_bar.setTextVisible(False)
@@ -45,7 +45,7 @@ class StartupDialog(BaseDialog):
         self.content_layout.addLayout(layout)
         
     def start_checks(self):
-        """백그라운드 체크 시작"""
+        """Start background checks."""
         self.worker = StartupWorker()
         self.worker.status_updated.connect(self._on_status_updated)
         self.worker.finished_checks.connect(self._on_finished)
@@ -56,16 +56,16 @@ class StartupDialog(BaseDialog):
         self.status_label.setText(msg)
         
     def _on_finished(self, updates_available: dict, app_update_info: tuple):
-        """체크 완료 시 결과를 저장하고 창을 닫음"""
+        """Store check results and close the dialog."""
         self.updates_available = updates_available
         self.app_update_info = app_update_info
         
-        # '앱 여는 중...' 메시지로 변경 후 지연 시간 없이 닫기
+        # Switch to the opening message and close without delay.
         self.status_label.setText(STR.MSG_STARTUP_OPENING)
         self.accept()
         
     def _on_error(self, err_msg: str):
-        # 오류가 나도 로그만 남기고 메인 윈도우로 진입하도록 할 수 있음
+        # Log errors only and let the main window open.
         from utils.logger import log
         log.error(f"Startup check error: {err_msg}")
         self.updates_available = {}
@@ -73,7 +73,7 @@ class StartupDialog(BaseDialog):
         self.accept()
         
     def closeEvent(self, event):
-        """사용자가 Alt+F4 등으로 닫는 경우 워커 종료"""
+        """Stop the worker if the user closes the dialog with Alt+F4 or similar."""
         if self.worker and self.worker.isRunning():
             self.worker.quit()
             self.worker.wait()

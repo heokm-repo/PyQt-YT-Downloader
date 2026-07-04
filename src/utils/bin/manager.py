@@ -1,9 +1,4 @@
-"""
-바이너리 관리 모듈 (yt-dlp.exe, ffmpeg.exe, qjs.exe)
-- %APPDATA%\YTDownloader\bin에 바이너리 저장
-- GitHub API를 통한 버전 확인 및 업데이트
-- 다운로드 진행률 콜백 지원
-"""
+"""Managed binary helpers for yt-dlp.exe, ffmpeg.exe, and qjs.exe."""
 from typing import Optional, Tuple, Callable, Dict
 from utils.logger import log
 from utils.bin.release_info import ffmpeg_release_info, quickjs_release_info, ytdlp_release_info
@@ -28,30 +23,25 @@ from utils.bin.update_plan import (
 )
 from utils.bin.operation_runner import run_binary_updates, run_initial_binary_downloads
 from constants import (
-    FFMPEG_ZIP_NAME_WIN,
+    BIN_UPDATE_CHECK_INTERVAL_HOURS,
+    BIN_VERSION_FILENAME,
+    FFMPEG_BINARY,
     FFMPEG_EXE_INTERNAL_PATH,
-    FFMPEG_EXE_INTERNAL_PATH_ROOT
+    FFMPEG_EXE_INTERNAL_PATH_ROOT,
+    FFMPEG_RELEASE_API_URL,
+    FFMPEG_ZIP_NAME_WIN,
+    QUICKJS_ASSET_NAME,
+    QUICKJS_BINARY,
+    QUICKJS_RELEASE_API_URL,
+    YTDLP_BINARY,
+    YTDLP_RELEASE_API_URL,
 )
 
-# 바이너리 이름
-YTDLP_BINARY = 'yt-dlp.exe'
-FFMPEG_BINARY = 'ffmpeg.exe'
-QUICKJS_BINARY = 'qjs.exe'
-
-# GitHub API URLs
-YTDLP_API_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
-FFMPEG_API_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
-QUICKJS_API_URL = "https://api.github.com/repos/quickjs-ng/quickjs/releases/latest"
-
-# QuickJS 다운로드 에셋 이름 (플랫폼별)
-QUICKJS_ASSET_NAME = 'qjs-windows-x86_64.exe'
-
-# 버전 파일명
-VERSION_FILE = '.version.json'
-
-# 업데이트 체크 주기 (시간)
-UPDATE_CHECK_INTERVAL = 12  # 12시간마다 체크
-
+YTDLP_API_URL = YTDLP_RELEASE_API_URL
+FFMPEG_API_URL = FFMPEG_RELEASE_API_URL
+QUICKJS_API_URL = QUICKJS_RELEASE_API_URL
+VERSION_FILE = BIN_VERSION_FILENAME
+UPDATE_CHECK_INTERVAL = BIN_UPDATE_CHECK_INTERVAL_HOURS
 
 def get_ytdlp_path() -> Optional[str]:
     """Return the managed yt-dlp executable path when present."""
@@ -85,10 +75,10 @@ def save_versions(versions: Dict[str, object]) -> bool:
 
 def check_binaries_exist() -> bool:
     """
-    yt-dlp와 ffmpeg가 모두 존재하는지 확인 (QuickJS는 선택적)
+    Return whether required binaries exist, with QuickJS treated as optional.
 
     Returns:
-        True if both yt-dlp and ffmpeg exist, False otherwise
+        True if yt-dlp and ffmpeg exist, False otherwise.
     """
     ytdlp_exists = get_ytdlp_path() is not None
     ffmpeg_exists = get_ffmpeg_path() is not None

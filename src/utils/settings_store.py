@@ -13,6 +13,19 @@ from constants import (
     DEFAULT_MAX_DOWNLOADS,
     DEFAULT_NORMALIZE,
     DEFAULT_VIDEO_QUALITY,
+    DOWNLOAD_FOLDER_NAME,
+    DOWNLOAD_FOLDER_WRITE_TEST_PREFIX,
+    ERR_DOWNLOAD_FOLDER_EMPTY,
+    ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY,
+    ERR_DOWNLOAD_FOLDER_PROTECTED,
+    FALLBACK_DOWNLOAD_FOLDER_NAME,
+    LEGACY_SAVE_PATH_KEY,
+    SETTINGS_FILENAME,
+    USER_DOWNLOADS_DIR_NAME,
+    WINDOWS_PROTECTED_DEFAULT_FOLDERS,
+    WINDOWS_PROTECTED_FOLDER_ENV_VARS,
+    WINDOWS_SYSTEM_DRIVE_ENV_VAR,
+    WINDOWS_SYSTEM_DRIVE_FALLBACK,
     KEY_AUDIO_QUALITY,
     KEY_DOWNLOAD_FOLDER,
     KEY_FORMAT,
@@ -25,11 +38,6 @@ from constants import (
 from locales import DEFAULT_LANGUAGE
 from utils.logger import log
 from utils.utils import get_base_path, get_user_data_path
-
-SETTINGS_FILENAME = 'settings.json'
-LEGACY_SAVE_PATH_KEY = 'save_path'
-DOWNLOAD_FOLDER_NAME = 'YTDownloader'
-FALLBACK_DOWNLOAD_FOLDER_NAME = 'YTDownloader'
 
 
 @dataclass(frozen=True)
@@ -47,7 +55,7 @@ def default_download_folder() -> str:
 
 
 def fallback_download_folder() -> str:
-    return os.path.join(str(Path.home()), 'Downloads', FALLBACK_DOWNLOAD_FOLDER_NAME)
+    return os.path.join(str(Path.home()), USER_DOWNLOADS_DIR_NAME, FALLBACK_DOWNLOAD_FOLDER_NAME)
 
 
 def default_settings() -> dict[str, Any]:
@@ -172,28 +180,27 @@ def _protected_windows_folder_reason(path: str) -> str | None:
     normalized_path = os.path.normcase(os.path.normpath(os.path.abspath(path)))
     for root in protected_roots:
         if normalized_path == root or normalized_path.startswith(root + os.sep):
-            return 'Protected Windows system folder cannot be used as a download folder.'
+            return ERR_DOWNLOAD_FOLDER_PROTECTED
 
     return None
 
 
 def _windows_protected_roots() -> set[str]:
     roots = set()
-    for key in ('ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'SystemRoot', 'windir'):
+    for key in WINDOWS_PROTECTED_FOLDER_ENV_VARS:
         value = os.environ.get(key)
         if value:
             roots.add(os.path.normcase(os.path.normpath(os.path.abspath(value))))
 
-    system_drive = os.environ.get('SystemDrive', 'C:')
-    roots.add(os.path.normcase(os.path.normpath(os.path.abspath(os.path.join(system_drive + os.sep, 'Program Files')))))
-    roots.add(os.path.normcase(os.path.normpath(os.path.abspath(os.path.join(system_drive + os.sep, 'Program Files (x86)')))))
-    roots.add(os.path.normcase(os.path.normpath(os.path.abspath(os.path.join(system_drive + os.sep, 'Windows')))))
+    system_drive = os.environ.get(WINDOWS_SYSTEM_DRIVE_ENV_VAR, WINDOWS_SYSTEM_DRIVE_FALLBACK)
+    for folder_name in WINDOWS_PROTECTED_DEFAULT_FOLDERS:
+        roots.add(os.path.normcase(os.path.normpath(os.path.abspath(os.path.join(system_drive + os.sep, folder_name)))))
     return roots
 
 
 def _ensure_writable_folder(path: str) -> tuple[bool, str]:
     if not path:
-        return False, 'Download folder path is empty.'
+        return False, ERR_DOWNLOAD_FOLDER_EMPTY
 
     protected_reason = _protected_windows_folder_reason(path)
     if protected_reason:
@@ -202,9 +209,9 @@ def _ensure_writable_folder(path: str) -> tuple[bool, str]:
     try:
         os.makedirs(path, exist_ok=True)
         if not os.path.isdir(path):
-            return False, 'Path is not a directory.'
+            return False, ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
 
-        fd, temp_path = tempfile.mkstemp(prefix='.write_test_', dir=path)
+        fd, temp_path = tempfile.mkstemp(prefix=DOWNLOAD_FOLDER_WRITE_TEST_PREFIX, dir=path)
         os.close(fd)
         os.remove(temp_path)
         return True, ''

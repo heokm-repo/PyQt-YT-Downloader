@@ -1,8 +1,4 @@
-"""
-ResizableMixin — Frameless 윈도우의 8방향 마우스 리사이징 믹스인
-
-순수 Qt 이벤트 방식이 아닌, Win32 API와 nativeEvent를 활용한 방식으로 리팩토링됨.
-"""
+"""ResizableMixin for eight-way mouse resizing on frameless windows, implemented with Win32 API and nativeEvent."""
 import ctypes
 import ctypes.wintypes
 import sys
@@ -11,18 +7,18 @@ from PyQt5.QtCore import Qt, QPoint, QRect
 
 from utils.logger import log
 
-# 리사이즈 방향 상수
+# Resize direction constants.
 _EDGE_NONE = 0
 _EDGE_LEFT = 1
 _EDGE_RIGHT = 2
 _EDGE_TOP = 4
 _EDGE_BOTTOM = 8
 
-# 경계선 감지 영역 및 투명 마진 (픽셀)
+# Border detection area and transparent margin in pixels.
 _TRANSPARENT_MARGIN = 3
 _EDGE_MARGIN = 6
 
-# Windows Hit-Test 상수 (WM_NCHITTEST 반환값)
+# Windows hit-test constants returned by WM_NCHITTEST.
 _HTNOWHERE = 0
 _HTLEFT = 10
 _HTRIGHT = 11
@@ -33,7 +29,7 @@ _HTBOTTOM = 15
 _HTBOTTOMLEFT = 16
 _HTBOTTOMRIGHT = 17
 
-# Edge → HitTest 매핑
+# Edge-to-hit-test mapping.
 _EDGE_TO_HT = {
     _EDGE_LEFT: _HTLEFT,
     _EDGE_RIGHT: _HTRIGHT,
@@ -45,7 +41,7 @@ _EDGE_TO_HT = {
     _EDGE_RIGHT | _EDGE_BOTTOM: _HTBOTTOMRIGHT,
 }
 
-# Windows 메시지 상수
+# Windows message constants.
 _WM_NCCALCSIZE = 0x0083
 _WM_NCHITTEST = 0x0084
 _WM_GETMINMAXINFO = 0x0024
@@ -82,32 +78,30 @@ def _point_from_lparam(lparam):
 
 
 class ResizableMixin:
-    """Frameless 윈도우에 Win32 API 기반 8방향 마우스 리사이징 기능을 추가하는 믹스인"""
+    """Mixin that adds Win32 API based eight-way mouse resizing to frameless windows."""
 
     def _init_resizable(self, enabled=True):
-        """
-        리사이징 초기화. 반드시 __init__ 에서 호출해야 합니다.
-        """
+        """Initialize resizing; call this from __init__."""
         self._resize_enabled = enabled
         self._use_native_resize = (sys.platform == 'win32' and enabled)
-        
+
         if self._use_native_resize:
             hwnd = int(self.winId())
-            
-            # Windows 상수
+
+            # Windows constants.
             GWL_STYLE = -16
             WS_THICKFRAME = 0x00040000
             WS_CAPTION = 0x00C00000
             WS_MAXIMIZEBOX = 0x00010000
             WS_MINIMIZEBOX = 0x00020000
             WS_SYSMENU = 0x00080000
-            
-            # Qt.FramelessWindowHint 설정 직후, OS가 창을 리사이즈 가능하도록 인식하게 스타일 주입
+
+            # After Qt.FramelessWindowHint, inject styles so the OS treats the window as resizable.
             user32 = ctypes.windll.user32
             style = user32.GetWindowLongW(hwnd, GWL_STYLE)
             user32.SetWindowLongW(hwnd, GWL_STYLE, style | WS_THICKFRAME | WS_CAPTION | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU)
-            
-            # 프레임 변경을 OS에 알림 (SetWindowPos)
+
+            # Notify the OS that the frame changed.
             SWP_FRAMECHANGED = 0x0020
             SWP_NOMOVE = 0x0002
             SWP_NOSIZE = 0x0001
@@ -115,7 +109,7 @@ class ResizableMixin:
             user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
 
     def _detect_edge(self, pos):
-        """마우스 위치에서 리사이즈 방향을 감지 (투명 마진 고려)"""
+        """Detect the resize edge at the mouse position, including transparent margins."""
         if not self._resize_enabled:
             return _EDGE_NONE
 
@@ -125,7 +119,7 @@ class ResizableMixin:
         rect = self.rect()
         edge = _EDGE_NONE
 
-        # 투명 배경(WA_TranslucentBackground)의 바깥쪽 3픽셀을 고려하여 감지 영역 확장
+        # Expand detection for the outer 3 px of the translucent background.
         effective_margin = _EDGE_MARGIN + _TRANSPARENT_MARGIN
 
         if pos.x() <= effective_margin:
@@ -202,10 +196,9 @@ class ResizableMixin:
 
     def nativeEvent(self, eventType, message):
         """
-        Windows 네이티브 이벤트 처리.
-        WM_NCCALCSIZE: OS의 기본 프레임/타이틀바 렌더링 차단 (최대화 시에도 반드시 처리)
-        WM_GETMINMAXINFO: 최대화 시 작업 표시줄 덮음 방지 및 최소 크기 지정
-        WM_NCHITTEST: 커스텀 경계선 영역에서의 리사이즈 커서 및 동작 처리
+        Handle Windows native events.
+
+        WM_NCCALCSIZE blocks the default OS frame and title bar. WM_GETMINMAXINFO prevents maximized windows from covering the taskbar and applies minimum sizes. WM_NCHITTEST handles resize cursors and behavior on custom borders.
         """
         if self._use_native_resize:
             try:
@@ -224,8 +217,8 @@ class ResizableMixin:
 
         return super().nativeEvent(eventType, message)
 
-    # ── 기존 Qt 마우스 이벤트 폴백 유지 (더 이상 Win32에서는 사용되지 않음) ──
-    # 다른 클래스(BaseDialog 등)에서 이 메서드들을 호출할 수 있으므로 시그니처와 기본 반환값만 남김
+    # -- Existing Qt mouse-event fallback, no longer used on Win32 ---------
+    # Other classes may call these methods, so keep their signatures and defaults.
 
     def resizable_mouse_press(self, event):
         return False

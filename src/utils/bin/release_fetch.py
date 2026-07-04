@@ -4,6 +4,8 @@ from typing import Callable, Optional, Tuple
 
 import requests
 
+from constants import HTTP_API_TIMEOUT_SEC
+
 from utils.logger import log
 
 
@@ -19,7 +21,7 @@ def check_latest_github_release(
     """Fetch and parse the latest GitHub release for one binary."""
     try:
         log.info(f"Checking {display_name} latest version from {api_url}")
-        response = requests.get(api_url, timeout=10)
+        response = requests.get(api_url, timeout=HTTP_API_TIMEOUT_SEC)
         response.raise_for_status()
 
         version, download_url = release_info(response.json())

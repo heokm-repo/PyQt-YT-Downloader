@@ -1,7 +1,4 @@
-"""
-컨텍스트 메뉴 빌더 클래스
-우클릭 메뉴 구성 로직을 담당
-"""
+"""Context-menu builder for task-card right-click menus."""
 from typing import List, Dict, Callable, TYPE_CHECKING
 
 from PyQt5.QtWidgets import QMenu, QAction
@@ -15,14 +12,12 @@ if TYPE_CHECKING:
 
 
 class ContextMenuBuilder:
-    """
-    작업 카드 우클릭 컨텍스트 메뉴를 구성하는 클래스
-    """
+    """Builds the right-click context menu for task cards."""
     
     def __init__(self, parent_widget):
         """
         Args:
-            parent_widget: 메뉴의 부모 위젯 (QAction 생성 시 필요)
+            parent_widget: Parent widget used when creating QAction objects.
         """
         self.parent = parent_widget
     
@@ -81,7 +76,7 @@ class ContextMenuBuilder:
         return menu
 
     def _add_action(self, menu: QMenu, text: str, callback: Callable, icon_name: str = None, icon_color: str = '#666666') -> None:
-        """메뉴에 액션 추가"""
+        """Add an action to the menu."""
         if callback is None:
             return
         action = QAction(text, self.parent)

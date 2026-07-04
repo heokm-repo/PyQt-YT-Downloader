@@ -1,8 +1,4 @@
-"""
-URL 처리 전담 클래스
-URL 검증, 정제, 플레이리스트/비디오 구분 등의 로직을 담당
-범용 URL 지원 (YouTube + 기타 yt-dlp 지원 사이트)
-"""
+"""URL processing for validation, cleanup, and playlist/video classification across yt-dlp-supported sites."""
 from typing import Optional
 
 from utils.utils import validate_url, is_youtube_url
@@ -10,16 +6,16 @@ from core.youtube_url import _sanitize_url, extract_video_id as get_youtube_vide
 
 
 class UrlProcessResult:
-    """URL 처리 결과를 담는 데이터 클래스"""
+    """Data class for URL processing results."""
     def __init__(self, clean_url: str, is_playlist: bool, video_id: Optional[str] = None, extractor: Optional[str] = None):
         self.clean_url = clean_url
         self.is_playlist = is_playlist
         self.video_id = video_id
-        self.extractor = extractor  # 사이트 식별자 (YouTube일 때만 사전 추출, 나머지는 메타데이터에서)
+        self.extractor = extractor  # Site identifier, pre-extracted only for YouTube and filled from metadata for others.
 
 
 class UrlProcessor:
-    """URL 처리 전담 클래스 (범용)"""
+    """Generic URL processor."""
 
     @staticmethod
     def extract_video_id(url: str) -> Optional[str]:
@@ -34,14 +30,14 @@ class UrlProcessor:
     @staticmethod
     def process_url(url: str, prefer_playlist: bool = False) -> Optional['UrlProcessResult']:
         """
-        URL을 처리하고 결과 반환 (범용)
+        Process a URL and return the normalized result.
 
         Args:
-            url: 입력된 URL
-            prefer_playlist: YouTube URL에 video/list가 함께 있을 때 플레이리스트를 선택할지 여부
+            url: Input URL.
+            prefer_playlist: Whether to prefer a playlist when a YouTube URL has both video and list parameters.
 
         Returns:
-            UrlProcessResult 또는 None (검증 실패 시)
+            UrlProcessResult, or None if validation fails.
         """
         from utils.logger import log
 
@@ -53,21 +49,21 @@ class UrlProcessor:
 
         log.debug("URL validation successful")
 
-        # YouTube URL인 경우: 기존 플레이리스트/단일 영상 분기 로직
+        # Existing YouTube playlist/single-video branch logic.
         if is_youtube_url(url):
             return UrlProcessor._process_youtube_url(url, prefer_playlist, log)
 
-        # 기타 사이트: URL을 그대로 사용 (yt-dlp가 처리)
+        # Other sites are passed through for yt-dlp to handle.
         log.info(f"Non-YouTube URL detected, passing to yt-dlp: {url}")
         return UrlProcessResult(url, is_playlist=False, video_id=None, extractor=None)
 
     @staticmethod
     def _process_youtube_url(url: str, prefer_playlist: bool, log) -> Optional['UrlProcessResult']:
-        """YouTube URL 전용 처리 로직"""
+        """Handle YouTube-specific URL processing."""
         clean_url, is_playlist = _sanitize_url(url, prefer_playlist=prefer_playlist)
         log.debug(f"Sanitized URL: {clean_url}, is_playlist: {is_playlist}")
 
-        # video_id 추출 (단일 영상인 경우)
+        # Extract video_id for single-video URLs.
         video_id = None
         if not is_playlist:
             video_id = UrlProcessor.extract_video_id(clean_url)

@@ -1,6 +1,4 @@
-"""
-개별 작업 카드 위젯
-"""
+"""Individual task-card widget."""
 
 from PyQt5.QtWidgets import (QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, 
                              QProgressBar, QPushButton, QSizePolicy)
@@ -37,7 +35,7 @@ from locales.strings import STR
 
 
 class ElidedLabel(QLabel):
-    """공간이 부족하면 텍스트 끝을 ...으로 줄여주는 라벨"""
+    """Label that elides overflowing text with an ellipsis."""
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
         self.full_text = text
@@ -51,28 +49,28 @@ class ElidedLabel(QLabel):
         super().resizeEvent(event)
 
     def minimumSizeHint(self):
-        # 레이아웃이 라벨을 줄일 수 있는 너비 최소값을 400으로 설정
+        # Allow the layout to shrink the label down to 400 px.
         return QSize(400, super().minimumSizeHint().height())
 
     def update_text(self):
-        # 너비가 0이거나 텍스트가 없으면 리턴
+        # Return if width is zero or there is no text.
         if self.width() <= 0 or not self.full_text:
             return
 
         metrics = QFontMetrics(self.font())
         width = self.width()
         
-        # 텍스트가 너비보다 작으면 전체 텍스트 표시
+        # Show the full text when it fits.
         if metrics.width(self.full_text) <= width:
             elided = self.full_text
         else:
             elided = metrics.elidedText(self.full_text, Qt.ElideRight, width)
         
-        # 현재 텍스트와 다를 때만 setText 호출 (무한 루프 방지)
+        # Avoid setText loops by updating only when the text changes.
         if self.text() != elided:
             super().setText(elided)
             
-            # 툴팁은 텍스트가 잘렸을 때만 표시
+            # Show the tooltip only when the text is elided.
             if elided != self.full_text:
                 self.setToolTip(self.full_text)
             else:
@@ -80,29 +78,29 @@ class ElidedLabel(QLabel):
 
 
 class TaskWidget(QFrame):
-    """개별 작업 카드 위젯"""
+    """Individual task-card widget."""
     
-    # 신호 정의
-    remove_requested = pyqtSignal(int)  # 목록에서 제거 요청
-    pause_requested = pyqtSignal(int)  # 일시정지 요청
-    resume_requested = pyqtSignal(int)  # 이어받기 요청
-    retry_requested = pyqtSignal(int)  # 재시도 요청
-    play_requested = pyqtSignal(int)  # 파일 실행 요청
-    open_folder_requested = pyqtSignal(int)  # 폴더 열기 요청
-    delete_file_requested = pyqtSignal(int)  # 파일 삭제 요청
-    clicked = pyqtSignal(int, int)  # 클릭 시그널 (task_id, keyboard_modifiers)
-    right_clicked = pyqtSignal(int, object)  # 우클릭 시그널 (task_id, QPoint - global position)
+    # Signals.
+    remove_requested = pyqtSignal(int)  # Request removal from the list.
+    pause_requested = pyqtSignal(int)  # Request pause.
+    resume_requested = pyqtSignal(int)  # Request resume.
+    retry_requested = pyqtSignal(int)  # Request retry.
+    play_requested = pyqtSignal(int)  # Request file playback.
+    open_folder_requested = pyqtSignal(int)  # Request opening the folder.
+    delete_file_requested = pyqtSignal(int)  # Request file deletion.
+    clicked = pyqtSignal(int, int)  # Click signal (task_id, keyboard_modifiers).
+    right_clicked = pyqtSignal(int, object)  # Context-menu signal (task_id, global QPoint).
     
     def __init__(self, task_id, url, settings, parent=None):
         super().__init__(parent)
         self.task_id = task_id
         self.url = url
         self.settings = settings
-        self.network_manager = QNetworkAccessManager(self)  # 비동기 이미지 다운로드용
+        self.network_manager = QNetworkAccessManager(self)  # Used for asynchronous image downloads.
         self.network_manager.finished.connect(self.on_thumbnail_downloaded)
-        self.pending_reply = None  # 진행 중인 네트워크 요청
-        self._selected = False  # 선택 상태
-        self._base_border_color = None  # 현재 상태의 기본 테두리 색상
+        self.pending_reply = None  # Active network request.
+        self._selected = False  # Selection state.
+        self._base_border_color = None  # Default border color for the current state.
         self.setup_ui()
         self.set_status(TaskStatus.WAITING)
         
@@ -111,7 +109,7 @@ class TaskWidget(QFrame):
         return format_task_title(text, self.settings)
     
     def setup_ui(self):
-        """UI 구성"""
+        """Set up the UI."""
         self._setup_card_frame()
         root = self._create_root_layout()
         root.addWidget(self._create_thumbnail_label())
@@ -212,22 +210,22 @@ class TaskWidget(QFrame):
         status_row.addWidget(self.size_label)
         return status_row
     def _update_border(self, color_hex):
-        """카드의 테두리 색상을 변경"""
+        """Change the card border color."""
         self._base_border_color = color_hex
         style = get_card_style(color_hex, self._selected)
         self.setStyleSheet(style)
     
     @property
     def selected(self):
-        """선택 상태 반환"""
+        """Return the selected state."""
         return self._selected
     
     @selected.setter
     def selected(self, value):
-        """선택 상태 설정"""
+        """Set the selected state."""
         if self._selected != value:
             self._selected = value
-            # 현재 테두리 색상으로 스타일 업데이트
+            # Update style with the current border color.
             if self._base_border_color:
                 style = get_card_style(self._base_border_color, self._selected)
                 self.setStyleSheet(style)
@@ -246,7 +244,7 @@ class TaskWidget(QFrame):
         super().mousePressEvent(event)
     
     def create_action_button(self, icon_name, tooltip, callback, color="#555555"):
-        """액션 버튼 생성 (QtAwesome 아이콘 사용)"""
+        """Create an action button with a QtAwesome icon."""
         btn = QPushButton()
         btn.setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
         btn.setIcon(qta.icon(icon_name, color=color))
@@ -292,14 +290,14 @@ class TaskWidget(QFrame):
             self.btn_layout.addWidget(btn)
     
     def set_status(self, status):
-        """상태 설정 및 UI 업데이트"""
+        """Set status and refresh the UI."""
         self.current_status = status
         
-        # 테두리 색상 변경 (딕셔너리 매핑 사용, 기본값: WAITING)
+        # Change border color from the state map, defaulting to WAITING.
         border_color = status_border_color(status)
         self._update_border(border_color)
         
-        # 버튼 업데이트
+        # Update buttons.
         self.update_buttons(status)
     
     def update_progress(self, progress_dict):
@@ -349,9 +347,9 @@ class TaskWidget(QFrame):
     
     @pyqtSlot(QNetworkReply)
     def on_thumbnail_downloaded(self, reply):
-        """썸네일 다운로드 완료 처리"""
+        """Handle completed thumbnail downloads."""
         if reply != self.pending_reply:
-            # 다른 요청의 응답이면 무시
+            # Ignore responses for older requests.
             reply.deleteLater()
             return
         

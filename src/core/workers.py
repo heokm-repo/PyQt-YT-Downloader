@@ -12,13 +12,13 @@ from core.worker_queue import parse_task_wrapper
 from utils.logger import log
 from utils.settings_store import get_download_folder
 from constants import (
-    MSG_PAUSED_BY_USER, QUEUE_TIMEOUT_SEC,
+    MSG_PAUSED_BY_USER, QUEUE_TIMEOUT_SEC, STARTUP_STATUS_SETTLE_DELAY_SEC,
     STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING
 )
 from locales.strings import STR
 
 class PlaylistAnalysisWorker(QThread):
-    """플레이리스트 분석을 위한 별도 스레드 (UI 프리징 방지)"""
+    """Worker thread for playlist analysis without freezing the UI."""
     analysis_finished = pyqtSignal(str, list, bool, str)
     
     def __init__(self, url: str, parent: Optional[QThread] = None):
@@ -26,13 +26,13 @@ class PlaylistAnalysisWorker(QThread):
         self.url = url
     
     def run(self) -> None:
-        """플레이리스트에서 비디오 ID 추출"""
+        """Extract video IDs from a playlist."""
         video_ids, success, error_msg = download_handler.extract_playlist_video_ids(self.url)
         self.analysis_finished.emit(self.url, video_ids, success, error_msg)
 
 
 class DownloadWorker(QThread):
-    """다운로드 작업을 처리하는 워커 스레드 (Queue 방식)"""
+    """Queue-based worker thread that handles download tasks."""
     progress_updated = pyqtSignal(dict, int)
     download_finished = pyqtSignal(bool, str, int, str)
     task_started = pyqtSignal(int)
@@ -57,7 +57,7 @@ class DownloadWorker(QThread):
         self.retire_flag: bool = False
 
     # ============================================================
-    # 헬퍼 메서드들
+    # Helper methods.
     # ============================================================
     
     def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool, Optional[int]]]:
@@ -91,7 +91,7 @@ class DownloadWorker(QThread):
         return False
 
     def _stop_check(self) -> bool:
-        """정지/일시정지 여부를 빠르게 확인 (매 stdout 라인마다 호출됨)"""
+        """Quickly check stop and pause state for each stdout line."""
         if self.stop_event.is_set():
             return True
         if not self.pause_event.is_set():
@@ -110,10 +110,10 @@ class DownloadWorker(QThread):
 
     def _process_metadata(self, task_id: int, url: str, metadata: Dict, settings: Dict = None) -> Tuple[Dict, bool]:
         """
-        메타데이터가 없으면 조회 (Lazy Loading).
+        Fetch metadata lazily when it is missing.
         
         Returns:
-            (메타데이터 딕셔너리, 성공 여부) 튜플
+            Tuple of metadata dictionary and success flag.
         """
         if not metadata or not metadata.get('title'):
             meta, meta_success = download_handler.fetch_metadata(url, settings)
@@ -126,7 +126,7 @@ class DownloadWorker(QThread):
         return metadata, True
 
     def _init_progress_tracking(self, task_id: int, metadata: Dict) -> None:
-        """진행률 추적 초기화 (비디오/오디오 구분)"""
+        """Initialize progress tracking for video and audio phases."""
         video_size_est = metadata.get('video_size', 0) or 0
         audio_size_est = metadata.get('audio_size', 0) or 0
         
@@ -141,23 +141,20 @@ class DownloadWorker(QThread):
         self.last_update_times[task_id] = 0.0
 
     def _find_downloaded_file(self, task_id: int, metadata: Dict, settings: Dict) -> str:
-        """
-        다운로드 완료된 파일의 경로를 찾아서 반환.
-        찾지 못하면 빈 문자열 반환.
-        """
+        """Find and return the downloaded file path, or an empty string if not found."""
         save_path = get_download_folder(settings)
         return find_downloaded_file(self.current_output_path, metadata, save_path, task_id)
 
     def _format_speed(self, speed: float) -> str:
-        """바이트/초를 읽기 쉬운 형식으로 변환"""
+        """Convert bytes per second to a human-readable string."""
         return format_speed(speed)
 
     # ============================================================
-    # 메인 실행 메서드
+    # Main execution method.
     # ============================================================
         
     def run(self) -> None:
-        """Queue에서 다운로드 작업을 순차적으로 처리"""
+        """Process download tasks from the queue sequentially."""
         while not self.stop_event.is_set():
             if self.retire_flag:
                 break
@@ -186,11 +183,11 @@ class DownloadWorker(QThread):
                 
                 metadata, meta_ok = self._process_metadata(task_id, url, metadata, current_settings)
                 
-                # 메타데이터 조회 실패 시 다운로드 시도 없이 실패 처리
+                # Treat metadata lookup failure as a failed task without trying to download.
                 if not meta_ok:
                     from utils.utils import is_youtube_url
                     if not is_youtube_url(url):
-                        # 지원되지 않는 URL: 다운로드 시도 없이 즉시 실패
+                        # Unsupported URL: fail immediately without trying to download.
                         error_msg = STR.ERR_UNSUPPORTED_URL
                         log.error(f"지원되지 않는 URL (task_id={task_id}): {url}")
                         self.download_finished.emit(False, error_msg, task_id, "")
@@ -232,7 +229,7 @@ class DownloadWorker(QThread):
                 self._handle_unexpected_error(e, task_wrapper)
 
     def _handle_unexpected_error(self, e: Exception, task_wrapper: Any) -> None:
-        """예상치 못한 오류 처리"""
+        """Handle unexpected errors."""
         error_task_id = -1
         if task_wrapper is not None:
             try:
@@ -248,7 +245,7 @@ class DownloadWorker(QThread):
         self.download_finished.emit(False, f"오류: {error_msg}", error_task_id, "")
 
     def _progress_hook(self, d: Dict[str, Any]) -> None:
-        """진행률 훅 - concurrent_fragment_downloads 사용 시 정상 작동"""
+        """Progress hook that works with concurrent_fragment_downloads."""
         if self.stop_event.is_set():
             raise yt_dlp.utils.DownloadError(STR.WORKER_MSG_STOPPED)
         
@@ -279,7 +276,7 @@ class DownloadWorker(QThread):
             log.warning(f"Progress update handling failed (task_id={task_id}): {e}", exc_info=True)
 
     def _handle_downloading_status(self, d: Dict[str, Any], task_id: int) -> None:
-        """다운로드 중 상태 처리"""
+        """Handle the downloading status."""
         if task_id not in self.download_progress:
             return
 
@@ -287,13 +284,13 @@ class DownloadWorker(QThread):
 
         import time
         current_time = time.time()
-        # 쓰레드 부하를 줄여 UI 프리징/렉을 방지하기 위해 0.1초 딜레이(100ms) 적용
+        # Throttle updates by 100 ms to reduce thread load and avoid UI stutter.
         if current_time - self.last_update_times.get(task_id, 0.0) >= 0.1:
             self.progress_updated.emit(d, task_id)
             self.last_update_times[task_id] = current_time
 
     def _handle_postprocessing_status(self, d: Dict[str, Any], status: str, task_id: int) -> None:
-        """후처리/완료 상태 처리"""
+        """Handle postprocessing and finished statuses."""
         if task_id not in self.download_progress:
             return
 
@@ -302,7 +299,7 @@ class DownloadWorker(QThread):
 
 
 class StartupWorker(QThread):
-    """앱 시작 시 메인 스레드를 차단하지 않고 무거운 검사(업데이트 확인 등)를 수행하는 워커"""
+    """Worker that runs heavy startup checks without blocking the main thread."""
     status_updated = pyqtSignal(str)
     finished_checks = pyqtSignal(dict, tuple) # bin_updates, app_update_info (avail, latest, url)
     error_occurred = pyqtSignal(str)
@@ -314,15 +311,15 @@ class StartupWorker(QThread):
             from locales.strings import STR
             import time
             
-            # 외부 구성 요소 확인
+            # Check external components.
             self.status_updated.emit(STR.MSG_STARTUP_CHECK_EXT)
-            time.sleep(0.1) # UI 업데이트 여유시간 (자율 조절)
+            time.sleep(STARTUP_STATUS_SETTLE_DELAY_SEC) # Allow time for the UI status update.
             
             bin_updates = {}
             if check_binaries_exist():
                 bin_updates = check_updates_available()
                 
-            # 앱 자체 업데이트 확인
+            # Check for app self-updates.
             self.status_updated.emit(STR.MSG_STARTUP_CHECK_APP)
             app_update_info = check_for_updates()
             

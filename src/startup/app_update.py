@@ -37,30 +37,35 @@ def download_app_update(
     application: Any,
     logger: Any,
     progress_dialog_factory: Callable[..., Any] | None = None,
+    parent: Any = None,
 ) -> str | None:
-    """Download an app update while showing a progress dialog."""
+    """Download an app update while showing a styled progress dialog."""
     if progress_dialog_factory is None:
-        from PyQt5.QtWidgets import QProgressDialog
+        from gui.dialogs.app_update_progress_dialog import AppUpdateProgressDialog
 
-        progress_dialog_factory = QProgressDialog
-    from PyQt5.QtCore import Qt
+        progress_dialog_factory = AppUpdateProgressDialog
 
-    progress = progress_dialog_factory(STR.MSG_UPDATE_DL, STR.BTN_CANCEL, 0, 100)
-    progress.setWindowTitle(STR.TITLE_UPDATE_DL)
-    progress.setWindowModality(Qt.WindowModal)
-    progress.setAutoClose(False)
-    progress.setAutoReset(False)
+    progress = progress_dialog_factory(parent=parent)
     progress.show()
 
+    def process_events() -> None:
+        process_events_func = getattr(application, "processEvents", None)
+        if process_events_func:
+            process_events_func()
+
     def update_progress(percent: int) -> None:
-        progress.setValue(percent)
-        application.processEvents()
-        if progress.wasCanceled():
-            raise Exception("Cancelled by user")
+        progress.set_progress(percent)
+        process_events()
+        if progress.was_cancelled():
+            raise RuntimeError("Cancelled by user")
 
     try:
         try:
-            return download_update(download_url, update_progress)
+            result = download_update(download_url, update_progress)
+            if result:
+                progress.mark_installing()
+                process_events()
+            return result
         except Exception as exc:
             logger.warning(f"Update download cancelled or failed: {exc}")
             return None
@@ -99,3 +104,4 @@ def run_app_update_flow(
         raise
     except Exception as exc:
         logger.error(f"App update check failed: {exc}")
+        show_error_message(STR.TITLE_ERROR, STR.ERR_UPDATE_CHECK.format(error=exc))

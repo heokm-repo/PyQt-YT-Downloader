@@ -1,14 +1,33 @@
 ; Inno Setup Script for YT Downloader
 ; https://jrsoftware.org/isinfo.php
 
-#define MyAppName "YT Downloader"
+#ifndef MyAppName
+  #define MyAppName "YT Downloader"
+#endif
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
-#define MyAppPublisher "Heo KyungMin"
-#define MyAppURL "https://github.com/heokm-repo/PyQt-YT-Downloader"
-#define MyAppExeName "YTDownloader.exe"
-
+#ifndef MyAppPublisher
+  #define MyAppPublisher "Heo KyungMin"
+#endif
+#ifndef MyAppURL
+  #define MyAppURL "https://github.com/heokm-repo/PyQt-YT-Downloader"
+#endif
+#ifndef MyAppExeName
+  #define MyAppExeName "YTDownloader.exe"
+#endif
+#ifndef MyAppInstallDirName
+  #define MyAppInstallDirName "YTDownloader"
+#endif
+#ifndef MyOutputDir
+  #define MyOutputDir "output"
+#endif
+#ifndef MySetupIconFile
+  #define MySetupIconFile "app_icon.ico"
+#endif
+#ifndef MyDistDir
+  #define MyDistDir "dist\YTDownloader"
+#endif
 [Setup]
 AppId={{B8F3D1A2-5C4E-4F7A-9B1D-2E3F4A5B6C7D}
 AppName={#MyAppName}
@@ -17,19 +36,19 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}/releases
-DefaultDirName={autopf}\YTDownloader
+DefaultDirName={autopf}\{#MyAppInstallDirName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=output
-OutputBaseFilename=Setup_YTDownloader_v{#MyAppVersion}
-SetupIconFile=app_icon.ico
+OutputDir={#MyOutputDir}
+OutputBaseFilename=Setup_{#MyAppInstallDirName}_v{#MyAppVersion}
+SetupIconFile={#MySetupIconFile}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
-; 업데이트 시 기존 설치 폴더에 덮어쓰기
+; Reuse the existing install directory during updates
 UsePreviousAppDir=yes
-; 실행 중인 앱 자동 종료
+; Automatically close the running app
 CloseApplications=yes
 RestartApplications=no
 
@@ -40,8 +59,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; PyInstaller one-dir 빌드 결과물 전체 복사
-Source: "dist\YTDownloader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy the full PyInstaller one-dir build output
+Source: "{#MyDistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -49,4 +68,29 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser; Check: ShouldRunAfterSilentUpdate
+
+[Code]
+function HasRunAfterInstallParam: Boolean;
+var
+  I: Integer;
+  Value: String;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+  begin
+    Value := ParamStr(I);
+    if (CompareText(Value, '/RUNAFTERINSTALL') = 0) or
+       (CompareText(Value, '-RUNAFTERINSTALL') = 0) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function ShouldRunAfterSilentUpdate: Boolean;
+begin
+  Result := WizardSilent and HasRunAfterInstallParam;
+end;

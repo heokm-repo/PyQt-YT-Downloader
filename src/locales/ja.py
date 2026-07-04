@@ -59,6 +59,9 @@ STRINGS = {
     'TITLE_LOGIN_BROWSER': "YouTubeログイン",
     'MSG_LOGIN_WAITING': "Googleアカウントでログインしてください。",
     'MSG_LOGIN_SUCCESS': "ログイン検出！「保存して閉じる」をクリックしてください。",
+    'MSG_LOGIN_STABILIZING': "Cookieを安定化しています...",
+    'ERR_LOGIN_NO_COOKIES': "YouTube Cookieを取得できませんでした!",
+    'ERR_LOGIN_SAVE_FAILED': "保存に失敗しました: {error}",
 
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "アプリ管理",
@@ -135,6 +138,8 @@ STRINGS = {
     'MSG_INIT_STARTING': "起動中...",
     'MSG_INIT_FAILED': "初期化失敗",
     'ERR_INIT_DOWNLOAD': "ダウンロード中にエラーが発生しました。",
+    'MSG_INIT_CANCELLING': "キャンセル中...",
+    'MSG_INIT_DOWNLOAD_CANCELLED': "ダウンロードをキャンセルしました。",
 
 
 
@@ -170,6 +175,10 @@ STRINGS = {
     'ERR_UPDATE_CHECK': "更新の確認中にエラーが発生しました:\n{error}",
     'TITLE_UPDATE_DL': "更新中",
     'MSG_UPDATE_DL': "新しいバージョンをダウンロードしています...\nお待ちください。",
+    'MSG_UPDATE_PREPARING': "更新を準備しています...",
+    'MSG_UPDATE_DL_STATUS': "更新をダウンロードしています...",
+    'MSG_UPDATE_INSTALLING': "更新のダウンロードが完了しました。インストーラーを起動します...",
+    'MSG_UPDATE_CANCELLED': "更新がキャンセルされました。",
     'ERR_UPDATE_APPLY': "更新の適用に失敗しました。",
     'ERR_UPDATE_DOWNLOAD': "更新のダウンロードに失敗しました。",
     'MSG_UPDATE_COMPONENTS': "以下のコンポーネントの更新があります:\n\n",

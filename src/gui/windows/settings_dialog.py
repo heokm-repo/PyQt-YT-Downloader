@@ -59,7 +59,7 @@ from utils.logger import log
 
 
 class SettingsDialog(BaseDialog):
-    """다운로드 설정 다이얼로그"""
+    """Download settings dialog."""
 
     def __init__(self, current_settings, parent=None):
         self.settings = current_settings
@@ -74,11 +74,11 @@ class SettingsDialog(BaseDialog):
             window_name="SettingsDialog"
         )
 
-        # 저장된 상태 복원 (없으면 기본 크기로 화면 중앙 배치)
+        # Restore saved state, or center at the default size.
         self.restore_state(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
         self.setFixedSize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
 
-        # 설정 다이얼로그 전용 타이틀 스타일 적용
+        # Apply the settings-dialog title style.
         self.title_label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, QFont.Bold))
         self.title_label.setStyleSheet(SETTINGS_TITLE_LABEL_STYLE)
 
@@ -88,23 +88,23 @@ class SettingsDialog(BaseDialog):
         self._create_button_section()
 
     def _setup_content(self):
-        """UI 설정 - 탭 위젯 등 생성 및 추가"""
-        # 탭 위젯 생성
+        """Create and add the settings tabs."""
+        # Create tab widget.
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(SETTINGS_TAB_STYLE)
         self.tab_widget.setMinimumWidth(MIN_SETTINGS_TAB_WIDTH)
 
-        # 탭 1: 일반 설정 (General)
+        # Tab 1: General settings.
         general_tab = QWidget()
         self._create_general_tab(general_tab)
         self.tab_widget.addTab(general_tab, STR.SETTINGS_SEC_GENERAL)
 
-        # 탭 2: 다운로드 설정 (Download)
+        # Tab 2: Download settings.
         download_tab = QWidget()
         self._create_download_tab(download_tab)
         self.tab_widget.addTab(download_tab, STR.SETTINGS_SEC_QUALITY)
 
-        # 탭 3: 앱 관리 (App Management)
+        # Tab 3: App management.
         app_manage_tab = QWidget()
         self._create_app_manage_tab(app_manage_tab)
         self.tab_widget.addTab(app_manage_tab, STR.SETTINGS_SEC_APP_MANAGE)
@@ -145,33 +145,33 @@ class SettingsDialog(BaseDialog):
         layout.addStretch()
 
     def _create_download_tab(self, parent):
-        """다운로드 설정 탭 생성"""
+        """Create the download settings tab."""
         layout = QVBoxLayout(parent)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
 
-        # 품질 및 포맷
+        # Quality and format.
         add_section_label(STR.SETTINGS_SEC_QUALITY, layout)
 
         grid_layout = QFormLayout()
         grid_layout.setSpacing(10)
         grid_layout.setLabelAlignment(Qt.AlignLeft)
 
-        # 화질
+        # Video quality.
         self.quality_combo = create_settings_combo(
             VIDEO_QUALITY_OPTIONS,
             self.settings[KEY_VIDEO_QUALITY]
         )
         grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_VIDEO), self.quality_combo)
 
-        # 음질
+        # Audio quality.
         self.audio_quality_combo = create_settings_combo(
             AUDIO_QUALITY_OPTIONS,
             self.settings[KEY_AUDIO_QUALITY]
         )
         grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_AUDIO), self.audio_quality_combo)
 
-        # 포맷
+        # Format.
         self.format_combo = create_format_combo(
             self.settings.get(KEY_FORMAT),
             STR.SETTINGS_HEADER_VIDEO,
@@ -179,7 +179,7 @@ class SettingsDialog(BaseDialog):
         )
         grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_FORMAT), self.format_combo)
 
-        # 최대 동시 다운로드 수
+        # Maximum concurrent downloads.
         self.max_downloads_spin = create_max_downloads_spin(
             int(self.settings.get(KEY_MAX_DOWNLOADS, DEFAULT_MAX_DOWNLOADS))
         )
@@ -187,10 +187,10 @@ class SettingsDialog(BaseDialog):
 
         layout.addLayout(grid_layout)
 
-        # 고급 기능
+        # Advanced features.
         add_section_label(STR.SETTINGS_SEC_ADVANCED, layout)
 
-        # 음량 평준화
+        # Audio normalization.
         self.norm_check = create_settings_checkbox(
             self.settings.get(KEY_NORMALIZE_AUDIO, DEFAULT_NORMALIZE)
         )
@@ -198,7 +198,7 @@ class SettingsDialog(BaseDialog):
             layout, STR.SETTINGS_CHK_NORMALIZE, STR.TOOLTIP_NORMALIZE, self.norm_check
         )
 
-        # 다운로드 가속
+        # Download acceleration.
         self.accel_check = create_settings_checkbox(
             self.settings.get(KEY_USE_ACCELERATION, DEFAULT_ACCELERATION),
             lambda state: self._on_acceleration_changed(state == 2),
@@ -207,13 +207,13 @@ class SettingsDialog(BaseDialog):
             layout, STR.SETTINGS_CHK_ACCEL, STR.TOOLTIP_ACCEL, self.accel_check
         )
 
-        # 초기 상태 반영
+        # Apply initial state.
         self._on_acceleration_changed(self.accel_check.isChecked())
 
         layout.addStretch()
 
     def _create_app_manage_tab(self, parent):
-        """앱 관리 탭 생성"""
+        """Create the app-management tab."""
         layout = QVBoxLayout(parent)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
@@ -249,8 +249,8 @@ class SettingsDialog(BaseDialog):
         layout.addStretch()
 
     def _create_button_section(self):
-        """하단 버튼 섹션 생성"""
-        # BaseDialog 의 button_layout 을 사용
+        """Create the bottom button section."""
+        # Use BaseDialog button_layout.
 
         button_styles = {
             "cancel": SETTINGS_CANCEL_BUTTON_STYLE,
@@ -270,16 +270,16 @@ class SettingsDialog(BaseDialog):
             )
             self.button_layout.addWidget(button)
 
-    # ===== 헬퍼 메서드 =====
+    # ===== Helper Methods =====
 
 
 
-    # ===== 이벤트 핸들러 =====
+    # ===== Event Handlers =====
 
     # mouse drag event handled by BaseDialog
 
     def _browse_folder(self):
-        """폴더 선택 다이얼로그"""
+        """Open the folder picker dialog."""
         folder = QFileDialog.getExistingDirectory(
             self, STR.TITLE_FOLDER_SELECT, self.folder_line.text()
         )
@@ -287,14 +287,14 @@ class SettingsDialog(BaseDialog):
             self.folder_line.setText(folder)
 
     def _on_acceleration_changed(self, checked):
-        """다운로드 가속 체크박스 상태 변경 시 호출"""
+        """Handle download-acceleration checkbox changes."""
         state = max_downloads_state_for_acceleration(checked)
         if state.value is not None:
             self.max_downloads_spin.setValue(state.value)
         self.max_downloads_spin.setEnabled(state.enabled)
 
     def _on_login_clicked(self):
-        """인앱 로그인 버튼 클릭 시 호출"""
+        """Handle in-app login button clicks."""
         try:
             from gui.windows.login_browser import LoginBrowser
             dialog = LoginBrowser(self)
@@ -304,17 +304,17 @@ class SettingsDialog(BaseDialog):
         except Exception as e:
             log.error(f"Login browser failed: {e}", exc_info=True)
 
-    # ===== 다이얼로그 결과 처리 =====
+    # ===== Dialog Result Handling =====
 
     def _show_license_info(self):
-        """라이선스 정보 다이얼로그 표시"""
+        """Show the license information dialog."""
         show_info(self, STR.TITLE_LICENSE, STR.MSG_LICENSE_INFO)
 
     def accept(self):
-        """저장 버튼 클릭 시 설정 저장"""
+        """Save settings when the Save button is clicked."""
         folder_path = normalize_download_folder_input(self.folder_line.text())
 
-        # 폴더 경로 유효성 검사
+        # Validate the folder path.
         if not is_download_folder_input_valid(folder_path):
             show_warning(self, STR.TITLE_ERROR, STR.ERR_SETTINGS_NO_FOLDER)
             return
@@ -334,10 +334,10 @@ class SettingsDialog(BaseDialog):
         super().accept()
 
     def get_new_settings(self):
-        """변경된 설정 반환"""
+        """Return changed settings."""
         return self.settings
 
-    # ===== 앱 관리 기능 =====
+    # ===== App Management =====
 
     def _confirm_uninstall(self):
         """Ask whether the app should be uninstalled."""
@@ -386,26 +386,29 @@ class SettingsDialog(BaseDialog):
         return ask_question(self, STR.TITLE_UPDATE_CHECK, update_result.message)
 
     def _download_update_with_progress(self, download_update, download_url):
-        """Download an update while displaying a modal progress dialog."""
-        from PyQt5.QtWidgets import QProgressDialog, QApplication
+        """Download an update while displaying the app-styled progress dialog."""
+        from PyQt5.QtWidgets import QApplication
 
-        progress_dialog = QProgressDialog(
-            STR.MSG_UPDATE_DL,
-            None,
-            0,
-            100,
-            self,
-        )
-        progress_dialog.setWindowTitle(STR.TITLE_UPDATE_DL)
-        progress_dialog.setWindowModality(Qt.WindowModal)
+        from gui.dialogs.app_update_progress_dialog import AppUpdateProgressDialog
+
+        progress_dialog = AppUpdateProgressDialog(parent=self)
         progress_dialog.show()
 
         def update_progress(value):
-            progress_dialog.setValue(value)
+            progress_dialog.set_progress(value)
             QApplication.processEvents()
+            if progress_dialog.was_cancelled():
+                raise RuntimeError("Cancelled by user")
 
         try:
-            return download_update(download_url, update_progress)
+            result = download_update(download_url, update_progress)
+            if result:
+                progress_dialog.mark_installing()
+                QApplication.processEvents()
+            return result
+        except Exception as exc:
+            log.warning(f"Update download cancelled or failed: {exc}")
+            return None
         finally:
             progress_dialog.close()
 

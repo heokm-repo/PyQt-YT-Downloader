@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import importlib.util
 from typing import Iterable
 
+from constants import STARTUP_OPTIONAL_DEPENDENCY_SPECS, STARTUP_REQUIRED_DEPENDENCY_SPECS
+
 
 @dataclass(frozen=True)
 class DependencySpec:
@@ -37,17 +39,22 @@ class DependencyReport:
         return any(dep.package == name or dep.module == name for dep in self.missing_required)
 
 
-REQUIRED_DEPENDENCIES: tuple[DependencySpec, ...] = (
-    DependencySpec("PyQt5.QtWidgets", "PyQt5"),
-    DependencySpec("requests", "requests"),
-    DependencySpec("packaging", "packaging"),
-    DependencySpec("qtawesome", "qtawesome"),
-    DependencySpec("yt_dlp", "yt-dlp"),
-)
+def _build_required_dependencies() -> tuple[DependencySpec, ...]:
+    return tuple(
+        DependencySpec(module, package)
+        for module, package in STARTUP_REQUIRED_DEPENDENCY_SPECS
+    )
 
-OPTIONAL_DEPENDENCIES: tuple[DependencySpec, ...] = (
-    DependencySpec("PyQt5.QtWebEngineWidgets", "PyQtWebEngine", required=False, feature="in-app login"),
-)
+
+def _build_optional_dependencies() -> tuple[DependencySpec, ...]:
+    return tuple(
+        DependencySpec(module, package, required=False, feature=feature)
+        for module, package, feature in STARTUP_OPTIONAL_DEPENDENCY_SPECS
+    )
+
+
+REQUIRED_DEPENDENCIES: tuple[DependencySpec, ...] = _build_required_dependencies()
+OPTIONAL_DEPENDENCIES: tuple[DependencySpec, ...] = _build_optional_dependencies()
 
 
 def is_module_available(module_name: str) -> bool:

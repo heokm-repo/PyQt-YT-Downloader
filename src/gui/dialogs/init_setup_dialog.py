@@ -19,11 +19,7 @@ from resources.styles import (
 )
 
 class InitSetupDialog(BaseDialog):
-    """
-    초기 설정 대화상자 (첫 실행 시)
-    - 언어 선택 기능 제공
-    - 필수 구성요소 다운로드 안내
-    """
+    """Initial setup dialog shown on first launch, with language selection and required-component download guidance."""
     
     def __init__(self, parent=None):
         super().__init__(
@@ -35,11 +31,11 @@ class InitSetupDialog(BaseDialog):
         )
         
         self.settings = load_settings()
-        self.current_lang = DEFAULT_LANGUAGE # 항상 기본값으로 시작 (사용자 요청)
+        self.current_lang = DEFAULT_LANGUAGE # Always start from the default language.
         
         self._setup_content()
         self._setup_buttons()
-        self._update_text() # 초기 텍스트 설정
+        self._update_text() # Set initial text.
         
     def _setup_content(self):
         # Language Selection Section
@@ -53,11 +49,11 @@ class InitSetupDialog(BaseDialog):
         self.lang_combo.setMinimumWidth(150)
         self.lang_combo.setCursor(Qt.PointingHandCursor)
         
-        # 언어 목록 추가
+        # Add language options.
         for code, name in SUPPORTED_LANGUAGES.items():
             self.lang_combo.addItem(name, code)
             
-        # 현재 언어 선택
+        # Select the current language.
         index = self.lang_combo.findData(self.current_lang)
         if index >= 0:
             self.lang_combo.setCurrentIndex(index)
@@ -86,7 +82,7 @@ class InitSetupDialog(BaseDialog):
         self.button_layout.addWidget(self.start_btn)
 
     def _update_text(self):
-        """현재 언어 설정에 맞춰 UI 텍스트 업데이트"""
+        """Refresh UI text for the current language."""
         self.title_label.setText(STR.TITLE_INIT_SETUP)
         self.lang_label.setText(STR.LABEL_LANGUAGE_SELECT)
         self.msg_label.setText(STR.MSG_CONFIRM_INIT_DOWNLOAD)
@@ -94,16 +90,16 @@ class InitSetupDialog(BaseDialog):
         set_text_button_minimum_width(self.start_btn)
 
     def _on_language_changed(self, index):
-        """언어 변경 시 즉시 반영"""
+        """Apply language changes immediately."""
         lang_code = self.lang_combo.itemData(index)
         if lang_code != self.current_lang:
             self.current_lang = lang_code
-            set_language(self.current_lang) # 전역 STR 업데이트
-            self._update_text() # UI 텍스트 갱신
+            set_language(self.current_lang) # Refresh the global STR object.
+            self._update_text() # Refresh UI text.
 
     def _on_start_clicked(self):
-        """설정 저장 및 진행"""
-        # 언어 설정 저장
+        """Save settings and continue."""
+        # Save the language setting.
         self.settings[KEY_LANGUAGE] = self.current_lang
         save_settings(self.settings)
         self.accept()
