@@ -3,11 +3,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 from gui.dialogs.base_dialog import BaseDialog
+from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
 from constants import BTN_TEXT_CLOSE_X
 from resources.styles import (
     SETTINGS_CANCEL_BUTTON_STYLE, SETTINGS_SAVE_BUTTON_STYLE,
-    SETTINGS_FONT_FAMILY, MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT,
+    SETTINGS_FONT_FAMILY, MESSAGE_BTN_HEIGHT,
     MESSAGE_BODY_STYLE
 )
 
@@ -55,67 +56,68 @@ class MessageDialog(BaseDialog):
         self.content_layout.addWidget(msg_label)
         self.content_layout.addStretch()
 
+    def _create_text_button(self, text, style, callback):
+        btn = QPushButton(text)
+        btn.setFixedHeight(MESSAGE_BTN_HEIGHT)
+        set_text_button_minimum_width(btn)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(callback)
+        btn.setStyleSheet(style)
+        return btn
+
     def _setup_buttons(self):
         if self.custom_buttons:
             for i, btn_config in enumerate(self.custom_buttons):
                 text = btn_config.get('text', f'Button {i}')
                 role = btn_config.get('role', 'action')
-                
-                btn = QPushButton(text)
-                btn.setFixedHeight(MESSAGE_BTN_HEIGHT) # Fixed height
-                btn.setCursor(Qt.PointingHandCursor)
-                
-                # Style
-                if role == 'accept' or role == 'action':
-                    btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
-                else: # cancel, reject
-                    btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
-                
-                # Connect
-                # Use default arguments to capture loop variable
-                btn.clicked.connect(lambda checked, idx=i, r=role: self._on_custom_button_clicked(idx, r))
+                style = (
+                    SETTINGS_SAVE_BUTTON_STYLE
+                    if role == 'accept' or role == 'action'
+                    else SETTINGS_CANCEL_BUTTON_STYLE
+                )
+                btn = self._create_text_button(
+                    text,
+                    style,
+                    lambda checked=False, idx=i, r=role: self._on_custom_button_clicked(idx, r),
+                )
                 self.button_layout.addWidget(btn)
-                
+
         elif self.dialog_type == self.QUESTION:
-            # Yes / No
-            no_btn = QPushButton(STR.BTN_NO)
-            no_btn.setFixedSize(MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT)
-            no_btn.setCursor(Qt.PointingHandCursor)
-            no_btn.clicked.connect(self.reject)
-            no_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
+            no_btn = self._create_text_button(
+                STR.BTN_NO,
+                SETTINGS_CANCEL_BUTTON_STYLE,
+                self.reject,
+            )
             self.button_layout.addWidget(no_btn)
-            
-            yes_btn = QPushButton(STR.BTN_YES)
-            yes_btn.setFixedSize(MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT)
-            yes_btn.setCursor(Qt.PointingHandCursor)
-            yes_btn.clicked.connect(self.accept)
-            yes_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
+
+            yes_btn = self._create_text_button(
+                STR.BTN_YES,
+                SETTINGS_SAVE_BUTTON_STYLE,
+                self.accept,
+            )
             self.button_layout.addWidget(yes_btn)
-            
+
         elif self.show_cancel:
-            # OK / Cancel
-            cancel_btn = QPushButton(STR.BTN_CANCEL)
-            cancel_btn.setFixedSize(MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT)
-            cancel_btn.setCursor(Qt.PointingHandCursor)
-            cancel_btn.clicked.connect(self.reject)
-            cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
+            cancel_btn = self._create_text_button(
+                STR.BTN_CANCEL,
+                SETTINGS_CANCEL_BUTTON_STYLE,
+                self.reject,
+            )
             self.button_layout.addWidget(cancel_btn)
-            
-            ok_btn = QPushButton(STR.BTN_OK)
-            ok_btn.setFixedSize(MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT)
-            ok_btn.setCursor(Qt.PointingHandCursor)
-            ok_btn.clicked.connect(self.accept)
-            ok_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
+
+            ok_btn = self._create_text_button(
+                STR.BTN_OK,
+                SETTINGS_SAVE_BUTTON_STYLE,
+                self.accept,
+            )
             self.button_layout.addWidget(ok_btn)
-            
+
         else:
-            # OK Only
-            ok_btn = QPushButton(STR.BTN_OK)
-            ok_btn.setFixedSize(MESSAGE_BTN_WIDTH, MESSAGE_BTN_HEIGHT)
-            ok_btn.setCursor(Qt.PointingHandCursor)
-            ok_btn.clicked.connect(self.accept)
-            # Use colored button for priority
-            ok_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE) 
+            ok_btn = self._create_text_button(
+                STR.BTN_OK,
+                SETTINGS_SAVE_BUTTON_STYLE,
+                self.accept,
+            )
             self.button_layout.addWidget(ok_btn)
 
     def _on_custom_button_clicked(self, index, role):

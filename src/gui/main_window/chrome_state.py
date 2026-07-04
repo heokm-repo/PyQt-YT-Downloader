@@ -5,7 +5,7 @@ from typing import Sequence
 
 MAXIMIZE_ICON_NAME = "mdi.window-maximize"
 RESTORE_ICON_NAME = "mdi.window-restore"
-MAXIMIZED_LAYOUT_MARGINS = (8, 8, 8, 8)
+MAXIMIZED_LAYOUT_MARGINS = (15, 15, 15, 15)
 TITLE_BAR_DOUBLE_CLICK_PADDING = 10
 
 

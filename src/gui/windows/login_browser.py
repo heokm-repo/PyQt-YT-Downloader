@@ -18,6 +18,7 @@ from PyQt5.QtNetwork import QNetworkCookie
 from utils.utils import get_user_data_path
 from utils.cookie_store import get_cookie_file_path
 from utils.logger import log
+from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
 from resources.styles import (
     SETTINGS_FONT_FAMILY, SETTINGS_SAVE_BUTTON_STYLE,
@@ -125,7 +126,8 @@ class LoginBrowser(QDialog):
         
         # 취소 버튼
         cancel_btn = QPushButton(STR.BTN_CANCEL)
-        cancel_btn.setFixedSize(80, 32)
+        cancel_btn.setFixedHeight(32)
+        set_text_button_minimum_width(cancel_btn)
         cancel_btn.setCursor(Qt.PointingHandCursor)
         cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
         cancel_btn.setAutoDefault(False)
@@ -135,7 +137,8 @@ class LoginBrowser(QDialog):
         
         # 저장 및 닫기 버튼
         self.save_btn = QPushButton(STR.BTN_SAVE_CLOSE)
-        self.save_btn.setFixedSize(120, 32)
+        self.save_btn.setFixedHeight(32)
+        set_text_button_minimum_width(self.save_btn)
         self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
         self.save_btn.setAutoDefault(False)

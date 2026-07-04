@@ -1,19 +1,22 @@
 """Reusable controls for the main window."""
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Sequence
 
 import qtawesome as qta
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QLabel,
+    QAction,
     QFrame,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QSlider,
+    QToolButton,
+    QMenu,
     QVBoxLayout,
     QWidget,
 )
@@ -40,14 +43,23 @@ from resources.styles import (
     SETTINGS_BUTTON_STYLE,
     STATUS_BAR_FONT_FAMILY,
     STATUS_BAR_FONT_SIZE,
+    STATUS_CONTROL_HEIGHT,
+    STATUS_COUNTER_HORIZONTAL_PADDING,
+    STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
+    STATUS_SORT_BUTTON_ICON_SIZE,
+    STATUS_SORT_BUTTON_MIN_WIDTH,
     STATUS_BAR_HEIGHT,
     STATUS_BAR_MARGINS,
     STATUS_BAR_SPACING,
     STATUS_BAR_STYLE,
+    STATUS_COUNTER_STYLE,
     STATUS_LABEL_STYLE,
+    STATUS_SORT_BUTTON_STYLE,
+    STATUS_SORT_MENU_STYLE,
     TASK_LIST_MARGINS,
     TASK_LIST_SPACING,
     TITLE_BAR_BUTTON_SIZE,
+    TITLE_BAR_BUTTON_ICON_SIZE,
     TITLE_BAR_FONT_FAMILY,
     TITLE_BAR_FONT_SIZE,
     TITLE_BAR_HEIGHT,
@@ -100,15 +112,125 @@ class TaskListSectionControls:
 @dataclass(frozen=True)
 class StatusBarControls:
     frame: QFrame
+    sort_button: QToolButton
     status_label: QLabel
     progress_slider: QSlider
+    counter_label: QLabel
+
+
+DEFAULT_STATUS_SORT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("newest", "Newest"),
+    ("oldest", "Oldest"),
+    ("status", "Status"),
+)
+
+
+class StatusSortButton(QToolButton):
+    """Status-bar sort button that opens a compact menu."""
+
+    sortChanged = pyqtSignal(str)
+    _icon_size = STATUS_SORT_BUTTON_ICON_SIZE
+
+    def __init__(
+        self,
+        sort_options: Sequence[tuple[str, str]] = DEFAULT_STATUS_SORT_OPTIONS,
+    ):
+        super().__init__()
+        self._current_key = ""
+        self._sort_options: list[tuple[str, str]] = []
+        self._sort_actions: dict[str, QAction] = {}
+        self._menu = QMenu(self)
+        self._menu.setStyleSheet(STATUS_SORT_MENU_STYLE)
+
+        self.setMenu(self._menu)
+        self.setPopupMode(QToolButton.InstantPopup)
+        self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.setIcon(qta.icon("mdi.sort-variant", color="#666666"))
+        self.setIconSize(QSize(self._icon_size, self._icon_size))
+        self.setFixedHeight(STATUS_CONTROL_HEIGHT)
+        self.setMinimumWidth(STATUS_SORT_BUTTON_MIN_WIDTH)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(STATUS_SORT_BUTTON_STYLE)
+        self.setSortOptions(sort_options)
+
+    def setSortOptions(self, sort_options: Sequence[tuple[str, str]]) -> None:
+        """Replace menu options while keeping the current key when possible."""
+        previous_key = self._current_key
+        self._sort_options = list(sort_options)
+        self._sort_actions.clear()
+        self._menu.clear()
+
+        for key, label in self._sort_options:
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(key)
+            action.triggered.connect(
+                lambda _checked=False, selected_key=key: self.setCurrentKey(selected_key, emit=True)
+            )
+            self._menu.addAction(action)
+            self._sort_actions[key] = action
+
+        keys = [key for key, _label in self._sort_options]
+        if not keys:
+            self._current_key = ""
+            self.setText("")
+            self.setFixedWidth(STATUS_SORT_BUTTON_MIN_WIDTH)
+            return
+
+        self.setCurrentKey(previous_key if previous_key in keys else keys[0], emit=False)
+
+    def currentKey(self) -> str:
+        return self._current_key
+
+
+    def _resize_to_current_text(self) -> None:
+        text_width = self.fontMetrics().boundingRect(self.text()).width()
+        width = max(
+            STATUS_SORT_BUTTON_MIN_WIDTH,
+            text_width + STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
+        )
+        self.setFixedWidth(width)
+
+    def setCurrentKey(self, key: str, emit: bool = False) -> None:
+        labels = dict(self._sort_options)
+        if key not in labels:
+            return
+
+        changed = key != self._current_key
+        self._current_key = key
+        self.setText(labels[key])
+        self.setToolTip(labels[key])
+        self._resize_to_current_text()
+        for action_key, action in self._sort_actions.items():
+            action.setChecked(action_key == key)
+        if emit and changed:
+            self.sortChanged.emit(key)
+
+
+class StatusCounterLabel(QLabel):
+    """Right-aligned task count label that resizes to its current text."""
+
+    def __init__(self, text: str = "0/0"):
+        super().__init__()
+        self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
+        self.setStyleSheet(STATUS_COUNTER_STYLE)
+        self.setText(text)
+
+    def setText(self, text: str) -> None:
+        super().setText(text)
+        self._resize_to_current_text()
+
+    def _resize_to_current_text(self) -> None:
+        text_width = self.fontMetrics().boundingRect(self.text()).width()
+        self.setFixedWidth(text_width + STATUS_COUNTER_HORIZONTAL_PADDING)
 
 
 def set_button_icon(
     button: QPushButton,
     icon_name: str,
     color: str = "#999999",
-    icon_size: tuple[int, int] = (20, 20),
+    icon_size: tuple[int, int] = (TITLE_BAR_BUTTON_ICON_SIZE, TITLE_BAR_BUTTON_ICON_SIZE),
 ) -> None:
     """Apply a qtawesome icon to a button."""
     button.setIcon(qta.icon(icon_name, color=color))
@@ -194,7 +316,7 @@ def create_title_bar(
     )
     layout.addWidget(maximize_button)
 
-    close_button = create_title_bar_button("mdi.close", close_style, on_close)
+    close_button = create_title_bar_button("mdi.window-close", close_style, on_close)
     layout.addWidget(close_button)
 
     return TitleBarControls(
@@ -350,7 +472,23 @@ def create_progress_slider() -> QSlider:
     return slider
 
 
-def create_status_bar(status_text: str) -> StatusBarControls:
+def create_status_sort_button(
+    sort_options: Sequence[tuple[str, str]] = DEFAULT_STATUS_SORT_OPTIONS,
+) -> StatusSortButton:
+    """Create the task-list sort menu button for the status bar."""
+    return StatusSortButton(sort_options)
+
+
+def create_status_counter_label(text: str = "0/0") -> StatusCounterLabel:
+    """Create the right-aligned task count label for the status bar."""
+    return StatusCounterLabel(text)
+
+
+def create_status_bar(
+    status_text: str,
+    sort_options: Sequence[tuple[str, str]] = DEFAULT_STATUS_SORT_OPTIONS,
+    counter_text: str = "0/0",
+) -> StatusBarControls:
     """Create the main-window status bar and return controls the window updates later."""
     frame = QFrame()
     frame.setFixedHeight(STATUS_BAR_HEIGHT)
@@ -360,10 +498,17 @@ def create_status_bar(status_text: str) -> StatusBarControls:
     layout.setContentsMargins(*STATUS_BAR_MARGINS)
     layout.setSpacing(STATUS_BAR_SPACING)
 
+    sort_button = create_status_sort_button(sort_options)
+    layout.addWidget(sort_button)
+
     status_label = create_status_label(status_text)
-    layout.addWidget(status_label)
+    status_label.setParent(frame)
+    status_label.hide()
 
     progress_slider = create_progress_slider()
     layout.addWidget(progress_slider, 1)
 
-    return StatusBarControls(frame, status_label, progress_slider)
+    counter_label = create_status_counter_label(counter_text)
+    layout.addWidget(counter_label)
+
+    return StatusBarControls(frame, sort_button, status_label, progress_slider, counter_label)

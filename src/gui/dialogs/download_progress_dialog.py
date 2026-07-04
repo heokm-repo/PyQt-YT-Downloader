@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from gui.dialogs.base_dialog import BaseDialog
+from gui.widgets.button_sizing import set_text_button_minimum_width
 
 from constants import change_language
 from locales.strings import STR
@@ -153,7 +154,7 @@ class DownloadProgressDialog(BaseDialog):
         self.cancel_btn = QPushButton(STR.BTN_CANCEL)
         self.cancel_btn.setCursor(Qt.PointingHandCursor)
         self.cancel_btn.setFixedHeight(30)
-        self.cancel_btn.setFixedWidth(100)
+        set_text_button_minimum_width(self.cancel_btn)
         self.cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
         self.cancel_btn.clicked.connect(self.cancel_download)
         
@@ -238,6 +239,7 @@ class DownloadProgressDialog(BaseDialog):
             self.status_label.setText(STR.MSG_INIT_FAILED)
             self.detail_label.setText(STR.ERR_INIT_DOWNLOAD)
             self.cancel_btn.setText(STR.BTN_CLOSE) # Change Cancel to Close
+            set_text_button_minimum_width(self.cancel_btn)
             self.cancel_btn.setEnabled(True)
             # Re-connect to reject to ensure it closes
             try:

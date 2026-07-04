@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
-
-DOWNLOAD_BUTTON_WIDTH_PADDING = 30
+from gui.widgets.button_sizing import set_text_button_minimum_width
+from resources.styles import DOWNLOAD_BUTTON_WIDTH_PADDING
 
 
 @dataclass(frozen=True)
@@ -19,10 +19,7 @@ class MainWindowLanguageTexts:
 def update_download_button_text(button: Any, text: str) -> int:
     """Set download-button text and resize its minimum width to fit."""
     button.setText(text)
-    text_width = button.fontMetrics().boundingRect(button.text()).width()
-    minimum_width = text_width + DOWNLOAD_BUTTON_WIDTH_PADDING
-    button.setMinimumWidth(minimum_width)
-    return minimum_width
+    return set_text_button_minimum_width(button, DOWNLOAD_BUTTON_WIDTH_PADDING)
 
 
 def apply_main_window_language(window: Any, texts: MainWindowLanguageTexts, has_tasks: bool) -> None:

@@ -16,7 +16,8 @@ from resources.styles import (
     SETTINGS_SHADOW_BLUR_RADIUS, SETTINGS_SHADOW_ALPHA,
     MESSAGE_TITLE_STYLE, SETTINGS_FONT_FAMILY, MESSAGE_DIVIDER_STYLE,
     SETTINGS_CONTAINER_MARGIN, SETTINGS_CONTENT_MARGIN, SETTINGS_CONTENT_SPACING,
-    MAXIMIZE_BUTTON_STYLE
+    SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE,
+    SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, MAXIMIZE_BUTTON_STYLE
 )
 from gui.windowing.resizable_mixin import ResizableMixin
 from gui.windowing.window_state_manager import save_window_state, restore_window_state
@@ -125,9 +126,9 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def _create_icon_label(self, icon_text):
         icon_label = QLabel()
-        icon_pixmap = qta.icon(icon_text, color='#5F428B').pixmap(QSize(24, 24))
+        icon_pixmap = qta.icon(icon_text, color='#5F428B').pixmap(QSize(SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_ICON_SIZE))
         icon_label.setPixmap(icon_pixmap)
-        icon_label.setFixedSize(24, 24)
+        icon_label.setFixedSize(SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_ICON_SIZE)
         return icon_label
 
     def _create_title_label(self, title_text):
@@ -143,8 +144,8 @@ class BaseDialog(ResizableMixin, QDialog):
 
         button = QPushButton()
         button.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
-        button.setIconSize(QSize(18, 18))
-        button.setFixedSize(24, 24)
+        button.setIconSize(QSize(SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE))
+        button.setFixedSize(SETTINGS_DIALOG_TITLE_BUTTON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE)
         button.setCursor(Qt.PointingHandCursor)
         button.clicked.connect(self._toggle_maximize)
         button.setStyleSheet(MAXIMIZE_BUTTON_STYLE)
@@ -152,9 +153,9 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def _create_close_button(self):
         button = QPushButton()
-        button.setIcon(qta.icon('mdi.close', color='#999999'))
-        button.setIconSize(QSize(18, 18))
-        button.setFixedSize(24, 24)
+        button.setIcon(qta.icon('mdi.window-close', color='#999999'))
+        button.setIconSize(QSize(SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE))
+        button.setFixedSize(SETTINGS_DIALOG_TITLE_BUTTON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE)
         button.setCursor(Qt.PointingHandCursor)
         button.clicked.connect(self.reject)
         button.setStyleSheet(SETTINGS_CLOSE_BUTTON_STYLE)

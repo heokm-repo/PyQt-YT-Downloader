@@ -2,24 +2,136 @@
 
 from typing import Callable, Mapping, Sequence
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QFont, QStandardItem
-from PyQt5.QtWidgets import QLabel, QCheckBox, QComboBox, QHBoxLayout, QPushButton, QSpinBox
+from PyQt5.QtCore import QEvent, QRect, QSize, Qt
+from PyQt5.QtGui import QColor, QFont, QIntValidator, QPainter, QStandardItem
+from PyQt5.QtWidgets import QLabel, QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QPushButton, QSizePolicy, QWidget
+
+import qtawesome as qta
 
 from constants import DEFAULT_FORMAT, MAX_DOWNLOADS_RANGE
 from gui.settings.settings_form_data import language_display_options, language_index_for_code
 from gui.settings.settings_format_options import build_format_combo_entries, normalize_format_selection
+from gui.widgets.button_sizing import set_text_button_minimum_width
 from resources.styles import (
     COLOR_DIVIDER,
     SETTINGS_CHECKBOX_STYLE,
     SETTINGS_COMBO_STYLE,
     SETTINGS_FONT_FAMILY,
     SETTINGS_INPUT_HEIGHT,
-    SETTINGS_INPUT_STYLE,
     SETTINGS_LABEL_STYLE,
     SETTINGS_SECTION_FONT_SIZE,
     SETTINGS_SECTION_LABEL_STYLE,
+    SETTINGS_STEPPER_STYLE,
 )
+
+
+class SettingsComboBox(QComboBox):
+    """Settings combo box with a QtAwesome menu-down arrow."""
+
+    _arrow_size = 22
+    _arrow_right_margin = 5
+
+    def __init__(self):
+        super().__init__()
+        self._arrow_icon = qta.icon("mdi.menu-down", color="#666666")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        size = QSize(self._arrow_size, self._arrow_size)
+        x = self.width() - self._arrow_right_margin - size.width()
+        y = (self.height() - size.height()) // 2
+        painter.drawPixmap(QRect(x, y, size.width(), size.height()), self._arrow_icon.pixmap(size))
+        painter.end()
+
+
+class SettingsStepper(QWidget):
+    """Compact minus/value/plus control for bounded integer settings."""
+
+    _button_size = 28
+    _icon_size = 18
+    _value_width = 32
+
+    def __init__(self, minimum: int, maximum: int, value: int):
+        super().__init__()
+        self._minimum = minimum
+        self._maximum = maximum
+        self._value = minimum
+        self.setObjectName("SettingsStepper")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFixedHeight(SETTINGS_INPUT_HEIGHT)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setStyleSheet(SETTINGS_STEPPER_STYLE)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(0)
+
+        self._minus_button = self._create_step_button("mdi.minus", -1)
+        self._value_input = QLineEdit()
+        self._value_input.setObjectName("SettingsStepperValue")
+        self._value_input.setAlignment(Qt.AlignCenter)
+        self._value_input.setMinimumWidth(self._value_width)
+        self._value_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._value_input.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE, QFont.Bold))
+        self._value_input.setValidator(QIntValidator(self._minimum, self._maximum, self))
+        self._value_input.editingFinished.connect(self._commit_value_input)
+        self._value_input.installEventFilter(self)
+        self._plus_button = self._create_step_button("mdi.plus", 1)
+
+        layout.addWidget(self._minus_button)
+        layout.addWidget(self._value_input, 1)
+        layout.addWidget(self._plus_button)
+        self.setValue(value)
+
+    def eventFilter(self, watched, event):
+        if watched is self._value_input and event.type() == QEvent.KeyPress:
+            if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                self._commit_value_input()
+                event.accept()
+                return True
+        return super().eventFilter(watched, event)
+
+    def _create_step_button(self, icon_name: str, delta: int) -> QPushButton:
+        button = QPushButton()
+        button.setObjectName("SettingsStepperButton")
+        button.setFixedSize(self._button_size, self._button_size)
+        button.setCursor(Qt.PointingHandCursor)
+        button.setIcon(qta.icon(icon_name, color="#555555"))
+        button.setIconSize(QSize(self._icon_size, self._icon_size))
+        button.clicked.connect(lambda: self.setValue(self._value + delta))
+        return button
+
+    def minimum(self) -> int:
+        return self._minimum
+
+    def maximum(self) -> int:
+        return self._maximum
+
+    def value(self) -> int:
+        return self._value
+
+    def setValue(self, value: int) -> None:
+        self._value = max(self._minimum, min(self._maximum, int(value)))
+        self._value_input.setText(str(self._value))
+        self._update_button_state()
+
+    def _commit_value_input(self) -> None:
+        text = self._value_input.text().strip()
+        try:
+            value = self._minimum if not text else int(text)
+        except ValueError:
+            value = self._minimum
+        self.setValue(value)
+
+    def setEnabled(self, enabled: bool) -> None:
+        super().setEnabled(enabled)
+        self._update_button_state()
+
+    def _update_button_state(self) -> None:
+        enabled = self.isEnabled()
+        self._minus_button.setEnabled(enabled and self._value > self._minimum)
+        self._plus_button.setEnabled(enabled and self._value < self._maximum)
 
 
 def add_section_label(text: str, layout) -> None:
@@ -40,7 +152,7 @@ def create_settings_label(text: str) -> QLabel:
 
 def create_settings_combo(items: Sequence[str], current_value: str) -> QComboBox:
     """Create a styled combo box with an initial value."""
-    combo = QComboBox()
+    combo = SettingsComboBox()
     combo.addItems(list(items))
     combo.setCurrentText(current_value)
     combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
@@ -60,14 +172,9 @@ def create_settings_checkbox(
     return checkbox
 
 
-def create_max_downloads_spin(current_value: int) -> QSpinBox:
-    """Create the max concurrent downloads spinbox."""
-    spinbox = QSpinBox()
-    spinbox.setRange(*MAX_DOWNLOADS_RANGE)
-    spinbox.setValue(current_value)
-    spinbox.setFixedHeight(SETTINGS_INPUT_HEIGHT)
-    spinbox.setStyleSheet(SETTINGS_INPUT_STYLE)
-    return spinbox
+def create_max_downloads_spin(current_value: int) -> SettingsStepper:
+    """Create the max concurrent downloads stepper."""
+    return SettingsStepper(*MAX_DOWNLOADS_RANGE, current_value)
 
 
 def create_settings_button(
@@ -76,15 +183,20 @@ def create_settings_button(
     callback_by_action: Mapping[str, Callable],
     fixed_size: tuple[int, int] | None = None,
     fixed_height: int | None = None,
+    minimum_width_padding: int | None = None,
 ) -> QPushButton:
     """Create a styled settings button from a button spec."""
     button = QPushButton(spec.label)
     button.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
     button.setCursor(Qt.PointingHandCursor)
+    button.setDefault(False)
+    button.setAutoDefault(False)
     if fixed_size:
         button.setFixedSize(*fixed_size)
     if fixed_height is not None:
         button.setFixedHeight(fixed_height)
+    if minimum_width_padding is not None:
+        set_text_button_minimum_width(button, minimum_width_padding)
     button.setStyleSheet(style_by_key[spec.style_key])
     button.clicked.connect(callback_by_action[spec.action])
     return button
@@ -92,7 +204,7 @@ def create_settings_button(
 
 def create_language_combo(language_code: str | None) -> QComboBox:
     """Create the language selection combo box."""
-    combo = QComboBox()
+    combo = SettingsComboBox()
     combo.addItems(language_display_options())
     combo.setCurrentIndex(language_index_for_code(language_code))
     combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
@@ -107,7 +219,7 @@ def create_format_combo(
     divider_color: str = COLOR_DIVIDER,
 ) -> QComboBox:
     """Create the output format combo box with non-selectable headers."""
-    combo = QComboBox()
+    combo = SettingsComboBox()
     model = combo.model()
 
     header_font = QFont()

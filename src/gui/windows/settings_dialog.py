@@ -50,7 +50,7 @@ from resources.styles import (
     SETTINGS_UPDATE_BUTTON_STYLE, SETTINGS_UNINSTALL_BUTTON_STYLE,
     # Moved Constants
     SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT,
-    SETTINGS_BUTTON_HEIGHT, SETTINGS_BUTTON_WIDTH,
+    SETTINGS_BUTTON_HEIGHT, SETTINGS_BUTTON_WIDTH_PADDING,
     SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE,
     MIN_SETTINGS_TAB_WIDTH
 )
@@ -265,7 +265,8 @@ class SettingsDialog(BaseDialog):
                 spec,
                 button_styles,
                 button_callbacks,
-                fixed_size=(SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT),
+                fixed_height=SETTINGS_BUTTON_HEIGHT,
+                minimum_width_padding=SETTINGS_BUTTON_WIDTH_PADDING,
             )
             self.button_layout.addWidget(button)
 

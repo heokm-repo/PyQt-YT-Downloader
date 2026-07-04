@@ -306,6 +306,12 @@ class Strings:
     @property
     def MSG_COMPLETED_COUNT(self):     return get_string('MSG_COMPLETED_COUNT', "Completed: {finished} / {total}")
     @property
+    def SORT_NEWEST(self):             return get_string('SORT_NEWEST', "Newest")
+    @property
+    def SORT_OLDEST(self):             return get_string('SORT_OLDEST', "Oldest")
+    @property
+    def SORT_STATUS(self):             return get_string('SORT_STATUS', "Status")
+    @property
     def MSG_NO_NEW_ITEMS(self):        return get_string('MSG_NO_NEW_ITEMS', "No new videos to add.")
     @property
     def MSG_ALL_DONE(self):            return get_string('MSG_ALL_DONE', "Complete")

@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
 
+from gui.widgets.button_sizing import set_text_button_minimum_width
 from resources.styles import (
     SETTINGS_BROWSE_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY,
@@ -13,7 +14,6 @@ from resources.styles import (
     SETTINGS_SECTION_FONT_SIZE,
 )
 
-LOGIN_BUTTON_WIDTH = 120
 
 
 def create_folder_picker_row(folder_path, browse_text, browse_callback):
@@ -28,6 +28,8 @@ def create_folder_picker_row(folder_path, browse_text, browse_callback):
 
     browse_button = QPushButton(browse_text)
     browse_button.setCursor(Qt.PointingHandCursor)
+    browse_button.setDefault(False)
+    browse_button.setAutoDefault(False)
     browse_button.setFixedHeight(SETTINGS_INPUT_HEIGHT)
     browse_button.clicked.connect(browse_callback)
     browse_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
@@ -50,8 +52,11 @@ def create_login_row(label_text, button_text, login_callback):
     layout.addStretch()
 
     login_button = QPushButton(button_text)
-    login_button.setFixedSize(LOGIN_BUTTON_WIDTH, SETTINGS_INPUT_HEIGHT)
+    login_button.setFixedHeight(SETTINGS_INPUT_HEIGHT)
+    set_text_button_minimum_width(login_button)
     login_button.setCursor(Qt.PointingHandCursor)
+    login_button.setDefault(False)
+    login_button.setAutoDefault(False)
     login_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
     login_button.clicked.connect(login_callback)
     layout.addWidget(login_button)

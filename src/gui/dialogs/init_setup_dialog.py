@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QColor
 
 from gui.dialogs.base_dialog import BaseDialog
+from gui.widgets.button_sizing import set_text_button_minimum_width
 
 from locales import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, set_language
 from locales.strings import STR
@@ -78,7 +79,6 @@ class InitSetupDialog(BaseDialog):
 
     def _setup_buttons(self):
         self.start_btn = QPushButton()
-        self.start_btn.setFixedWidth(120)
         self.start_btn.setFixedHeight(MESSAGE_BTN_HEIGHT)
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self._on_start_clicked)
@@ -91,6 +91,7 @@ class InitSetupDialog(BaseDialog):
         self.lang_label.setText(STR.LABEL_LANGUAGE_SELECT)
         self.msg_label.setText(STR.MSG_CONFIRM_INIT_DOWNLOAD)
         self.start_btn.setText(STR.BTN_START_SETUP)
+        set_text_button_minimum_width(self.start_btn)
 
     def _on_language_changed(self, index):
         """언어 변경 시 즉시 반영"""

@@ -19,7 +19,9 @@ from gui.main_window.controls import (
     create_main_content_layout,
     create_progress_slider,
     create_status_bar,
+    create_status_counter_label,
     create_status_label,
+    create_status_sort_button,
     create_task_list_section,
     create_title_bar,
     create_title_bar_button,
@@ -34,6 +36,9 @@ from resources.styles import (
     PROGRESS_SLIDER_MAX,
     PROGRESS_SLIDER_MIN,
     STATUS_BAR_HEIGHT,
+    STATUS_COUNTER_HORIZONTAL_PADDING,
+    STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
+    STATUS_SORT_BUTTON_MIN_WIDTH,
     TITLE_BAR_BUTTON_SIZE,
     TITLE_BAR_HEIGHT,
     URL_INPUT_SECTION_HEIGHT,
@@ -121,9 +126,12 @@ class MainWindowControlsTests(unittest.TestCase):
         controls = create_status_bar("Ready")
 
         self.assertEqual(controls.frame.height(), STATUS_BAR_HEIGHT)
+        self.assertEqual(controls.sort_button.currentKey(), "newest")
         self.assertEqual(controls.status_label.text(), "Ready")
+        self.assertEqual(controls.frame.layout().indexOf(controls.status_label), -1)
         self.assertEqual(controls.progress_slider.value(), PROGRESS_SLIDER_DEFAULT)
         self.assertFalse(controls.progress_slider.isEnabled())
+        self.assertEqual(controls.counter_label.text(), "0/0")
 
     def test_create_title_bar_button_sets_fixed_size_and_cursor(self):
         button = create_title_bar_button("mdi.close", "", lambda: None)
@@ -165,6 +173,54 @@ class MainWindowControlsTests(unittest.TestCase):
         self.assertEqual(slider.maximum(), PROGRESS_SLIDER_MAX)
         self.assertEqual(slider.value(), PROGRESS_SLIDER_DEFAULT)
         self.assertFalse(slider.isEnabled())
+
+    def test_create_status_sort_button_uses_option_values(self):
+        button = create_status_sort_button((("newest", "Newest"), ("status", "Status")))
+
+        expected_width = max(
+            STATUS_SORT_BUTTON_MIN_WIDTH,
+            button.fontMetrics().boundingRect("Newest").width() + STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
+        )
+        self.assertEqual(button.width(), expected_width)
+        self.assertEqual(len(button.menu().actions()), 2)
+        self.assertEqual(button.text(), "Newest")
+        self.assertEqual(button.currentKey(), "newest")
+
+        button.menu().actions()[1].trigger()
+
+        self.assertEqual(button.text(), "Status")
+        self.assertEqual(button.currentKey(), "status")
+
+    def test_create_status_sort_button_resizes_for_localized_text(self):
+        button = create_status_sort_button((("newest", "최신순"), ("oldest", "오래된순")))
+
+        button.menu().actions()[1].trigger()
+
+        expected_width = max(
+            STATUS_SORT_BUTTON_MIN_WIDTH,
+            button.fontMetrics().boundingRect("오래된순").width() + STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
+        )
+        self.assertEqual(button.text(), "오래된순")
+        self.assertEqual(button.width(), expected_width)
+
+    def test_create_status_counter_label_resizes_to_text(self):
+        label = create_status_counter_label("2/5")
+
+        expected_width = (
+            label.fontMetrics().boundingRect("2/5").width()
+            + STATUS_COUNTER_HORIZONTAL_PADDING
+        )
+        self.assertEqual(label.text(), "2/5")
+        self.assertEqual(label.width(), expected_width)
+        self.assertEqual(label.alignment(), Qt.AlignRight | Qt.AlignVCenter)
+
+        label.setText("12/300")
+
+        expected_width = (
+            label.fontMetrics().boundingRect("12/300").width()
+            + STATUS_COUNTER_HORIZONTAL_PADDING
+        )
+        self.assertEqual(label.width(), expected_width)
 
 
 if __name__ == "__main__":

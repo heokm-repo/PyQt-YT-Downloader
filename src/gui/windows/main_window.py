@@ -23,6 +23,7 @@ from data.managers import HistoryManager, TaskManager, DuplicateChecker
 from gui.main_window.click_deselect import should_clear_selection_for_click
 from gui.tasks.selection_manager import SelectionManager
 from core.scheduler_settings import target_worker_count
+from core.task_summary import summarize_task_progress
 from gui.tasks.single_video_download import (
     build_single_video_download_plan,
     single_video_duplicate_cancelled,
@@ -99,6 +100,19 @@ from constants import (
 )
 from data.models import DownloadTask
 from core.scheduler import DownloadScheduler
+
+TASK_SORT_NEWEST = "newest"
+TASK_SORT_OLDEST = "oldest"
+TASK_SORT_STATUS = "status"
+
+TASK_STATUS_SORT_PRIORITY = {
+    TaskStatus.FAILED: 0,
+    TaskStatus.DOWNLOADING: 1,
+    TaskStatus.PAUSED: 2,
+    TaskStatus.WAITING: 3,
+    TaskStatus.FINISHED: 4,
+}
+
 from resources.styles import (
     MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, CENTRAL_WIDGET_MAXIMIZED_STYLE,
     TITLE_BAR_STYLE,
@@ -144,6 +158,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.oldPos = None
         self.tasks: list[DownloadTask] = []
         self.task_widgets = {}
+        self.visible_task_order: list[int] = []
         self.total_tasks_in_queue = 0
         self.playlist_worker = None
         self.settings = load_settings()
@@ -262,6 +277,80 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             ),
             has_tasks=bool(self.tasks),
         )
+        self._refresh_task_sort_button_labels()
+        self._update_task_counter_ui()
+
+    def _task_sort_options(self):
+        """Return localized sort options for the task-list selector."""
+        return (
+            (TASK_SORT_NEWEST, STR.SORT_NEWEST),
+            (TASK_SORT_OLDEST, STR.SORT_OLDEST),
+            (TASK_SORT_STATUS, STR.SORT_STATUS),
+        )
+
+    def _refresh_task_sort_button_labels(self):
+        """Refresh sort button text while preserving the selected sort key."""
+        if not hasattr(self, "task_sort_button"):
+            return
+
+        was_blocked = self.task_sort_button.blockSignals(True)
+        self.task_sort_button.setSortOptions(self._task_sort_options())
+        self.task_sort_button.blockSignals(was_blocked)
+
+    def _current_task_sort_key(self) -> str:
+        if not hasattr(self, "task_sort_button"):
+            return TASK_SORT_NEWEST
+        return self.task_sort_button.currentKey() or TASK_SORT_NEWEST
+
+    def _sorted_task_ids(self) -> list[int]:
+        sort_key = self._current_task_sort_key()
+        if sort_key == TASK_SORT_OLDEST:
+            ordered_tasks = sorted(self.tasks, key=lambda task: task.id)
+        elif sort_key == TASK_SORT_STATUS:
+            ordered_tasks = sorted(
+                self.tasks,
+                key=lambda task: (
+                    TASK_STATUS_SORT_PRIORITY.get(task.status, len(TASK_STATUS_SORT_PRIORITY)),
+                    -task.id,
+                ),
+            )
+        else:
+            ordered_tasks = sorted(self.tasks, key=lambda task: task.id, reverse=True)
+        return [task.id for task in ordered_tasks if task.id in self.task_widgets]
+
+    def _apply_task_sort_order(self):
+        """Reorder visible task widgets without mutating the source task list."""
+        if not hasattr(self, "task_layout"):
+            return
+
+        ordered_task_ids = self._sorted_task_ids()
+        self.visible_task_order = ordered_task_ids
+        ordered_widgets = [self.task_widgets[task_id] for task_id in ordered_task_ids]
+        for widget in ordered_widgets:
+            self.task_layout.removeWidget(widget)
+
+        insert_index = max(0, self.task_layout.count() - 1)
+        for widget in ordered_widgets:
+            self.task_layout.insertWidget(insert_index, widget)
+            insert_index += 1
+
+    def _handle_task_sort_changed(self, _sort_key: str):
+        self._apply_task_sort_order()
+
+    def _update_task_counter_ui(self, summary=None):
+        """Update the finished/total counter and existing completion progress bar."""
+        if summary is None:
+            summary = summarize_task_progress(self.tasks)
+
+        if hasattr(self, "task_counter_label"):
+            self.task_counter_label.setText(f"{summary.finished}/{summary.total}")
+
+        if hasattr(self, "progress_slider"):
+            if summary.total == 0:
+                progress_value = self.progress_slider.minimum()
+            else:
+                progress_value = round(summary.finished * self.progress_slider.maximum() / summary.total)
+            self.progress_slider.setValue(progress_value)
 
     def create_custom_title_bar(self, layout):
         controls = create_title_bar(
@@ -389,11 +478,18 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         layout.addWidget(self.empty_label)
 
     def create_status_bar(self, layout):
-        controls = create_status_bar_controls(STR.MAIN_STATUS_READY)
+        controls = create_status_bar_controls(
+            STR.MAIN_STATUS_READY,
+            self._task_sort_options(),
+            "0/0",
+        )
         controls.frame.installEventFilter(self)
         self._click_deselect_targets.append(controls.frame)
+        self.task_sort_button = controls.sort_button
         self.status_label = controls.status_label
         self.progress_slider = controls.progress_slider
+        self.task_counter_label = controls.counter_label
+        self.task_sort_button.sortChanged.connect(self._handle_task_sort_changed)
         layout.addWidget(controls.frame)
 
     # --- 키보드 단축키 핸들러 ---
@@ -572,7 +668,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         title_override: Optional[str] = None,
     ) -> DownloadTask:
         """Create a task widget, register the task, and enqueue it."""
-        return register_download_task(
+        task = register_download_task(
             task_id,
             url,
             self.settings,
@@ -586,6 +682,8 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             extractor,
             title_override,
         )
+        self._apply_task_sort_order()
+        return task
 
     def _show_task_list(self):
         """Show the task-list UI."""
@@ -716,6 +814,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
     def update_progress_ui(self):
         """Update the status bar from current task progress."""
+        summary = summarize_task_progress(self.tasks)
         self.status_label.setText(
             build_task_status_message(
                 self.tasks,
@@ -724,6 +823,9 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
                 STR.MSG_COMPLETED_COUNT,
             )
         )
+        self._update_task_counter_ui(summary)
+        if self._current_task_sort_key() == TASK_SORT_STATUS:
+            self._apply_task_sort_order()
 
     # --- Settings management ---
 
@@ -862,6 +964,8 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
                 self._connect_task_widget_signals,
             )
             self.tasks.append(task)
+
+        self._apply_task_sort_order()
 
         if max_id > self.total_tasks_in_queue:
             self.total_tasks_in_queue = max_id

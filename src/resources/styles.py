@@ -32,16 +32,21 @@ SETTINGS_SECTION_FONT_SIZE = 10
 # 다이얼로그 크기 및 레이아웃
 SETTINGS_DIALOG_WIDTH = 800
 SETTINGS_DIALOG_HEIGHT = 600
-SETTINGS_CONTAINER_MARGIN = 10
+SETTINGS_CONTAINER_MARGIN = 0
 SETTINGS_CONTENT_MARGIN = (15, 15, 15, 15)
 SETTINGS_CONTENT_SPACING = 10
 
 # UI 요소 크기
 SETTINGS_INPUT_HEIGHT = 30
 SETTINGS_BUTTON_HEIGHT = 36
-SETTINGS_BUTTON_WIDTH = 70
+TEXT_BUTTON_WIDTH_PADDING = 30
+DOWNLOAD_BUTTON_WIDTH_PADDING = TEXT_BUTTON_WIDTH_PADDING
+SETTINGS_BUTTON_WIDTH_PADDING = TEXT_BUTTON_WIDTH_PADDING
 SETTINGS_TITLE_BAR_HEIGHT = 30
-SETTINGS_CLOSE_BUTTON_SIZE = 24
+SETTINGS_DIALOG_TITLE_ICON_SIZE = 24
+SETTINGS_DIALOG_TITLE_BUTTON_SIZE = 24
+SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE = 18
+SETTINGS_CLOSE_BUTTON_SIZE = SETTINGS_DIALOG_TITLE_BUTTON_SIZE
 
 # 그림자 효과
 SETTINGS_SHADOW_BLUR_RADIUS = 15
@@ -52,7 +57,6 @@ DOWNLOAD_DIALOG_WIDTH = 450
 DOWNLOAD_DIALOG_HEIGHT = 250
 
 # 메시지 다이얼로그 버튼 크기
-MESSAGE_BTN_WIDTH = 80
 MESSAGE_BTN_HEIGHT = 32
 
 # 스타트업 다이얼로그 스타일
@@ -122,7 +126,7 @@ MAIN_WINDOW_HEIGHT = 800
 APP_TITLE_COLOR = "#5F428B"
 
 # 메인 윈도우 레이아웃
-MAIN_LAYOUT_MARGINS = (3, 3, 3, 3)
+MAIN_LAYOUT_MARGINS = (5, 5, 5, 5)
 MAIN_LAYOUT_SPACING = 5
 
 # 타이틀 바
@@ -131,7 +135,8 @@ TITLE_BAR_MARGINS = (10, 0, 10, 0)
 TITLE_BAR_SPACING = 10
 TITLE_BAR_FONT_FAMILY = "Segoe UI"
 TITLE_BAR_FONT_SIZE = 11
-TITLE_BAR_BUTTON_SIZE = 28
+TITLE_BAR_BUTTON_SIZE = 30
+TITLE_BAR_BUTTON_ICON_SIZE = 24
 
 # URL 입력 섹션
 URL_INPUT_SECTION_HEIGHT = 70
@@ -145,7 +150,6 @@ SETTINGS_BUTTON_SIZE = 40
 
 # 다운로드 버튼
 DOWNLOAD_BUTTON_HEIGHT = 40
-DOWNLOAD_BUTTON_WIDTH = 90
 DOWNLOAD_BUTTON_FONT_FAMILY = "Segoe UI"
 DOWNLOAD_BUTTON_FONT_SIZE = 10
 
@@ -161,11 +165,16 @@ EMPTY_STATE_FONT_FAMILY = "Segoe UI"
 EMPTY_STATE_FONT_SIZE = 11
 
 # 상태 표시줄
-STATUS_BAR_HEIGHT = 30
+STATUS_BAR_HEIGHT = 35
 STATUS_BAR_MARGINS = (10, 0, 10, 0)
 STATUS_BAR_SPACING = 10
 STATUS_BAR_FONT_FAMILY = "Segoe UI"
 STATUS_BAR_FONT_SIZE = 9
+STATUS_CONTROL_HEIGHT = 32
+STATUS_SORT_BUTTON_MIN_WIDTH = 80
+STATUS_SORT_BUTTON_HORIZONTAL_PADDING = 40
+STATUS_SORT_BUTTON_ICON_SIZE = 18
+STATUS_COUNTER_HORIZONTAL_PADDING = 10
 PROGRESS_SLIDER_MIN = 0
 PROGRESS_SLIDER_MAX = 100
 PROGRESS_SLIDER_DEFAULT = 0
@@ -343,6 +352,55 @@ STATUS_BAR_STYLE = "background: transparent;"
 
 STATUS_LABEL_STYLE = "color: #666666;"
 
+STATUS_COUNTER_STYLE = "color: #666666;"
+
+STATUS_SORT_BUTTON_STYLE = """
+QToolButton {
+    border: 1px solid #E0E0E0;
+    border-radius: 7px;
+    padding: 0 5px;
+    background-color: #F5F5F5;
+    color: #555555;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+QToolButton:hover {
+    background-color: #E8E8E8;
+    border-color: #D6D6D6;
+}
+QToolButton:pressed {
+    background-color: #DDDDDD;
+    border-color: #CFCFCF;
+}
+QToolButton::menu-indicator {
+    image: none;
+    width: 0px;
+}
+"""
+
+STATUS_SORT_MENU_STYLE = """
+QMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    padding: 4px;
+    color: #444444;
+    font-family: 'Segoe UI';
+    font-size: 9pt;
+}
+QMenu::item {
+    padding: 6px 28px 6px 12px;
+    border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #F3F3F3;
+}
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+}
+"""
+
 # 프로그레스 슬라이더 스타일
 PROGRESS_SLIDER_STYLE = """
 QSlider::groove:horizontal {
@@ -352,7 +410,7 @@ QSlider::groove:horizontal {
     border-radius: 2px;
 }
 QSlider::sub-page:horizontal {
-    background: #5F428B;
+    background: #BDBDBD;
     height: 4px;
     border-radius: 2px;
 }
@@ -586,7 +644,7 @@ QPushButton {
     background-color: #F0F0F0;
     border: 1px solid #D0D0D0;
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 0 10px;
     color: #555555;
     font-family: 'Segoe UI';
 }
@@ -614,25 +672,63 @@ SETTINGS_COMBO_STYLE = """
 QComboBox {
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    padding: 0 10px;
+    padding: 0 34px 0 10px;
     background-color: #FFFFFF;
     color: #333333;
     font-family: 'Segoe UI';
 }
 QComboBox::drop-down {
     border: none;
-    width: 25px;
+    border-left: 1px solid #E0E0E0;
+    background-color: #F9F9F9;
+    width: 32px;
 }
 QComboBox::down-arrow {
     image: none;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 5px solid #666666;
-    margin-right: 10px;
+    width: 0px;
+    height: 0px;
 }
 """
 
-# 설정 다이얼로그 체크박스 스타일
+# Settings dialog numeric stepper style
+SETTINGS_STEPPER_STYLE = """
+QWidget#SettingsStepper {
+    background-color: #F9F9F9;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+}
+QPushButton#SettingsStepperButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+}
+QPushButton#SettingsStepperButton:hover {
+    background-color: #EEEEEE;
+}
+QPushButton#SettingsStepperButton:pressed {
+    background-color: #E0E0E0;
+}
+QPushButton#SettingsStepperButton:disabled {
+    background-color: transparent;
+}
+QLineEdit#SettingsStepperValue {
+    color: #333333;
+    font-family: 'Segoe UI';
+    font-weight: bold;
+    border: none;
+    border-left: 1px solid #E0E0E0;
+    border-right: 1px solid #E0E0E0;
+    background-color: #FFFFFF;
+    padding: 0;
+}
+QLineEdit#SettingsStepperValue:focus {
+    border-left: 1px solid #D0D0D0;
+    border-right: 1px solid #D0D0D0;
+    background-color: #FFFFFF;
+}
+"""
+
+# Settings dialog checkbox style
 SETTINGS_CHECKBOX_STYLE = """
 QCheckBox {
     font-family: 'Segoe UI';
@@ -696,7 +792,6 @@ QTabBar::tab:selected {
     background: white;
     color: #5F428B;
     border-bottom: 1px solid white;
-    font-weight: bold;
 }
 QTabBar::tab:hover:!selected {
     background: #EEEEEE;
