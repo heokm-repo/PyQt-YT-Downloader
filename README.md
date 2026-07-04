@@ -4,7 +4,7 @@ A Windows-only YouTube video and playlist downloader with a PyQt5 GUI. It
 manages yt-dlp, FFmpeg, and QuickJS automatically, while providing video
 downloads, audio conversion, and queue-based task management in one app.
 
-Current app version: `v2.1.1`
+Current app version: `v2.1.2`
 
 ## Screenshots
 
