@@ -2,6 +2,8 @@
 from typing import Optional
 
 from utils.utils import validate_url, is_youtube_url
+from utils.logger import log
+from utils.url_security import redact_url_for_log
 from core.youtube_url import _sanitize_url, extract_video_id as get_youtube_video_id, has_video_and_list
 
 
@@ -39,12 +41,10 @@ class UrlProcessor:
         Returns:
             UrlProcessResult, or None if validation fails.
         """
-        from utils.logger import log
-
-        log.info(f"Processing URL: {url}")
+        log.info(f"Processing URL: {redact_url_for_log(url)}")
 
         if not url or not validate_url(url):
-            log.warning(f"Invalid URL detected: {url}")
+            log.warning(f"Invalid URL detected: {redact_url_for_log(url)}")
             return None
 
         log.debug("URL validation successful")
@@ -54,14 +54,20 @@ class UrlProcessor:
             return UrlProcessor._process_youtube_url(url, prefer_playlist, log)
 
         # Other sites are passed through for yt-dlp to handle.
-        log.info(f"Non-YouTube URL detected, passing to yt-dlp: {url}")
+        log.info(
+            "Non-YouTube URL detected, passing to yt-dlp: "
+            f"{redact_url_for_log(url)}"
+        )
         return UrlProcessResult(url, is_playlist=False, video_id=None, extractor=None)
 
     @staticmethod
     def _process_youtube_url(url: str, prefer_playlist: bool, log) -> Optional['UrlProcessResult']:
         """Handle YouTube-specific URL processing."""
         clean_url, is_playlist = _sanitize_url(url, prefer_playlist=prefer_playlist)
-        log.debug(f"Sanitized URL: {clean_url}, is_playlist: {is_playlist}")
+        log.debug(
+            f"Sanitized URL: {redact_url_for_log(clean_url)}, "
+            f"is_playlist: {is_playlist}"
+        )
 
         # Extract video_id for single-video URLs.
         video_id = None

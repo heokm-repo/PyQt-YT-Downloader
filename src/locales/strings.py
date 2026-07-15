@@ -93,6 +93,8 @@ class Strings:
     @property
     def BTN_LOGIN(self):                return get_string('BTN_LOGIN', "Login")
     @property
+    def BTN_LOGOUT(self):               return get_string('BTN_LOGOUT', "Log Out / Delete Cookies")
+    @property
     def BTN_SAVE_CLOSE(self):           return get_string('BTN_SAVE_CLOSE', "Save & Close")
     @property
     def TITLE_LOGIN_BROWSER(self):      return get_string('TITLE_LOGIN_BROWSER', "YouTube Login")
@@ -106,6 +108,14 @@ class Strings:
     def ERR_LOGIN_NO_COOKIES(self):     return get_string('ERR_LOGIN_NO_COOKIES', "No YouTube cookies captured!")
     @property
     def ERR_LOGIN_SAVE_FAILED(self):    return get_string('ERR_LOGIN_SAVE_FAILED', "Save failed: {error}")
+    @property
+    def TITLE_LOGOUT(self):             return get_string('TITLE_LOGOUT', "Log Out")
+    @property
+    def MSG_LOGOUT_CONFIRM(self):       return get_string('MSG_LOGOUT_CONFIRM', "Delete the saved YouTube cookies and browser login data?")
+    @property
+    def MSG_LOGOUT_SUCCESS(self):       return get_string('MSG_LOGOUT_SUCCESS', "Saved cookies and browser login data were deleted.")
+    @property
+    def ERR_LOGOUT_FAILED(self):        return get_string('ERR_LOGOUT_FAILED', "Some login data could not be deleted. Close the login window and try again.")
 
     # Section: App Management
     @property
@@ -118,6 +128,8 @@ class Strings:
     def SETTINGS_BTN_UNINSTALL(self):    return get_string('SETTINGS_BTN_UNINSTALL', "Uninstall App")
     @property
     def SETTINGS_BTN_LICENSE(self):      return get_string('SETTINGS_BTN_LICENSE', "License Info")
+    @property
+    def SETTINGS_BTN_SPONSOR(self):      return get_string('SETTINGS_BTN_SPONSOR', "Sponsor")
 
     # Settings Errors
     @property
@@ -126,6 +138,8 @@ class Strings:
     def ERR_SETTINGS_CREATE_FOLDER(self):  return get_string('ERR_SETTINGS_CREATE_FOLDER', "Cannot create folder:\n{error}")
     @property
     def ERR_SETTINGS_INVALID_FOLDER(self): return get_string('ERR_SETTINGS_INVALID_FOLDER', "The selected path is not a valid folder.")
+    @property
+    def ERR_SPONSOR_OPEN(self):            return get_string('ERR_SPONSOR_OPEN', "Could not open the sponsor page.")
     @property
     def MSG_DOWNLOAD_FOLDER_FALLBACK(self):
         return get_string(

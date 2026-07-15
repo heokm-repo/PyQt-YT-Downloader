@@ -30,10 +30,10 @@ class TaskActionStateTests(unittest.TestCase):
         self.assertFalse(is_resumable_status(TaskStatus.WAITING))
         self.assertFalse(is_resumable_status(TaskStatus.FAILED))
 
-    def test_only_failed_is_retryable(self):
+    def test_failed_and_finished_are_retryable(self):
         self.assertTrue(is_retryable_status(TaskStatus.FAILED))
+        self.assertTrue(is_retryable_status(TaskStatus.FINISHED))
         self.assertFalse(is_retryable_status(TaskStatus.PAUSED))
-        self.assertFalse(is_retryable_status(TaskStatus.FINISHED))
 
 
 if __name__ == "__main__":

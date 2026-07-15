@@ -61,7 +61,7 @@ def build_context_menu_visibility(
         copy_url=count == 1,
         pause=flags.downloading or flags.waiting,
         resume=flags.paused,
-        retry=flags.failed,
+        retry=flags.failed or flags.finished,
         delete_file=flags.finished,
         remove=True,
         remove_completed=has_completed_task(all_tasks or []),

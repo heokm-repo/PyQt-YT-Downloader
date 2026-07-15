@@ -13,12 +13,14 @@ class SettingsButtonSpec:
 def build_app_management_button_specs(
     check_update_text: str,
     license_text: str,
+    sponsor_text: str,
     uninstall_text: str,
 ) -> list[SettingsButtonSpec]:
     """Return button specs for the app-management settings tab."""
     return [
         SettingsButtonSpec(check_update_text, "check_update", "update"),
         SettingsButtonSpec(license_text, "license", "update"),
+        SettingsButtonSpec(sponsor_text, "sponsor", "update"),
         SettingsButtonSpec(uninstall_text, "uninstall", "uninstall"),
     ]
 

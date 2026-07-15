@@ -25,7 +25,7 @@ class InitSetupDialog(BaseDialog):
         super().__init__(
             parent=parent, 
             title=STR.TITLE_INIT_SETUP, 
-            icon_text="mdi.hand-wave", 
+            icon_text="mdi6.hand-wave",
             show_close_btn=True, 
             show_divider=True
         )

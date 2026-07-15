@@ -12,11 +12,14 @@ from constants import (
     DEFAULT_FORMAT,
     DEFAULT_VIDEO_QUALITY,
     FORMAT_BESTAUDIO,
-    LOUDNORM_FILTER,
     OUTPUT_TEMPLATE,
     YTDL_TEMP_DIR,
 )
 from utils.logger import log
+from utils.utils import is_youtube_url
+
+
+AUDIO_EXTRACT_FFMPEG_ARGS_KEY = 'ExtractAudio+ffmpeg_o'
 
 
 def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings=None, is_resume=False):
@@ -116,17 +119,19 @@ def _build_format_options(settings):
     """
     opts = {}
     fmt = settings.get('format', DEFAULT_FORMAT)
+    normalize_audio = bool(settings.get('normalize_audio'))
     audio_profile = _build_audio_quality_profile(settings.get('audio_quality', DEFAULT_AUDIO_QUALITY))
 
     if fmt in AUDIO_FORMATS:
-        audio_channels = settings.get('audio_channels', AUDIO_CHANNELS)
-        opts.update({
-            'format': audio_profile.source_format,
-            'extract_audio': True,
-            'audio_format': fmt,
-            'audio_quality': audio_profile.encoder_quality,
-            'postprocessor_args': {'ffmpeg': ['-ac', str(audio_channels)]}
-        })
+        opts['format'] = audio_profile.source_format
+        if not normalize_audio:
+            audio_channels = settings.get('audio_channels', AUDIO_CHANNELS)
+            opts.update({
+                'extract_audio': True,
+                'audio_format': fmt,
+                'audio_quality': audio_profile.encoder_quality,
+                'postprocessor_args': {AUDIO_EXTRACT_FFMPEG_ARGS_KEY: ['-ac', str(audio_channels)]}
+            })
     else:
         q = settings.get('video_quality', DEFAULT_VIDEO_QUALITY)
 
@@ -151,40 +156,24 @@ def _build_format_options(settings):
                 )
 
         if fmt == 'webm':
-            opts['recode_video'] = 'webm'
-            if audio_profile.webm_recode_bitrate:
-                opts['postprocessor_args'] = {'ffmpeg': ['-b:a', audio_profile.webm_recode_bitrate]}
+            # When normalization is enabled, the app performs the WebM conversion
+            # and loudness filter together in one external FFmpeg pass.
+            if not normalize_audio:
+                opts['recode_video'] = 'webm'
+                if audio_profile.webm_recode_bitrate:
+                    opts['postprocessor_args'] = {'ffmpeg': ['-b:a', audio_profile.webm_recode_bitrate]}
         else:
             opts['merge_output_format'] = fmt
 
     return opts
 
-def _build_postprocess_options(settings):
-    """
-    Build postprocess options, including audio normalization.
-    
-    Args:
-        settings: Settings dictionary.
-    
-    Returns:
-        Postprocess options dictionary.
-    """
-    opts = {}
-    
-    # Audio loudness normalization (loudnorm).
-    if settings.get('normalize_audio'):
-        pp_args = {'ffmpeg': ['-af', LOUDNORM_FILTER]}
-        opts['postprocessor_args'] = pp_args
-    
-    return opts
-
-
-def _build_advanced_options(settings):
+def _build_advanced_options(settings, url: str | None = None):
     """
     Build advanced options for acceleration, cookies, and JavaScript runtime settings.
     
     Args:
         settings: Settings dictionary.
+        url: URL whose hostname determines whether YouTube cookies are used.
     
     Returns:
         Advanced options dictionary.
@@ -199,7 +188,7 @@ def _build_advanced_options(settings):
     # Use cookies from the in-app login flow.
     try:
         from utils.cookie_store import get_cookie_file_path, cookie_file_exists
-        if cookie_file_exists():
+        if is_youtube_url(url) and cookie_file_exists():
             cookie_path = get_cookie_file_path()
             opts['cookiefile'] = cookie_path
             log.info(f"Using cookie file: {cookie_path}")
@@ -219,20 +208,31 @@ def _build_advanced_options(settings):
     return opts
 
 
-def _add_runtime_extract_options(opts: dict, settings: dict | None = None) -> dict:
-    advanced_opts = _build_advanced_options(settings or {})
+def _add_runtime_extract_options(
+    opts: dict,
+    settings: dict | None = None,
+    url: str | None = None,
+) -> dict:
+    advanced_opts = _build_advanced_options(settings or {}, url)
     for key in ("cookiefile", "js_runtimes"):
         if key in advanced_opts:
             opts[key] = advanced_opts[key]
     return opts
 
 
-def _build_playlist_extract_options(settings: dict | None = None) -> dict:
+def _build_playlist_extract_options(
+    settings: dict | None = None,
+    url: str | None = None,
+) -> dict:
     opts = {"extract_flat": True}
-    return _add_runtime_extract_options(opts, settings)
+    return _add_runtime_extract_options(opts, settings, url)
 
 
-def _build_metadata_extract_options(settings: dict | None = None, is_playlist: bool = False) -> dict:
+def _build_metadata_extract_options(
+    settings: dict | None = None,
+    is_playlist: bool = False,
+    url: str | None = None,
+) -> dict:
     opts = {
         "extract_flat": "in_playlist",
         "noplaylist": not is_playlist,
@@ -241,47 +241,23 @@ def _build_metadata_extract_options(settings: dict | None = None, is_playlist: b
     if settings:
         opts.update(_build_format_options(settings))
 
-    return _add_runtime_extract_options(opts, settings)
+    return _add_runtime_extract_options(opts, settings, url)
 
-def _merge_postprocessor_args(existing_opts: dict, new_opts: dict) -> dict:
-    """
-    Merge postprocessor_args into existing yt-dlp options.
-    
-    Args:
-        existing_opts: Existing options dictionary.
-        new_opts: Newly added options dictionary.
-    
-    Returns:
-        Merged options dictionary.
-    """
-    if 'postprocessor_args' not in new_opts:
-        return existing_opts
-    
-    if 'postprocessor_args' in existing_opts:
-        # Merge with existing postprocessor_args.
-        existing_pp = existing_opts['postprocessor_args']
-        new_pp = new_opts['postprocessor_args']
-        if 'ffmpeg' in existing_pp and 'ffmpeg' in new_pp:
-            existing_pp['ffmpeg'].extend(new_pp['ffmpeg'])
-        else:
-            existing_pp.update(new_pp)
-    else:
-        existing_opts.update(new_opts)
-    
-    return existing_opts
-
-
-def _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook, is_resume=False) -> dict:
+def _build_all_options(
+    settings,
+    save_path,
+    ffmpeg_path,
+    is_playlist,
+    progress_hook,
+    is_resume=False,
+    url: str | None = None,
+) -> dict:
     """Assemble the final yt-dlp options dictionary."""
     # Merge base options.
     ydl_opts = {}
     ydl_opts.update(_build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings, is_resume))
     ydl_opts.update(_build_format_options(settings))
-    ydl_opts.update(_build_advanced_options(settings))
-    
-    # Merge postprocess options separately because postprocessor_args needs special handling.
-    postprocess_opts = _build_postprocess_options(settings)
-    ydl_opts = _merge_postprocessor_args(ydl_opts, postprocess_opts)
+    ydl_opts.update(_build_advanced_options(settings, url))
     
     return ydl_opts
 

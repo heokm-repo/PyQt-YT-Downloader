@@ -1,7 +1,7 @@
 """
 yt-dlp.exe subprocess wrapper.
 - Run yt-dlp.exe as an external process.
-- Provide the same interface shape as the Python API wrapper used by callers.
+- Provide app-facing download and metadata methods.
 - Parse stdout for progress updates.
 """
 from __future__ import annotations
@@ -22,6 +22,7 @@ from constants import (
     PROCESS_TERMINATE_WAIT_SEC,
     THREAD_JOIN_SHORT_TIMEOUT_SEC,
     YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC,
+    YTDLP_FINAL_PATH_MARKER,
     YTDLP_TIMEOUT,
 )
 from core.ytdlp.command import build_command
@@ -29,6 +30,15 @@ from core.ytdlp.info_command import build_extract_info_command
 from core.ytdlp.info_parser import parse_info_output
 from core.ytdlp.progress import convert_to_bytes, parse_eta, parse_progress
 from utils.logger import log
+from utils.url_security import redact_url_for_log, redact_urls_in_text
+
+
+def _ytdlp_environment() -> dict[str, str]:
+    """Return an isolated UTF-8 environment for the external yt-dlp process."""
+    environment = os.environ.copy()
+    environment["YTDLP_NO_PLUGINS"] = "1"
+    environment["PYTHONIOENCODING"] = DEFAULT_ENCODING
+    return environment
 
 
 @dataclass(frozen=True)
@@ -39,7 +49,7 @@ class ProgressLoopResult:
 
 
 class YtDlpWrapper:
-    """Wrap yt-dlp.exe so callers can use it like the Python API."""
+    """Wrap the managed external yt-dlp executable."""
 
     def __init__(self, ytdlp_path: str, ffmpeg_path: Optional[str] = None):
         """
@@ -50,6 +60,7 @@ class YtDlpWrapper:
         self.ytdlp_path = ytdlp_path
         self.ffmpeg_path = ffmpeg_path
         self.current_process: Optional[subprocess.Popen] = None
+        self.final_output_path: Optional[str] = None
 
         self.destination_pattern = re.compile(
             r'\[(?:download|ExtractAudio|VideoConvertor|ffmpeg)\] Destination:\s*"?(.+?)"?$'
@@ -71,6 +82,7 @@ class YtDlpWrapper:
             encoding=DEFAULT_ENCODING,
             errors='replace',
             creationflags=self._download_creation_flags(),
+            env=_ytdlp_environment(),
         )
         self.current_process = process
         return process
@@ -233,6 +245,10 @@ class YtDlpWrapper:
                     return ProgressLoopResult(current_file, last_progress, stopped=True)
 
                 line = raw_line.strip()
+                if line.startswith(YTDLP_FINAL_PATH_MARKER):
+                    self.final_output_path = line[len(YTDLP_FINAL_PATH_MARKER):]
+                    log.info(f"Final output path: {self.final_output_path}")
+                    continue
                 current_file = self._emit_destination_progress(line, current_file, progress_hook)
                 last_progress = self._emit_download_progress(
                     line,
@@ -292,12 +308,12 @@ class YtDlpWrapper:
     ) -> Tuple[bool, str]:
         stderr = ''.join(stderr_output).strip()
         if stderr:
-            log.warning(f"yt-dlp stderr: {stderr}")
+            log.warning(f"yt-dlp stderr: {redact_urls_in_text(stderr)}")
 
         if process.returncode != 0:
             error_msg = f"yt-dlp exited with code {process.returncode}"
             if stderr:
-                error_msg += f": {stderr}"
+                error_msg += f": {redact_urls_in_text(stderr)}"
             log.error(error_msg)
             return False, error_msg
 
@@ -312,7 +328,7 @@ class YtDlpWrapper:
         stop_check: Callable | None = None,
     ) -> Tuple[bool, str]:
         """
-        Download a video using the same interface as yt_dlp.YoutubeDL().download().
+        Download a video through the managed external yt-dlp executable.
 
         Args:
             url: Download URL.
@@ -327,10 +343,12 @@ class YtDlpWrapper:
         process = None
         stderr_output: list[str] = []
         stop_requested = threading.Event()
+        self.final_output_path = None
 
         try:
             args = self._build_command(url, options, is_resume)
-            log.info(f"Running yt-dlp: {' '.join(args)}")
+            logged_args = [redact_url_for_log(arg) if arg == url else arg for arg in args]
+            log.info(f"Running yt-dlp: {' '.join(logged_args)}")
 
             process = self._start_download_process(args)
             stderr_thread = self._start_stderr_drain(process, stderr_output)
@@ -367,7 +385,7 @@ class YtDlpWrapper:
         options: Optional[Dict] = None,
     ) -> Tuple[Optional[Dict], bool]:
         """
-        Extract metadata using the same interface as yt_dlp.YoutubeDL().extract_info().
+        Extract metadata through the managed external yt-dlp executable.
 
         Args:
             url: YouTube URL.
@@ -380,7 +398,8 @@ class YtDlpWrapper:
         try:
             args = build_extract_info_command(self.ytdlp_path, url, options)
 
-            log.info(f"Extracting info: {' '.join(args)}")
+            logged_args = [redact_url_for_log(arg) if arg == url else arg for arg in args]
+            log.info(f"Extracting info: {' '.join(logged_args)}")
 
             result = subprocess.run(
                 args,
@@ -390,10 +409,11 @@ class YtDlpWrapper:
                 errors='replace',
                 timeout=YTDLP_TIMEOUT,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                env=_ytdlp_environment(),
             )
 
             if result.returncode != 0:
-                log.error(f"extract_info failed: {result.stderr}")
+                log.error(f"extract_info failed: {redact_urls_in_text(result.stderr)}")
                 return None, False
 
             return parse_info_output(result.stdout)

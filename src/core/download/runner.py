@@ -1,6 +1,14 @@
 """Download execution helpers backed by yt-dlp."""
 
-from constants import ERROR_INVALID_URL, MSG_DOWNLOAD_COMPLETE, MSG_PAUSED_BY_USER
+from constants import (
+    ERROR_INVALID_URL,
+    KEY_NORMALIZE_AUDIO,
+    MSG_DOWNLOAD_COMPLETE,
+    MSG_PAUSED_BY_USER,
+    STATUS_FINISHED,
+    STATUS_POSTPROCESSING,
+)
+from core.download.normalizer import normalize_media_file
 from core.download.options import _build_all_options
 from core.youtube_url import _sanitize_url
 from core.ytdlp.wrapper import YtDlpWrapper
@@ -28,13 +36,35 @@ def download_video(url, settings, progress_hook, is_resume=False, stop_check=Non
 
     save_path = get_download_folder(settings)
     ffmpeg_path = get_ffmpeg_path()
-    ydl_opts = _build_all_options(settings, save_path, ffmpeg_path, is_playlist, progress_hook, is_resume)
+    ydl_opts = _build_all_options(
+        settings,
+        save_path,
+        ffmpeg_path,
+        is_playlist,
+        progress_hook,
+        is_resume=is_resume,
+        url=clean_url,
+    )
 
     try:
         wrapper = YtDlpWrapper(ytdlp_path, ffmpeg_path)
         success, message = wrapper.download(clean_url, ydl_opts, progress_hook, is_resume, stop_check)
 
         if success:
+            if settings.get(KEY_NORMALIZE_AUDIO):
+                final_path = wrapper.final_output_path or ""
+                progress_hook({"status": STATUS_POSTPROCESSING, "filename": final_path})
+                normalization = normalize_media_file(
+                    final_path,
+                    settings,
+                    ffmpeg_path,
+                    stop_check,
+                )
+                if normalization.paused:
+                    return False, MSG_PAUSED_BY_USER
+                if not normalization.success:
+                    return False, f"Audio normalization failed: {normalization.error}"
+                progress_hook({"status": STATUS_FINISHED, "filename": normalization.output_path})
             return True, MSG_DOWNLOAD_COMPLETE
 
         if MSG_PAUSED_BY_USER in message:

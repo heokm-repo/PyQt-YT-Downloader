@@ -7,6 +7,7 @@ MAXIMIZE_ICON_NAME = "mdi.window-maximize"
 RESTORE_ICON_NAME = "mdi.window-restore"
 MAXIMIZED_LAYOUT_MARGINS = (15, 15, 15, 15)
 TITLE_BAR_DOUBLE_CLICK_PADDING = 10
+WINDOW_DRAG_START_DISTANCE = 4
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,15 @@ def build_window_chrome_state(
     )
 
 
+def should_start_window_drag(
+    button: object,
+    left_button: object,
+    is_title_bar_position: bool,
+) -> bool:
+    """Return True when a mouse press can start window dragging."""
+    return button == left_button and is_title_bar_position
+
+
 def should_continue_window_drag(
     previous_position: object | None,
     buttons: object,
@@ -47,6 +57,30 @@ def should_continue_window_drag(
 ) -> bool:
     """Return True when a mouse move should continue window dragging."""
     return previous_position is not None and buttons == left_button
+
+
+def has_window_drag_started(
+    previous_position: object | None,
+    current_position: object,
+    threshold: int = WINDOW_DRAG_START_DISTANCE,
+) -> bool:
+    """Return True once a pending drag has moved far enough."""
+    if previous_position is None:
+        return False
+    if threshold <= 0:
+        return True
+
+    delta = current_position - previous_position
+    manhattan_length = getattr(delta, "manhattanLength", None)
+    if callable(manhattan_length):
+        return manhattan_length() >= threshold
+
+    x = getattr(delta, "x", None)
+    y = getattr(delta, "y", None)
+    if callable(x) and callable(y):
+        return abs(x()) + abs(y()) >= threshold
+
+    return True
 
 
 def should_toggle_maximize_from_double_click(

@@ -24,7 +24,7 @@ def extract_playlist_video_ids(url):
         info, success = wrapper.extract_info(
             clean_url,
             download=False,
-            options=_build_playlist_extract_options(),
+            options=_build_playlist_extract_options(url=clean_url),
         )
 
         if not success or not info:

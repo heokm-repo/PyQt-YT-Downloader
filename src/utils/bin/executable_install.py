@@ -4,6 +4,7 @@ import os
 from typing import Any, Callable, Mapping, Optional
 
 from utils.bin.install import install_downloaded_binary, remove_if_exists
+from utils.integrity import verify_sha256
 from utils.logger import log
 
 
@@ -26,6 +27,7 @@ def download_and_install_executable_binary(
     save_versions: Callable[[dict[str, Any]], bool],
     progress_callback: Optional[Callable[[int, int], None]] = None,
     check_cancel: Optional[Callable[[], bool]] = None,
+    expected_digest: Optional[str] = None,
 ) -> bool:
     """Download one executable binary and install it into the bin directory."""
     if not url:
@@ -37,6 +39,10 @@ def download_and_install_executable_binary(
 
     success = download_file(url, temp_path, progress_callback, check_cancel)
     if not success:
+        remove_if_exists(temp_path)
+        return False
+
+    if not verify_sha256(temp_path, expected_digest):
         remove_if_exists(temp_path)
         return False
 

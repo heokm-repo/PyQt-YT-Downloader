@@ -25,7 +25,9 @@ class DownloadExtractOptionTests(unittest.TestCase):
                 "concurrent_fragment_downloads": 6,
             },
         ):
-            opts = download_options._build_playlist_extract_options()
+            opts = download_options._build_playlist_extract_options(
+                url="https://www.youtube.com/playlist?list=playlist123"
+            )
 
         self.assertEqual(opts, {
             "extract_flat": True,
@@ -42,12 +44,28 @@ class DownloadExtractOptionTests(unittest.TestCase):
             opts = download_options._build_metadata_extract_options(
                 {"format": "mp3", "audio_quality": "best"},
                 is_playlist=False,
+                url="https://www.youtube.com/watch?v=video123",
             )
 
         self.assertEqual(opts["extract_flat"], "in_playlist")
         self.assertTrue(opts["noplaylist"])
         self.assertEqual(opts["audio_format"], "mp3")
         self.assertEqual(opts["cookiefile"], "cookies.txt")
+
+    def test_advanced_options_add_cookies_only_for_youtube_urls(self):
+        with patch("utils.cookie_store.cookie_file_exists", return_value=True), \
+             patch("utils.cookie_store.get_cookie_file_path", return_value="cookies.txt"):
+            youtube_opts = download_options._build_advanced_options(
+                {},
+                "https://www.youtube.com/watch?v=video123",
+            )
+            other_site_opts = download_options._build_advanced_options(
+                {},
+                "https://example.test/video123",
+            )
+
+        self.assertEqual(youtube_opts["cookiefile"], "cookies.txt")
+        self.assertNotIn("cookiefile", other_site_opts)
 
 
 if __name__ == "__main__":

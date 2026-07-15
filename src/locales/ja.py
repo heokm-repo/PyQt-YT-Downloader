@@ -63,17 +63,25 @@ STRINGS = {
     'ERR_LOGIN_NO_COOKIES': "YouTube Cookieを取得できませんでした!",
     'ERR_LOGIN_SAVE_FAILED': "保存に失敗しました: {error}",
 
+    'BTN_LOGOUT': "ログアウト / Cookie削除",
+    'TITLE_LOGOUT': "ログアウト",
+    'MSG_LOGOUT_CONFIRM': "保存したYouTube Cookieとブラウザーのログインデータを削除しますか？",
+    'MSG_LOGOUT_SUCCESS': "保存したCookieとブラウザーのログインデータを削除しました。",
+    'ERR_LOGOUT_FAILED': "一部のログインデータを削除できませんでした。ログイン画面を閉じて、もう一度お試しください。",
+
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "アプリ管理",
     'SETTINGS_LABEL_VERSION': "現在のバージョン:",
     'SETTINGS_BTN_CHECK_UPDATE': "更新を確認",
     'SETTINGS_BTN_UNINSTALL': "アプリを削除",
     'SETTINGS_BTN_LICENSE': "ライセンス情報",
+    'SETTINGS_BTN_SPONSOR': "支援する",
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "ダウンロードフォルダを選択してください。",
     'ERR_SETTINGS_CREATE_FOLDER': "フォルダを作成できません:\n{error}",
     'ERR_SETTINGS_INVALID_FOLDER': "選択したパスは有効なフォルダではありません。",
+    'ERR_SPONSOR_OPEN': "スポンサー支援ページを開けませんでした。",
     'MSG_DOWNLOAD_FOLDER_FALLBACK': "ダウンロードフォルダを使用できないため、保存先を変更しました。\n\n以前の保存先:\n{old_path}\n\n新しい保存先:\n{new_path}\n\n理由:\n{reason}",
 
     # =========================================================================

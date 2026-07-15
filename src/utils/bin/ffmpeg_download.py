@@ -5,6 +5,7 @@ import tempfile
 import zipfile
 from typing import Any, Callable, Mapping, Optional
 
+from utils.integrity import verify_sha256
 from utils.logger import log
 
 
@@ -36,6 +37,7 @@ def download_and_install_ffmpeg_zip(
     save_versions: Callable[[dict[str, Any]], bool],
     progress_callback: Optional[BinaryProgress] = None,
     check_cancel: Optional[CancelCheck] = None,
+    expected_digest: Optional[str] = None,
 ) -> bool:
     """Download an FFmpeg ZIP archive and install ffmpeg from it."""
     if not url:
@@ -52,6 +54,9 @@ def download_and_install_ffmpeg_zip(
             return False
 
         if check_cancel and check_cancel():
+            return False
+
+        if not verify_sha256(temp_zip_path, expected_digest):
             return False
 
         final_path = os.path.join(bin_path, executable_name)

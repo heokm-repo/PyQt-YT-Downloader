@@ -61,17 +61,25 @@ STRINGS = {
     'ERR_LOGIN_NO_COOKIES': "YouTube 쿠키를 가져오지 못했습니다!",
     'ERR_LOGIN_SAVE_FAILED': "저장 실패: {error}",
 
+    'BTN_LOGOUT': "로그아웃 / 쿠키 삭제",
+    'TITLE_LOGOUT': "로그아웃",
+    'MSG_LOGOUT_CONFIRM': "저장된 YouTube 쿠키와 브라우저 로그인 데이터를 삭제할까요?",
+    'MSG_LOGOUT_SUCCESS': "저장된 쿠키와 브라우저 로그인 데이터를 삭제했습니다.",
+    'ERR_LOGOUT_FAILED': "일부 로그인 데이터를 삭제하지 못했습니다. 로그인 창을 닫고 다시 시도해 주세요.",
+
     # Section: App Management
     'SETTINGS_SEC_APP_MANAGE': "앱 관리",
     'SETTINGS_LABEL_VERSION': "현재 버전:",
     'SETTINGS_BTN_CHECK_UPDATE': "업데이트 확인",
     'SETTINGS_BTN_UNINSTALL': "앱 삭제",
     'SETTINGS_BTN_LICENSE': "라이선스 정보",
+    'SETTINGS_BTN_SPONSOR': "후원하기",
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "다운로드 폴더를 선택해주세요.",
     'ERR_SETTINGS_CREATE_FOLDER': "폴더를 생성할 수 없습니다:\n{error}",
     'ERR_SETTINGS_INVALID_FOLDER': "선택한 경로가 유효한 폴더가 아닙니다.",
+    'ERR_SPONSOR_OPEN': "후원 페이지를 열 수 없습니다.",
     'MSG_DOWNLOAD_FOLDER_FALLBACK': "다운로드 폴더를 사용할 수 없어 저장 위치가 변경되었습니다.\n\n이전 저장 위치:\n{old_path}\n\n새 저장 위치:\n{new_path}\n\n사유:\n{reason}",
 
     # =========================================================================

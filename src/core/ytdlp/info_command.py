@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List, Optional
 
+from constants import DEFAULT_ENCODING
+
 
 def build_extract_info_command(
     ytdlp_path: str,
@@ -9,7 +11,16 @@ def build_extract_info_command(
     options: Optional[Dict[str, Any]] = None,
 ) -> List[str]:
     """Convert extract_info options into yt-dlp CLI arguments."""
-    args = [ytdlp_path, "--dump-json", "--no-warnings"]
+    args = [
+        ytdlp_path,
+        "--ignore-config",
+        "--no-plugin-dirs",
+        "--no-remote-components",
+        "--encoding",
+        DEFAULT_ENCODING,
+        "--dump-json",
+        "--no-warnings",
+    ]
 
     if options:
         if options.get("extract_flat") is True:
@@ -27,5 +38,5 @@ def build_extract_info_command(
         if "js_runtimes" in options:
             args.extend(["--js-runtimes", options["js_runtimes"]])
 
-    args.append(url)
+    args.extend(["--", url])
     return args

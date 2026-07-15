@@ -19,11 +19,22 @@ class BinManagerReleaseChecksTests(unittest.TestCase):
         with patch.object(
             bin_manager,
             "check_latest_github_release",
-            return_value=("2026.07.01", "https://example.test/yt-dlp.exe"),
+            return_value=(
+                "2026.07.01",
+                "https://example.test/yt-dlp.exe",
+                "sha256:" + "a" * 64,
+            ),
         ) as release_check:
             result = bin_manager.check_ytdlp_latest_version()
 
-        self.assertEqual(result, ("2026.07.01", "https://example.test/yt-dlp.exe"))
+        self.assertEqual(
+            result,
+            (
+                "2026.07.01",
+                "https://example.test/yt-dlp.exe",
+                "sha256:" + "a" * 64,
+            ),
+        )
         self.assertEqual(release_check.call_args.args[0], bin_manager.YTDLP_API_URL)
         self.assertEqual(release_check.call_args.args[1], "yt-dlp")
 
@@ -31,11 +42,11 @@ class BinManagerReleaseChecksTests(unittest.TestCase):
         with patch.object(
             bin_manager,
             "check_latest_github_release",
-            return_value=(None, None),
+            return_value=(None, None, None),
         ) as release_check:
             result = bin_manager.check_ffmpeg_latest_version()
 
-        self.assertEqual(result, (None, None))
+        self.assertEqual(result, (None, None, None))
         self.assertEqual(release_check.call_args.args[0], bin_manager.FFMPEG_API_URL)
         self.assertEqual(release_check.call_args.args[1], "ffmpeg")
 

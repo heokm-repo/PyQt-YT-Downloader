@@ -36,7 +36,18 @@ class YtDlpCommandTests(unittest.TestCase):
             is_resume=False,
         )
 
-        self.assertEqual(cmd[:2], ["yt-dlp.exe", "--newline"])
+        self.assertEqual(cmd[:10], [
+            "yt-dlp.exe",
+            "--ignore-config",
+            "--no-plugin-dirs",
+            "--no-remote-components",
+            "--encoding",
+            "utf-8",
+            "--newline",
+            "--progress",
+            "--print",
+            "after_move:__YTDLP_FINAL_PATH__:%(filepath)s",
+        ])
         self.assertIn("--output", cmd)
         self.assertEqual(cmd[cmd.index("--ffmpeg-location") + 1], "ffmpeg.exe")
         self.assertIn("--no-playlist", cmd)
@@ -46,7 +57,7 @@ class YtDlpCommandTests(unittest.TestCase):
         self.assertIn("home:C:/Downloads", cmd)
         self.assertIn("temp:C:/Downloads/.tmp", cmd)
         self.assertIn("--force-overwrites", cmd)
-        self.assertEqual(cmd[-1], "https://example.invalid/video")
+        self.assertEqual(cmd[-2:], ["--", "https://example.invalid/video"])
 
     def test_build_command_resume_overrides_force_overwrites(self):
         cmd = build_command(
@@ -59,6 +70,24 @@ class YtDlpCommandTests(unittest.TestCase):
 
         self.assertIn("--no-overwrites", cmd)
         self.assertNotIn("--force-overwrites", cmd)
+
+    def test_build_command_combines_same_postprocessor_key_args(self):
+        cmd = build_command(
+            "yt-dlp.exe",
+            None,
+            "https://example.invalid/audio",
+            {
+                "postprocessor_args": {
+                    "ExtractAudio+ffmpeg_o": ["-ac", "2", "-af", "loudnorm=I=-14:TP=-1"],
+                },
+            },
+        )
+
+        self.assertEqual(cmd.count("--postprocessor-args"), 1)
+        self.assertIn(
+            "ExtractAudio+ffmpeg_o:-ac 2 -af loudnorm=I=-14:TP=-1",
+            cmd,
+        )
 
     def test_wrapper_private_method_delegates_to_command_builder(self):
         wrapper = YtDlpWrapper("yt-dlp.exe", "ffmpeg.exe")

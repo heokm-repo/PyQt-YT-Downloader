@@ -4,7 +4,15 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 from utils.utils import get_user_data_path
+from utils.url_security import redact_urls_in_text
 from constants import LOG_FILE_NAME, LOGGER_NAME
+
+
+class RedactingFormatter(logging.Formatter):
+    """Redact URL query strings from complete messages and tracebacks."""
+
+    def format(self, record):
+        return redact_urls_in_text(super().format(record))
 
 def setup_logger():
     """Set up logging to app.log under the AppData folder."""
@@ -20,8 +28,10 @@ def setup_logger():
         return logger
 
     # Format: time - level - message.
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', 
-                                  datefmt='%Y-%m-%d %H:%M:%S')
+    formatter = RedactingFormatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
     # File handler: rotate after 1 MB and keep up to 3 files.
     try:

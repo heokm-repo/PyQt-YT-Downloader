@@ -1,4 +1,5 @@
 import os
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -39,6 +40,7 @@ class BinExecutableInstallTests(unittest.TestCase):
                 lambda: {},
                 lambda versions: saved.append(versions) or True,
                 lambda downloaded, total: progress.append((downloaded, total)),
+                expected_digest="sha256:" + hashlib.sha256(b"downloaded").hexdigest(),
             )
 
             final_path = Path(tmpdir) / "tool.exe"
@@ -68,6 +70,7 @@ class BinExecutableInstallTests(unittest.TestCase):
                 fake_download,
                 lambda: {},
                 lambda versions: saved.append(versions) or True,
+                expected_digest="sha256:" + hashlib.sha256(b"partial").hexdigest(),
             )
 
             final_path = Path(tmpdir) / "tool.exe"
@@ -92,6 +95,30 @@ class BinExecutableInstallTests(unittest.TestCase):
         )
 
         self.assertFalse(result)
+
+    def test_download_and_install_executable_binary_rejects_digest_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            def fake_download(url, dest_path, progress_callback=None, check_cancel=None):
+                Path(dest_path).write_bytes(b"tampered")
+                return True
+
+            result = download_and_install_executable_binary(
+                "tool",
+                "tool.exe",
+                "Tool",
+                "2026.07.01",
+                "https://example.test/tool.exe",
+                "missing url",
+                lambda: tmpdir,
+                fake_download,
+                lambda: {},
+                lambda versions: True,
+                expected_digest="sha256:" + "0" * 64,
+            )
+
+            self.assertFalse(result)
+            self.assertFalse((Path(tmpdir) / "tool.exe").exists())
+            self.assertFalse((Path(tmpdir) / "tool.exe.tmp").exists())
 
 
 if __name__ == "__main__":

@@ -176,9 +176,9 @@ class SettingsAppManagementTests(unittest.TestCase):
         calls = []
 
         result = run_update_flow(
-            lambda: (False, "v1", ""),
-            lambda url: calls.append(("download", url)) or "new.exe",
-            lambda path: calls.append(("apply", path)) or True,
+            lambda: (False, "v1", "", None),
+            lambda url, digest: calls.append(("download", url)) or "new.exe",
+            lambda path, digest: calls.append(("apply", path)) or True,
             lambda update_result: calls.append(("confirm", update_result.message)) or True,
             "v1",
             "Already latest",
@@ -196,9 +196,14 @@ class SettingsAppManagementTests(unittest.TestCase):
         calls = []
 
         result = run_update_flow(
-            lambda: (True, "v2", "https://example.test/app.exe"),
-            lambda url: calls.append(("download", url)) or "new.exe",
-            lambda path: calls.append(("apply", path)) or True,
+            lambda: (
+                True,
+                "v2",
+                "https://example.test/app.exe",
+                "sha256:" + "a" * 64,
+            ),
+            lambda url, digest: calls.append(("download", url)) or "new.exe",
+            lambda path, digest: calls.append(("apply", path)) or True,
             lambda update_result: calls.append(("confirm", update_result.message)) or False,
             "v1",
             "Already latest",
@@ -216,9 +221,14 @@ class SettingsAppManagementTests(unittest.TestCase):
         calls = []
 
         result = run_update_flow(
-            lambda: (True, "v2", "https://example.test/app.exe"),
-            lambda url: calls.append(("download", url)) or "new.exe",
-            lambda path: calls.append(("apply", path)) or True,
+            lambda: (
+                True,
+                "v2",
+                "https://example.test/app.exe",
+                "sha256:" + "a" * 64,
+            ),
+            lambda url, digest: calls.append(("download", url)) or "new.exe",
+            lambda path, digest: calls.append(("apply", path)) or True,
             lambda update_result: calls.append(("confirm", update_result.message)) or True,
             "v1",
             "Already latest",
@@ -242,9 +252,14 @@ class SettingsAppManagementTests(unittest.TestCase):
         calls = []
 
         result = run_update_flow(
-            lambda: (True, "v2", "https://example.test/app.exe"),
-            lambda url: calls.append(("download", url)) or None,
-            lambda path: calls.append(("apply", path)) or True,
+            lambda: (
+                True,
+                "v2",
+                "https://example.test/app.exe",
+                "sha256:" + "a" * 64,
+            ),
+            lambda url, digest: calls.append(("download", url)) or None,
+            lambda path, digest: calls.append(("apply", path)) or True,
             lambda update_result: True,
             "v1",
             "Already latest",
@@ -259,9 +274,14 @@ class SettingsAppManagementTests(unittest.TestCase):
 
     def test_run_update_flow_reports_apply_failure(self):
         result = run_update_flow(
-            lambda: (True, "v2", "https://example.test/app.exe"),
-            lambda url: "new.exe",
-            lambda path: False,
+            lambda: (
+                True,
+                "v2",
+                "https://example.test/app.exe",
+                "sha256:" + "a" * 64,
+            ),
+            lambda url, digest: "new.exe",
+            lambda path, digest: False,
             lambda update_result: True,
             "v1",
             "Already latest",

@@ -33,11 +33,12 @@ def prompt_for_app_update(
 
 def download_app_update(
     download_url: str,
-    download_update: Callable[[str, Callable[[int], None]], str | None],
+    download_update: Callable[[str, Callable[[int], None], str | None], str | None],
     application: Any,
     logger: Any,
     progress_dialog_factory: Callable[..., Any] | None = None,
     parent: Any = None,
+    expected_digest: str | None = None,
 ) -> str | None:
     """Download an app update while showing a styled progress dialog."""
     if progress_dialog_factory is None:
@@ -61,7 +62,7 @@ def download_app_update(
 
     try:
         try:
-            result = download_update(download_url, update_progress)
+            result = download_update(download_url, update_progress, expected_digest)
             if result:
                 progress.mark_installing()
                 process_events()
@@ -74,14 +75,14 @@ def download_app_update(
 
 
 def run_app_update_flow(
-    app_update_info: tuple[bool, str | None, str | None],
+    app_update_info: tuple[bool, str | None, str | None, str | None],
     accepted_result: int,
     application: Any,
     show_error_message: Callable[[str, str], None],
     logger: Any,
 ) -> None:
     """Handle an available application self-update."""
-    update_available, latest_version, download_url = app_update_info
+    update_available, latest_version, download_url, expected_digest = app_update_info
     if not update_available:
         return
 
@@ -91,12 +92,18 @@ def run_app_update_flow(
         if not prompt_for_app_update(latest_version, accepted_result):
             return
 
-        new_exe = download_app_update(download_url, download_update, application, logger)
+        new_exe = download_app_update(
+            download_url,
+            download_update,
+            application,
+            logger,
+            expected_digest=expected_digest,
+        )
         if not new_exe:
             logger.info("App update download did not produce an installer")
             return
 
-        if apply_update(new_exe):
+        if apply_update(new_exe, expected_digest):
             raise SystemExit(0) from None
 
         show_error_message(STR.TITLE_ERROR, STR.ERR_UPDATE_APPLY)

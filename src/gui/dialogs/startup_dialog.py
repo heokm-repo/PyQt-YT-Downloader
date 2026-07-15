@@ -69,7 +69,7 @@ class StartupDialog(BaseDialog):
         from utils.logger import log
         log.error(f"Startup check error: {err_msg}")
         self.updates_available = {}
-        self.app_update_info = (False, None, None)
+        self.app_update_info = (False, None, None, None)
         self.accept()
         
     def closeEvent(self, event):

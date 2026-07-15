@@ -2,15 +2,15 @@ import sys
 from PyQt5.QtWidgets import (QVBoxLayout,
                              QFormLayout,
                              QFileDialog, QTabWidget, QWidget)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtGui import QDesktopServices, QFont
 
 from constants import (
     KEY_DOWNLOAD_FOLDER, KEY_VIDEO_QUALITY, KEY_AUDIO_QUALITY, KEY_FORMAT,
     KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
     DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
     VIDEO_QUALITY_OPTIONS, AUDIO_QUALITY_OPTIONS,
-    APP_VERSION
+    APP_VERSION, SPONSOR_URL
 )
 from locales.strings import STR
 from gui.dialogs.base_dialog import BaseDialog
@@ -140,6 +140,8 @@ class SettingsDialog(BaseDialog):
             STR.SETTINGS_LABEL_COOKIES,
             STR.BTN_LOGIN,
             self._on_login_clicked,
+            STR.BTN_LOGOUT,
+            self._on_logout_clicked,
         )
         layout.addLayout(cookie_layout)
         layout.addStretch()
@@ -231,11 +233,13 @@ class SettingsDialog(BaseDialog):
         button_callbacks = {
             "check_update": self._on_check_update_clicked,
             "license": self._show_license_info,
+            "sponsor": self._open_sponsor_page,
             "uninstall": self._on_uninstall_clicked,
         }
         for spec in build_app_management_button_specs(
             STR.SETTINGS_BTN_CHECK_UPDATE,
             STR.SETTINGS_BTN_LICENSE,
+            STR.SETTINGS_BTN_SPONSOR,
             STR.SETTINGS_BTN_UNINSTALL,
         ):
             button = create_settings_button(
@@ -304,11 +308,29 @@ class SettingsDialog(BaseDialog):
         except Exception as e:
             log.error(f"Login browser failed: {e}", exc_info=True)
 
+    def _on_logout_clicked(self):
+        """Delete the exported cookie file and any remaining browser storage."""
+        if not ask_question(self, STR.TITLE_LOGOUT, STR.MSG_LOGOUT_CONFIRM):
+            return
+
+        from utils.cookie_store import delete_stored_login_data
+
+        if delete_stored_login_data():
+            show_info(self, STR.TITLE_LOGOUT, STR.MSG_LOGOUT_SUCCESS)
+            return
+
+        show_error(self, STR.TITLE_LOGOUT, STR.ERR_LOGOUT_FAILED)
+
     # ===== Dialog Result Handling =====
 
     def _show_license_info(self):
         """Show the license information dialog."""
         show_info(self, STR.TITLE_LICENSE, STR.MSG_LICENSE_INFO)
+
+    def _open_sponsor_page(self):
+        """Open the shared GitHub Sponsors page in the default browser."""
+        if not QDesktopServices.openUrl(QUrl(SPONSOR_URL)):
+            show_warning(self, STR.TITLE_SETTINGS, STR.ERR_SPONSOR_OPEN)
 
     def accept(self):
         """Save settings when the Save button is clicked."""
@@ -385,7 +407,12 @@ class SettingsDialog(BaseDialog):
         """Ask whether the available update should be installed."""
         return ask_question(self, STR.TITLE_UPDATE_CHECK, update_result.message)
 
-    def _download_update_with_progress(self, download_update, download_url):
+    def _download_update_with_progress(
+        self,
+        download_update,
+        download_url,
+        expected_digest,
+    ):
         """Download an update while displaying the app-styled progress dialog."""
         from PyQt5.QtWidgets import QApplication
 
@@ -401,7 +428,11 @@ class SettingsDialog(BaseDialog):
                 raise RuntimeError("Cancelled by user")
 
         try:
-            result = download_update(download_url, update_progress)
+            result = download_update(
+                download_url,
+                update_progress,
+                expected_digest,
+            )
             if result:
                 progress_dialog.mark_installing()
                 QApplication.processEvents()
@@ -420,7 +451,11 @@ class SettingsDialog(BaseDialog):
 
             result = run_update_flow(
                 check_for_updates,
-                lambda url: self._download_update_with_progress(download_update, url),
+                lambda url, digest: self._download_update_with_progress(
+                    download_update,
+                    url,
+                    digest,
+                ),
                 apply_update,
                 self._confirm_update,
                 APP_VERSION,

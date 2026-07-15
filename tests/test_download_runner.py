@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -18,10 +19,12 @@ from core.download import runner as download_runner
 class FakeDownloadWrapper:
     captured = {}
     result = (True, "ok")
+    output_path = "C:/Downloads/source.mp4"
 
     def __init__(self, ytdlp_path, ffmpeg_path=None):
         self.captured["ytdlp_path"] = ytdlp_path
         self.captured["ffmpeg_path"] = ffmpeg_path
+        self.final_output_path = self.output_path
 
     def download(self, url, options, progress_hook, is_resume=False, stop_check=None):
         self.captured["url"] = url
@@ -35,6 +38,7 @@ class DownloadRunnerTests(unittest.TestCase):
     def setUp(self):
         FakeDownloadWrapper.captured = {}
         FakeDownloadWrapper.result = (True, "ok")
+        FakeDownloadWrapper.output_path = "C:/Downloads/source.mp4"
 
     def test_download_video_strips_playlist_query_and_returns_complete_message(self):
         with patch.object(download_runner, "get_ytdlp_path", return_value="yt-dlp.exe"), \
@@ -53,6 +57,10 @@ class DownloadRunnerTests(unittest.TestCase):
         self.assertEqual(FakeDownloadWrapper.captured["url"], "https://www.youtube.com/watch?v=abc123")
         self.assertEqual(FakeDownloadWrapper.captured["options"], {"built": True})
         build_options.assert_called_once()
+        self.assertEqual(
+            build_options.call_args.kwargs["url"],
+            "https://www.youtube.com/watch?v=abc123",
+        )
 
     def test_download_video_preserves_pause_message(self):
         FakeDownloadWrapper.result = (False, MSG_PAUSED_BY_USER)
@@ -69,6 +77,38 @@ class DownloadRunnerTests(unittest.TestCase):
 
         self.assertFalse(success)
         self.assertEqual(message, MSG_PAUSED_BY_USER)
+
+    def test_download_video_normalizes_completed_file_and_reports_new_path(self):
+        events = []
+        normalized = SimpleNamespace(
+            success=True,
+            output_path="C:/Downloads/source.mp3",
+            error="",
+            paused=False,
+        )
+        settings = {"format": "mp3", "normalize_audio": True}
+
+        with patch.object(download_runner, "get_ytdlp_path", return_value="yt-dlp.exe"), \
+             patch.object(download_runner, "get_ffmpeg_path", return_value="ffmpeg.exe"), \
+             patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
+             patch.object(download_runner, "_build_all_options", return_value={}), \
+             patch.object(download_runner, "normalize_media_file", return_value=normalized) as normalize, \
+             patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
+            success, message = download_runner.download_video(
+                "https://example.invalid/audio",
+                settings,
+                events.append,
+            )
+
+        self.assertTrue(success)
+        self.assertEqual(message, MSG_DOWNLOAD_COMPLETE)
+        normalize.assert_called_once_with(
+            "C:/Downloads/source.mp4",
+            settings,
+            "ffmpeg.exe",
+            None,
+        )
+        self.assertEqual(events[-1]["filename"], "C:/Downloads/source.mp3")
 
 
 if __name__ == "__main__":

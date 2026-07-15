@@ -13,6 +13,7 @@ if SRC not in sys.path:
 from utils.bin.release_info import (
     ffmpeg_release_info,
     find_asset_download_url,
+    release_asset_info,
     normalize_release_tag,
     quickjs_release_info,
     release_version_from_published_or_tag,
@@ -58,34 +59,69 @@ class BinReleaseInfoTests(unittest.TestCase):
     def test_ytdlp_release_info_returns_version_and_url(self):
         data = {
             "tag_name": "v2024.01.30",
-            "assets": [{"name": "yt-dlp.exe", "browser_download_url": "url"}],
+            "assets": [{
+                "name": "yt-dlp.exe",
+                "browser_download_url": "url",
+                "digest": "sha256:" + "a" * 64,
+            }],
         }
 
-        self.assertEqual(ytdlp_release_info(data, "yt-dlp.exe"), ("2024.01.30", "url"))
+        self.assertEqual(
+            ytdlp_release_info(data, "yt-dlp.exe"),
+            ("2024.01.30", "url", "sha256:" + "a" * 64),
+        )
 
     def test_ytdlp_release_info_returns_none_without_asset(self):
-        self.assertEqual(ytdlp_release_info({"tag_name": "v1", "assets": []}, "yt-dlp.exe"), (None, None))
+        self.assertEqual(
+            ytdlp_release_info({"tag_name": "v1", "assets": []}, "yt-dlp.exe"),
+            (None, None, None),
+        )
 
     def test_ffmpeg_release_info_uses_published_date_and_matching_asset(self):
         data = {
             "published_at": "2026-07-01T12:34:56Z",
             "assets": [
-                {"name": "ffmpeg-master-latest-win64-gpl.zip", "browser_download_url": "url"},
+                {
+                    "name": "ffmpeg-master-latest-win64-gpl.zip",
+                    "browser_download_url": "url",
+                    "digest": "sha256:" + "b" * 64,
+                },
             ],
         }
 
         self.assertEqual(
             ffmpeg_release_info(data, "ffmpeg-master-latest-win64-gpl.zip"),
-            ("2026.07.01", "url"),
+            ("2026.07.01", "url", "sha256:" + "b" * 64),
         )
 
     def test_quickjs_release_info_returns_exact_asset(self):
         data = {
             "tag_name": "v0.9.0",
-            "assets": [{"name": "qjs-windows-x86_64.exe", "browser_download_url": "url"}],
+            "assets": [{
+                "name": "qjs-windows-x86_64.exe",
+                "browser_download_url": "url",
+                "digest": "sha256:" + "c" * 64,
+            }],
         }
 
-        self.assertEqual(quickjs_release_info(data, "qjs-windows-x86_64.exe"), ("0.9.0", "url"))
+        self.assertEqual(
+            quickjs_release_info(data, "qjs-windows-x86_64.exe"),
+            ("0.9.0", "url", "sha256:" + "c" * 64),
+        )
+
+    def test_release_asset_info_returns_url_and_digest(self):
+        data = {
+            "assets": [{
+                "name": "tool.exe",
+                "browser_download_url": "url",
+                "digest": "sha256:" + "d" * 64,
+            }],
+        }
+
+        self.assertEqual(
+            release_asset_info(data, exact_name="tool.exe"),
+            ("url", "sha256:" + "d" * 64),
+        )
 
 
 if __name__ == "__main__":

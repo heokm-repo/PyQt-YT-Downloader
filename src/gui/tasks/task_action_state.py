@@ -7,7 +7,7 @@ from constants import TaskStatus
 
 PAUSABLE_STATUSES = (TaskStatus.DOWNLOADING, TaskStatus.WAITING)
 RESUMABLE_STATUSES = (TaskStatus.PAUSED,)
-RETRYABLE_STATUSES = (TaskStatus.FAILED,)
+RETRYABLE_STATUSES = (TaskStatus.FAILED, TaskStatus.FINISHED)
 
 
 def is_pausable_status(status: Any) -> bool:

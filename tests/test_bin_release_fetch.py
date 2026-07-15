@@ -33,11 +33,18 @@ class BinReleaseFetchTests(unittest.TestCase):
             result = bin_release_fetch.check_latest_github_release(
                 "https://example.test/releases/latest",
                 "tool",
-                lambda data: (data["tag_name"], "https://example.test/tool.exe"),
+                lambda data: (
+                    data["tag_name"],
+                    "https://example.test/tool.exe",
+                    "sha256:" + "a" * 64,
+                ),
                 "missing",
             )
 
-        self.assertEqual(result, ("v1", "https://example.test/tool.exe"))
+        self.assertEqual(
+            result,
+            ("v1", "https://example.test/tool.exe", "sha256:" + "a" * 64),
+        )
         request_get.assert_called_once_with("https://example.test/releases/latest", timeout=10)
 
     def test_check_latest_github_release_returns_none_without_asset(self):
@@ -47,11 +54,11 @@ class BinReleaseFetchTests(unittest.TestCase):
             result = bin_release_fetch.check_latest_github_release(
                 "https://example.test/releases/latest",
                 "tool",
-                lambda data: ("v1", None),
+                lambda data: ("v1", None, None),
                 "missing",
             )
 
-        self.assertEqual(result, (None, None))
+        self.assertEqual(result, (None, None, None))
 
     def test_check_latest_github_release_returns_none_on_request_error(self):
         with patch.object(
@@ -62,11 +69,11 @@ class BinReleaseFetchTests(unittest.TestCase):
             result = bin_release_fetch.check_latest_github_release(
                 "https://example.test/releases/latest",
                 "tool",
-                lambda data: ("v1", "url"),
+                lambda data: ("v1", "url", "sha256:" + "a" * 64),
                 "missing",
             )
 
-        self.assertEqual(result, (None, None))
+        self.assertEqual(result, (None, None, None))
 
 
 if __name__ == "__main__":

@@ -63,7 +63,8 @@ class StartupAppUpdateTests(unittest.TestCase):
         logger = FakeLogger()
         parent = object()
 
-        def download_update(url, progress_callback):
+        def download_update(url, progress_callback, expected_digest):
+            self.assertEqual(expected_digest, "sha256:" + "a" * 64)
             progress_callback(42)
             return "setup.exe"
 
@@ -74,6 +75,7 @@ class StartupAppUpdateTests(unittest.TestCase):
             logger,
             progress_dialog_factory=FakeProgressDialog,
             parent=parent,
+            expected_digest="sha256:" + "a" * 64,
         )
 
         self.assertEqual(result, "setup.exe")
@@ -90,7 +92,7 @@ class StartupAppUpdateTests(unittest.TestCase):
         app = FakeApplication()
         logger = FakeLogger()
 
-        def download_update(url, progress_callback):
+        def download_update(url, progress_callback, expected_digest):
             dialog = FakeProgressDialog.instances[0]
             dialog.cancelled = True
             progress_callback(10)
@@ -102,6 +104,7 @@ class StartupAppUpdateTests(unittest.TestCase):
             app,
             logger,
             progress_dialog_factory=FakeProgressDialog,
+            expected_digest="sha256:" + "a" * 64,
         )
 
         self.assertIsNone(result)

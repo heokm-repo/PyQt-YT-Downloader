@@ -7,6 +7,7 @@ import requests
 
 from constants import HTTP_DOWNLOAD_CHUNK_SIZE, HTTP_DOWNLOAD_TIMEOUT_SEC
 from utils.logger import log
+from utils.url_security import redact_url_for_log
 
 
 def download_file(
@@ -17,7 +18,7 @@ def download_file(
 ) -> bool:
     """Download a file with optional progress and cancellation callbacks."""
     try:
-        log.info(f"Downloading {url} to {dest_path}")
+        log.info(f"Downloading {redact_url_for_log(url)} to {dest_path}")
 
         if check_cancel and check_cancel():
             log.info("Download cancelled before start")

@@ -1,11 +1,11 @@
 import sys
 import os
-import re
 from typing import Optional
+from urllib.parse import urlparse
+
 from constants import (
     APPDATA_DIR_NAME,
     APPDATA_ENV_VAR,
-    YOUTUBE_URL_PATTERNS
 )
 
 
@@ -41,7 +41,6 @@ def validate_url(url: str) -> bool:
     if not url:
         return False
     try:
-        from urllib.parse import urlparse
         result = urlparse(url)
         return all([result.scheme in ('http', 'https'), result.netloc])
     except (AttributeError, TypeError, ValueError):
@@ -49,8 +48,19 @@ def validate_url(url: str) -> bool:
 
 def is_youtube_url(url: str) -> bool:
     """Return whether the URL is a YouTube URL for YouTube-specific branching."""
-    youtube_patterns = YOUTUBE_URL_PATTERNS
-    return any(re.search(pattern, url) for pattern in youtube_patterns)
+    if not url:
+        return False
+
+    try:
+        host = (urlparse(str(url)).hostname or "").lower().rstrip(".")
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+    return (
+        host == "youtube.com"
+        or host.endswith(".youtube.com")
+        or host == "youtu.be"
+    )
 
 def format_bytes(b) -> str:
     """Format bytes as a human-readable string."""

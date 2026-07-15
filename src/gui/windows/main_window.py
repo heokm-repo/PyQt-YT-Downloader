@@ -78,7 +78,9 @@ from gui.main_window.controls import (
 from gui.main_window.chrome_state import (
     build_window_chrome_state,
     chrome_state_after_window_change,
+    has_window_drag_started,
     should_continue_window_drag,
+    should_start_window_drag,
     should_toggle_maximize_from_double_click,
 )
 from gui.main_window.worker_lifecycle import stop_running_worker
@@ -156,6 +158,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self._init_resizable(enabled=True)
         self._is_maximized_state = False
         self.oldPos = None
+        self._window_drag_active = False
         self.tasks: list[DownloadTask] = []
         self.task_widgets = {}
         self.visible_task_order: list[int] = []
@@ -363,6 +366,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self._toggle_maximize,
             self.close,
         )
+        self.title_bar_frame = controls.frame
         self.app_title_label = controls.title_label
         self.maximize_btn = controls.maximize_button
         layout.addWidget(controls.frame)
@@ -377,6 +381,14 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self.showMaximized()
 
     # -- Mouse Events: Resize and Drag -------------------------------------
+
+    def _is_title_bar_drag_position(self, global_pos):
+        """Return True when the global cursor position is inside the title bar."""
+        if not hasattr(self, "title_bar_frame"):
+            return False
+        return self.title_bar_frame.rect().contains(
+            self.title_bar_frame.mapFromGlobal(global_pos)
+        )
     
     def mousePressEvent(self, event):
         self.setFocus()
@@ -384,8 +396,13 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             # Give resizing first priority.
             if self.resizable_mouse_press(event):
                 return
-            # Drag the window when the cursor is not on a resize edge.
-            self.oldPos = event.globalPos()
+            if should_start_window_drag(
+                event.button(),
+                Qt.LeftButton,
+                self._is_title_bar_drag_position(event.globalPos()),
+            ):
+                self.oldPos = event.globalPos()
+                self._window_drag_active = False
     
     def mouseMoveEvent(self, event):
         # Handle active resizing.
@@ -393,20 +410,31 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             return
         # Handle dragging.
         if should_continue_window_drag(self.oldPos, event.buttons(), Qt.LeftButton):
+            global_pos = event.globalPos()
+            if not self._window_drag_active:
+                if not has_window_drag_started(
+                    self.oldPos,
+                    global_pos,
+                    QApplication.startDragDistance(),
+                ):
+                    return
+                self._window_drag_active = True
+
             # Restore before dragging while maximized.
             if self._is_maximized_state:
                 self.showNormal()
-                self.oldPos = event.globalPos()
+                self.oldPos = global_pos
                 return
-            delta = QPoint(event.globalPos() - self.oldPos)
+            delta = QPoint(global_pos - self.oldPos)
             self.move(self.x() + delta.x(), self.y() + delta.y())
-            self.oldPos = event.globalPos()
+            self.oldPos = global_pos
     
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             if self.resizable_mouse_release(event):
                 return
             self.oldPos = None
+            self._window_drag_active = False
     
     def mouseDoubleClickEvent(self, event):
         """Toggle maximize when the title bar is double-clicked."""

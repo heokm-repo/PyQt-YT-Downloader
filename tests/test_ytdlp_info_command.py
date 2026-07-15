@@ -17,7 +17,18 @@ class YtDlpInfoCommandTests(unittest.TestCase):
     def test_build_extract_info_command_starts_with_dump_json_options(self):
         cmd = build_extract_info_command("yt-dlp.exe", "https://example.invalid/video")
 
-        self.assertEqual(cmd, ["yt-dlp.exe", "--dump-json", "--no-warnings", "https://example.invalid/video"])
+        self.assertEqual(cmd, [
+            "yt-dlp.exe",
+            "--ignore-config",
+            "--no-plugin-dirs",
+            "--no-remote-components",
+            "--encoding",
+            "utf-8",
+            "--dump-json",
+            "--no-warnings",
+            "--",
+            "https://example.invalid/video",
+        ])
 
     def test_extract_flat_true_adds_flat_playlist(self):
         cmd = build_extract_info_command(
@@ -53,7 +64,7 @@ class YtDlpInfoCommandTests(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("--format") + 1], "best")
         self.assertEqual(cmd[cmd.index("--cookies") + 1], "cookies.txt")
         self.assertEqual(cmd[cmd.index("--js-runtimes") + 1], "node:C:/node.exe")
-        self.assertEqual(cmd[-1], "https://example.invalid/video")
+        self.assertEqual(cmd[-2:], ["--", "https://example.invalid/video"])
 
 
 if __name__ == "__main__":

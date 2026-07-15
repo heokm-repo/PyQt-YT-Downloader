@@ -24,10 +24,25 @@ class FakeCompletedProcess:
 
 
 class YtDlpWrapperOptionTests(unittest.TestCase):
-    def test_build_command_starts_with_newline_option(self):
+    def test_build_command_starts_with_isolation_options(self):
         cmd = YtDlpWrapper("yt-dlp.exe")._build_command("https://example.invalid", {}, False)
 
-        self.assertEqual(cmd[:2], ["yt-dlp.exe", "--newline"])
+        self.assertEqual(
+            cmd[:10],
+            [
+                "yt-dlp.exe",
+                "--ignore-config",
+                "--no-plugin-dirs",
+                "--no-remote-components",
+                "--encoding",
+                "utf-8",
+                "--newline",
+                "--progress",
+                "--print",
+                "after_move:__YTDLP_FINAL_PATH__:%(filepath)s",
+            ],
+        )
+        self.assertEqual(cmd[-2:], ["--", "https://example.invalid"])
 
     def test_build_command_maps_recode_audio_quality_and_postprocessor_args(self):
         cmd = YtDlpWrapper("yt-dlp.exe")._build_command(
@@ -55,6 +70,7 @@ class YtDlpWrapperOptionTests(unittest.TestCase):
 
         def fake_run(args, **kwargs):
             captured["args"] = args
+            captured["env"] = kwargs["env"]
             return FakeCompletedProcess()
 
         with patch.object(subprocess, "run", side_effect=fake_run):
@@ -66,6 +82,7 @@ class YtDlpWrapperOptionTests(unittest.TestCase):
         self.assertTrue(success)
         self.assertEqual(info["id"], "ok")
         self.assertIn("--flat-playlist", captured["args"])
+        self.assertEqual(captured["env"]["YTDLP_NO_PLUGINS"], "1")
 
     def test_extract_flat_in_playlist_does_not_add_flat_playlist(self):
         captured = {}

@@ -10,7 +10,7 @@ os.environ["APPDATA"] = TEST_APPDATA
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from core.ytdlp.wrapper import YtDlpWrapper
+from core.ytdlp.wrapper import YtDlpWrapper, _ytdlp_environment
 
 
 class FakeStdout:
@@ -33,6 +33,10 @@ class FakeProcess:
 
 
 class YtDlpWrapperLifecycleTests(unittest.TestCase):
+    def test_ytdlp_environment_disables_plugin_loading(self):
+        self.assertEqual(_ytdlp_environment()["YTDLP_NO_PLUGINS"], "1")
+        self.assertEqual(_ytdlp_environment()["PYTHONIOENCODING"], "utf-8")
+
     def test_stdout_progress_loop_tracks_current_file_and_completion(self):
         wrapper = YtDlpWrapper("yt-dlp.exe")
         events = []
@@ -41,6 +45,7 @@ class YtDlpWrapperLifecycleTests(unittest.TestCase):
                 "[download] Destination: sample.mp4\n",
                 "[download] 50.0% of 10.0MiB at 1.0MiB/s ETA 00:05\n",
                 "[download] 100% of 10.0MiB in 00:10\n",
+                "__YTDLP_FINAL_PATH__:C:/Downloads/한글 제목.mp4\n",
             ]
         )
 
@@ -51,6 +56,7 @@ class YtDlpWrapperLifecycleTests(unittest.TestCase):
         self.assertEqual(events[0]["status"], "downloading")
         self.assertEqual(events[0]["filename"], "sample.mp4")
         self.assertEqual(events[-1], {"status": "finished", "filename": "sample.mp4"})
+        self.assertEqual(wrapper.final_output_path, "C:/Downloads/한글 제목.mp4")
 
     def test_stdout_progress_loop_returns_stopped_when_stop_check_requests_stop(self):
         wrapper = YtDlpWrapper("yt-dlp.exe")

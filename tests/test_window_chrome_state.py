@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 
+from PyQt5.QtCore import QPoint
+
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SRC = os.path.join(ROOT, "src")
 TEST_APPDATA = os.path.join(ROOT, "tests", ".appdata")
@@ -16,7 +18,9 @@ from gui.main_window.chrome_state import (
     RESTORE_ICON_NAME,
     build_window_chrome_state,
     chrome_state_after_window_change,
+    has_window_drag_started,
     should_continue_window_drag,
+    should_start_window_drag,
     should_toggle_maximize_from_double_click,
 )
 
@@ -38,10 +42,20 @@ class WindowChromeStateTests(unittest.TestCase):
         self.assertEqual(state.layout_margins, (3, 3, 3, 3))
         self.assertEqual(state.maximize_icon_name, MAXIMIZE_ICON_NAME)
 
+    def test_should_start_window_drag_requires_title_bar_left_click(self):
+        self.assertTrue(should_start_window_drag("left", "left", True))
+        self.assertFalse(should_start_window_drag("left", "left", False))
+        self.assertFalse(should_start_window_drag("right", "left", True))
+
     def test_should_continue_window_drag_requires_previous_position_and_left_button(self):
         self.assertTrue(should_continue_window_drag("old-pos", "left", "left"))
         self.assertFalse(should_continue_window_drag(None, "left", "left"))
         self.assertFalse(should_continue_window_drag("old-pos", "right", "left"))
+
+    def test_has_window_drag_started_uses_movement_threshold(self):
+        self.assertFalse(has_window_drag_started(None, QPoint(0, 0), 4))
+        self.assertFalse(has_window_drag_started(QPoint(10, 10), QPoint(12, 11), 4))
+        self.assertTrue(has_window_drag_started(QPoint(10, 10), QPoint(13, 11), 4))
 
     def test_should_toggle_maximize_from_title_bar_double_click(self):
         self.assertTrue(

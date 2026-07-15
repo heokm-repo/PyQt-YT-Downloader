@@ -1,11 +1,13 @@
-"""App self-update helpers using the GitHub Releases API."""
+"""Application self-update helpers using the GitHub Releases API."""
 
 import os
-import sys
 import subprocess
+import sys
+
 import requests
 from packaging import version
 from packaging.version import InvalidVersion
+
 from constants import (
     APP_RELEASE_API_URL,
     APP_UPDATE_ASSET_EXTENSION,
@@ -19,10 +21,10 @@ from constants import (
     INNO_SETUP_INSTALL_ARGS,
     UPDATE_TEMP_FILENAME,
 )
+from utils.integrity import normalize_sha256_digest, verify_sha256
 from utils.logger import log
 
 
-# GitHub repository info.
 GITHUB_API_URL = APP_RELEASE_API_URL
 
 
@@ -34,147 +36,145 @@ def update_temp_dir() -> str:
             return temp_dir
     return APP_UPDATE_TEMP_FALLBACK_DIR
 
+
+def _select_update_asset(release_data: dict) -> dict | None:
+    """Prefer the Setup executable, then fall back to another EXE asset."""
+    assets = release_data.get("assets", [])
+    for asset in assets:
+        name = str(asset.get("name", ""))
+        if (
+            name.lower().startswith(APP_UPDATE_ASSET_PREFIX)
+            and name.lower().endswith(APP_UPDATE_ASSET_EXTENSION)
+        ):
+            return asset
+    for asset in assets:
+        name = str(asset.get("name", ""))
+        if name.lower().endswith(APP_UPDATE_ASSET_EXTENSION):
+            return asset
+    return None
+
+
 def check_for_updates():
-    """
-    Check the latest version through the GitHub API.
-    
-    Returns:
-        Tuple of update availability, latest version, and download URL; otherwise False, None, None.
-    """
+    """Return update availability, version, download URL, and trusted digest."""
     try:
-        log.info(f"앱 업데이트 확인 중: {GITHUB_API_URL}")
-        
-        # Call the GitHub API.
+        log.info("Checking for app updates")
         response = requests.get(GITHUB_API_URL, timeout=HTTP_API_TIMEOUT_SEC)
         response.raise_for_status()
-        
+
         release_data = response.json()
-        latest_version = release_data.get('tag_name', '').lstrip('v')  # 'v1.2.0' -> '1.2.0'
-        
+        latest_version = str(release_data.get("tag_name", "")).lstrip("v")
         if not latest_version:
-            log.warning("GitHub API에서 버전 정보를 찾을 수 없습니다.")
-            return False, None, None
-        
-        # Compare the current and latest versions.
-        current_ver = APP_VERSION.lstrip('v')
-        log.info(f"현재 버전: {current_ver}, 최신 버전: {latest_version}")
-        
-        if version.parse(latest_version) > version.parse(current_ver):
-            # Update available: prefer Setup assets.
-            assets = release_data.get('assets', [])
-            download_url = None
-            
-            for asset in assets:
-                name = asset['name']
-                # Prefer the Setup file.
-                if name.lower().startswith(APP_UPDATE_ASSET_PREFIX) and name.endswith(APP_UPDATE_ASSET_EXTENSION):
-                    download_url = asset['browser_download_url']
-                    break
-            
-            # If no Setup file exists, choose a regular exe file.
-            if not download_url:
-                for asset in assets:
-                    if asset['name'].endswith(APP_UPDATE_ASSET_EXTENSION):
-                        download_url = asset['browser_download_url']
-                        break
-            
-            if download_url:
-                log.info(f"업데이트 가능: {latest_version}, 다운로드 URL: {download_url}")
-                return True, latest_version, download_url
-            else:
-                log.warning("GitHub Release에서 exe 파일을 찾을 수 없습니다.")
-                return False, None, None
-        else:
-            # Already on the latest version.
-            log.info("이미 최신 버전입니다.")
-            return False, None, None
-            
-    except requests.exceptions.RequestException as e:
-        log.error(f"GitHub API 호출 실패: {e}", exc_info=True)
-        return False, None, None
-    except (InvalidVersion, KeyError, TypeError, ValueError) as e:
-        log.error(f"업데이트 확인 중 오류: {e}", exc_info=True)
-        return False, None, None
+            log.warning("GitHub release did not contain a version")
+            return False, None, None, None
+
+        current_version = APP_VERSION.lstrip("v")
+        log.info(f"Current version: {current_version}, latest version: {latest_version}")
+        if version.parse(latest_version) <= version.parse(current_version):
+            log.info("Application is already up to date")
+            return False, None, None, None
+
+        asset = _select_update_asset(release_data)
+        if not asset:
+            log.warning("GitHub release did not contain an installer executable")
+            return False, None, None, None
+
+        download_url = asset.get("browser_download_url")
+        expected_digest = asset.get("digest")
+        if not download_url or not normalize_sha256_digest(expected_digest):
+            log.error("App update asset is missing its URL or trusted SHA-256 digest")
+            return False, None, None, None
+
+        log.info(f"App update available: {latest_version}")
+        return True, latest_version, download_url, expected_digest
+
+    except requests.exceptions.RequestException as exc:
+        log.error(f"GitHub API request failed: {exc}", exc_info=True)
+    except (InvalidVersion, KeyError, TypeError, ValueError) as exc:
+        log.error(f"App update check failed: {exc}", exc_info=True)
+    return False, None, None, None
 
 
-def download_update(download_url, progress_callback=None):
-    """
-    Download the latest Setup file.
-    
-    Args:
-        download_url: Download URL.
-        progress_callback: Optional progress callback.
-    
-    Returns:
-        Downloaded file path, or None.
-    """
+def _remove_downloaded_update(file_path: str | None) -> None:
+    if not file_path:
+        return
     try:
-        log.info(f"업데이트 다운로드 시작: {download_url}")
-        
-        # Temporary file path.
-        temp_dir = update_temp_dir()
-        temp_file_path = os.path.join(temp_dir, UPDATE_TEMP_FILENAME)
-        
-        # Streaming download.
-        response = requests.get(download_url, stream=True, timeout=HTTP_DOWNLOAD_TIMEOUT_SEC)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except OSError as exc:
+        log.warning(f"Failed to remove untrusted update file: {exc}")
+
+
+def download_update(download_url, progress_callback=None, expected_digest=None):
+    """Download an installer and return its path only after SHA-256 verification."""
+    temp_file_path = None
+    try:
+        if not normalize_sha256_digest(expected_digest):
+            log.error("Missing trusted SHA-256 digest for app update")
+            return None
+
+        log.info("Starting app update download")
+        temp_file_path = os.path.join(update_temp_dir(), UPDATE_TEMP_FILENAME)
+
+        response = requests.get(
+            download_url,
+            stream=True,
+            timeout=HTTP_DOWNLOAD_TIMEOUT_SEC,
+        )
         response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
+
+        total_size = int(response.headers.get("content-length", 0))
         downloaded = 0
-        
-        with open(temp_file_path, 'wb') as f:
+        with open(temp_file_path, "wb") as file_handle:
             for chunk in response.iter_content(chunk_size=HTTP_DOWNLOAD_CHUNK_SIZE):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    
-                    # Progress callback.
-                    if progress_callback and total_size > 0:
-                        progress = int((downloaded / total_size) * 100)
-                        progress_callback(progress)
-        
-        log.info(f"업데이트 다운로드 완료: {temp_file_path}")
+                if not chunk:
+                    continue
+                file_handle.write(chunk)
+                downloaded += len(chunk)
+                if progress_callback and total_size > 0:
+                    progress_callback(int((downloaded / total_size) * 100))
+
+        if not verify_sha256(temp_file_path, expected_digest):
+            _remove_downloaded_update(temp_file_path)
+            return None
+
+        log.info(f"App update downloaded and verified: {temp_file_path}")
         return temp_file_path
-        
-    except (OSError, requests.exceptions.RequestException, ValueError) as e:
-        log.error(f"업데이트 다운로드 실패: {e}", exc_info=True)
+
+    except (
+        OSError,
+        RuntimeError,
+        requests.exceptions.RequestException,
+        ValueError,
+    ) as exc:
+        log.error(f"App update download failed: {exc}", exc_info=True)
+        _remove_downloaded_update(temp_file_path)
         return None
 
 
-def apply_update(setup_exe_path):
-    """
-    Apply an update with the downloaded Inno Setup installer.
-    
-    Args:
-        setup_exe_path: Setup installer path.
-    
-    Returns:
-        True on success.
-    """
+def apply_update(setup_exe_path, expected_digest=None):
+    """Start the verified Inno Setup installer in packaged builds."""
     try:
-        if not getattr(sys, 'frozen', False):
-            log.warning("개발 환경에서는 업데이트를 적용할 수 없습니다.")
+        if not getattr(sys, "frozen", False):
+            log.warning("App updates cannot be applied in a development environment")
             return False
-        
         if not os.path.exists(setup_exe_path):
-            log.error(f"Setup 파일을 찾을 수 없습니다: {setup_exe_path}")
+            log.error(f"Setup file not found: {setup_exe_path}")
             return False
-        
-        log.info(f"Inno Setup 사일런트 설치 실행: {setup_exe_path}")
-        
-        # Run the Inno Setup installer in silent mode.
-        # /SILENT: minimal UI showing progress only.
-        # /SUPPRESSMSGBOXES: suppress message boxes.
-        # /NORESTART: do not restart Windows.
-        # /CLOSEAPPLICATIONS: close the running app automatically.
+        if not verify_sha256(setup_exe_path, expected_digest):
+            log.error("Setup file failed the final SHA-256 check")
+            _remove_downloaded_update(setup_exe_path)
+            return False
+
         subprocess.Popen(
             [setup_exe_path, *INNO_SETUP_INSTALL_ARGS],
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            creationflags=(
+                subprocess.CREATE_NO_WINDOW
+                if hasattr(subprocess, "CREATE_NO_WINDOW")
+                else 0
+            ),
         )
-        
-        log.info("Setup 실행 완료, 앱 종료 예정...")
+        log.info("Verified setup installer started")
         return True
-        
-    except (OSError, subprocess.SubprocessError) as e:
-        log.error(f"업데이트 적용 실패: {e}", exc_info=True)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.error(f"Failed to apply app update: {exc}", exc_info=True)
         return False

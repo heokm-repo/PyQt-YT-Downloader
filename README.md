@@ -42,12 +42,19 @@ Current app version: `v2.1.2`
 - Additional UI languages: Korean(한국어), Japanese(日本語)
 - In-app YouTube login cookie storage
 - Automatic install/update flow for yt-dlp, FFmpeg, and QuickJS
-- App update check, license information, and installed-app uninstall support
+- App update check, license information, GitHub Sponsors link, and installed-app uninstall support
+- No in-app advertisements, tracking ad SDKs, or bundled adware
 
 ## Download
 
 Download the latest Windows executable from the
 [Releases](https://github.com/heokm-repo/PyQt-YT-Downloader/releases) page.
+
+## Funding
+
+This app does not include advertisements, tracking ad SDKs, or bundled adware.
+If you find it useful, you can support ongoing development through
+[GitHub Sponsors](https://github.com/sponsors/heokm-repo).
 
 ## Usage
 
@@ -67,7 +74,7 @@ Download the latest Windows executable from the
 - Maximum concurrent downloads
 - Audio normalization
 - Fragment download acceleration
-- App update check, license view, and uninstall
+- App update check, license view, GitHub Sponsors link, and uninstall
 
 ## Runtime Components
 

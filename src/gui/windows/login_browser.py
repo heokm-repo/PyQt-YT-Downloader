@@ -1,26 +1,30 @@
 """In-app YouTube login browser that uses QWebEngineView and saves cookies for yt-dlp."""
 import os
-import shutil
 from datetime import datetime
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QFrame)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QFont
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEngineSettings
+from PyQt5.QtWebEngineWidgets import (
+    QWebEnginePage,
+    QWebEngineProfile,
+    QWebEngineSettings,
+    QWebEngineView,
+)
 from PyQt5.QtNetwork import QNetworkCookie
 
 from constants import (
     COOKIE_FALLBACK_EXPIRY_SEC,
-    GOOGLE_ACCOUNTS_DOMAIN,
-    WEBENGINE_CACHE_DIR,
-    WEBENGINE_STORAGE_DIR,
-    YOUTUBE_DOMAIN_FRAGMENT,
     YOUTUBE_LOGIN_URL,
     YOUTUBE_ROBOTS_PATH_FRAGMENT,
     YOUTUBE_ROBOTS_URL,
 )
-from utils.utils import get_user_data_path
-from utils.cookie_store import get_cookie_file_path
+from utils.utils import is_youtube_url
+from utils.cookie_store import (
+    delete_webengine_storage,
+    get_cookie_file_path,
+    is_youtube_cookie_domain,
+)
 from utils.logger import log
 from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
@@ -82,13 +86,10 @@ class LoginBrowser(QDialog):
         self._load_login_page()
     
     def _setup_profile(self):
-        """Set up the web engine profile."""
-        profile = QWebEngineProfile.defaultProfile()
-        profile.setPersistentCookiesPolicy(QWebEngineProfile.AllowPersistentCookies)
-        
-        data_path = get_user_data_path()
-        profile.setPersistentStoragePath(os.path.join(data_path, WEBENGINE_STORAGE_DIR))
-        profile.setCachePath(os.path.join(data_path, WEBENGINE_CACHE_DIR))
+        """Use an off-the-record profile so login state is never persisted by WebEngine."""
+        self._profile = QWebEngineProfile(self)
+        self._profile.setHttpCacheType(QWebEngineProfile.NoCache)
+        self._profile.setPersistentCookiesPolicy(QWebEngineProfile.NoPersistentCookies)
     
     def _setup_ui(self):
         """Set up the UI."""
@@ -98,6 +99,7 @@ class LoginBrowser(QDialog):
         
         # Web engine view.
         self.web_view = QWebEngineView()
+        self.web_view.setPage(QWebEnginePage(self._profile, self.web_view))
         
         settings = self.web_view.settings()
         settings.setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
@@ -147,8 +149,7 @@ class LoginBrowser(QDialog):
     
     def _setup_cookie_capture(self):
         """Set up cookie capture."""
-        profile = QWebEngineProfile.defaultProfile()
-        cookie_store = profile.cookieStore()
+        cookie_store = self._profile.cookieStore()
         
         # Clear existing cookies so each flow starts from a fresh login session.
         cookie_store.deleteAllCookies()
@@ -187,7 +188,7 @@ class LoginBrowser(QDialog):
         
         if self._state == self.STATE_LOGIN:
             # Detect completed login when redirected to youtube.com.
-            if YOUTUBE_DOMAIN_FRAGMENT in url_str and GOOGLE_ACCOUNTS_DOMAIN not in url_str:
+            if is_youtube_url(url_str):
                 log.info(f"Login detected ({len(self._cookies)} cookies), starting cookie stabilization...")
                 self._state = self.STATE_STABILIZING
                 
@@ -212,7 +213,10 @@ class LoginBrowser(QDialog):
         self._state = self.STATE_READY
         self.web_view.loadFinished.disconnect(self._on_robots_loaded)
         
-        yt_count = len([c for c in self._cookies.values() if YOUTUBE_DOMAIN_FRAGMENT in c['domain']])
+        yt_count = len([
+            c for c in self._cookies.values()
+            if is_youtube_cookie_domain(c['domain'])
+        ])
         log.info(f"Cookie stabilization complete. Total: {len(self._cookies)}, YouTube: {yt_count}")
         
         self.status_label.setText(STR.MSG_LOGIN_SUCCESS)
@@ -224,7 +228,7 @@ class LoginBrowser(QDialog):
         # Keep only youtube.com domain cookies.
         yt_cookies = {
             k: v for k, v in self._cookies.items()
-            if YOUTUBE_DOMAIN_FRAGMENT in v['domain']
+            if is_youtube_cookie_domain(v['domain'])
         }
         
         log.info(f"Total cookies: {len(self._cookies)}, YouTube cookies: {len(yt_cookies)}")
@@ -233,14 +237,16 @@ class LoginBrowser(QDialog):
             log.warning("No YouTube cookies found")
             self.status_label.setText(STR.ERR_LOGIN_NO_COOKIES)
             self.status_label.setStyleSheet("color: #F44336; font-weight: bold; border: none;")
+            self._abort_login_session()
             return
         
         try:
             cookie_path = get_cookie_file_path()
             os.makedirs(os.path.dirname(cookie_path), exist_ok=True)
+            temp_cookie_path = f"{cookie_path}.tmp"
             
             saved_count = 0
-            with open(cookie_path, 'w', encoding='utf-8') as f:
+            with open(temp_cookie_path, 'w', encoding='utf-8') as f:
                 f.write("# Netscape HTTP Cookie File\n")
                 f.write(f"# Generated by YT Downloader at {datetime.now().isoformat()}\n")
                 f.write("# This file is auto-generated. Do not edit.\n\n")
@@ -256,6 +262,8 @@ class LoginBrowser(QDialog):
                     
                     f.write(f"{domain}\t{flag}\t{path}\t{secure}\t{expires}\t{name}\t{value}\n")
                     saved_count += 1
+
+            os.replace(temp_cookie_path, cookie_path)
             
             log.info(f"Cookies saved to: {cookie_path} ({saved_count} cookies)")
             
@@ -265,37 +273,54 @@ class LoginBrowser(QDialog):
             self.accept()
             
         except Exception as e:
+            temp_cookie_path = locals().get("temp_cookie_path")
+            if temp_cookie_path and os.path.exists(temp_cookie_path):
+                try:
+                    os.remove(temp_cookie_path)
+                except OSError as cleanup_error:
+                    log.debug(
+                        "Failed to remove temporary cookie file after save error: "
+                        f"{cleanup_error}"
+                    )
             log.error(f"Failed to save cookies: {e}", exc_info=True)
             self.status_label.setText(STR.ERR_LOGIN_SAVE_FAILED.format(error=e))
             self.status_label.setStyleSheet("color: #F44336; font-weight: bold; border: none;")
-    
+            self._abort_login_session()
+
     def _cleanup_webengine_data(self):
-        """Remove WebEngine cache and storage directories when cookies.txt is enough."""
-        data_path = get_user_data_path()
-        for folder in (WEBENGINE_CACHE_DIR, WEBENGINE_STORAGE_DIR):
-            path = os.path.join(data_path, folder)
-            if os.path.exists(path):
-                try:
-                    shutil.rmtree(path)
-                    log.info(f"Cleaned up {folder}")
-                except OSError as e:
-                    log.warning(f"Failed to clean up {folder}: {e}")
-    
-    
+        """Clear in-memory WebEngine data and remove storage left by older versions."""
+        try:
+            self._profile.cookieStore().deleteAllCookies()
+            self._profile.clearHttpCache()
+            self._profile.clearAllVisitedLinks()
+        except RuntimeError as exc:
+            log.debug(f"Failed to clear active WebEngine profile: {exc}")
+        self._cookies.clear()
+        delete_webengine_storage()
+
+    def _abort_login_session(self):
+        """Stop the page and clear browser state after cancellation or an error."""
+        self.save_btn.setEnabled(False)
+        try:
+            self.web_view.stop()
+            self.web_view.setUrl(QUrl("about:blank"))
+        except RuntimeError as exc:
+            log.debug(f"Failed to stop login page during cleanup: {exc}")
+        self._cleanup_webengine_data()
+
+    def reject(self):
+        """Discard all browser login state when the user cancels."""
+        self._abort_login_session()
+        super().reject()
+
     def closeEvent(self, event):
         """Clean up when the dialog closes."""
         try:
-            profile = QWebEngineProfile.defaultProfile()
-            cookie_store = profile.cookieStore()
+            cookie_store = self._profile.cookieStore()
             cookie_store.cookieAdded.disconnect(self._on_cookie_added)
             cookie_store.cookieRemoved.disconnect(self._on_cookie_removed)
         except (RuntimeError, TypeError) as e:
             log.debug(f"Failed to disconnect cookie signals during login browser close: {e}")
         
-        try:
-            self.web_view.stop()
-            self.web_view.setUrl(QUrl("about:blank"))
-        except RuntimeError as e:
-            log.debug(f"Failed to stop login browser web view during close: {e}")
-        
+        self._abort_login_session()
         super().closeEvent(event)

@@ -3,6 +3,7 @@ import os
 from typing import Optional, List, TYPE_CHECKING
 
 from utils.logger import log
+from utils.url_security import redact_url_for_log
 from constants import TaskStatus
 from locales.strings import STR
 from gui.dialogs.messages import ask_question, show_warning
@@ -137,7 +138,7 @@ class TaskActions:
         self.main_window.update_progress_ui()
 
     def retry_task(self, task_id: int) -> None:
-        """Retry a failed download task."""
+        """Retry or redownload a task from the beginning."""
         if not self.main_window.toggle_enabled:
             self.main_window.toggle_download()
 
@@ -170,7 +171,7 @@ class TaskActions:
             from PyQt5.QtWidgets import QApplication
             clipboard = QApplication.clipboard()
             clipboard.setText(task.url)
-            log.info(f"URL 복사됨: {task.url}")
+            log.info(f"URL 복사됨: {redact_url_for_log(task.url)}")
     
     def play_file(self, task_id: int) -> None:
         """Open a downloaded file."""
@@ -264,7 +265,7 @@ class TaskActions:
             self.resume_task(task_id)
     
     def retry_selected(self, selected_ids: List[int]) -> None:
-        """Retry selected failed tasks."""
+        """Retry selected failed or finished tasks."""
         for task_id in selected_task_ids_matching(
             selected_ids,
             self.main_window.tasks,
@@ -339,4 +340,3 @@ class TaskActions:
             self.main_window.remove_task_from_list(task_id)
             
         return True
-

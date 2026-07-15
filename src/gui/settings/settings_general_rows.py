@@ -39,8 +39,14 @@ def create_folder_picker_row(folder_path, browse_text, browse_callback):
     return layout, folder_line, browse_button
 
 
-def create_login_row(label_text, button_text, login_callback):
-    """Create the cookie/login row and return its layout."""
+def create_login_row(
+    label_text,
+    button_text,
+    login_callback,
+    logout_text=None,
+    logout_callback=None,
+):
+    """Create the cookie login/logout row and return its layout."""
     layout = QHBoxLayout()
     layout.setSpacing(10)
 
@@ -60,5 +66,16 @@ def create_login_row(label_text, button_text, login_callback):
     login_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
     login_button.clicked.connect(login_callback)
     layout.addWidget(login_button)
+
+    if logout_text and logout_callback:
+        logout_button = QPushButton(logout_text)
+        logout_button.setFixedHeight(SETTINGS_INPUT_HEIGHT)
+        set_text_button_minimum_width(logout_button)
+        logout_button.setCursor(Qt.PointingHandCursor)
+        logout_button.setDefault(False)
+        logout_button.setAutoDefault(False)
+        logout_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
+        logout_button.clicked.connect(logout_callback)
+        layout.addWidget(logout_button)
 
     return layout

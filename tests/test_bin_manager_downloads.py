@@ -1,4 +1,5 @@
 import os
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -30,7 +31,11 @@ class BinManagerDownloadsTests(unittest.TestCase):
                     patch.object(
                         bin_manager,
                         "check_ytdlp_latest_version",
-                        return_value=("2026.07.01", "https://example.test/yt-dlp.exe"),
+                        return_value=(
+                            "2026.07.01",
+                            "https://example.test/yt-dlp.exe",
+                            "sha256:" + hashlib.sha256(b"downloaded").hexdigest(),
+                        ),
                     ), \
                     patch.object(bin_manager, "download_file", side_effect=fake_download), \
                     patch.object(bin_manager, "load_versions", return_value={}), \
@@ -55,7 +60,11 @@ class BinManagerDownloadsTests(unittest.TestCase):
                     patch.object(
                         bin_manager,
                         "check_quickjs_latest_version",
-                        return_value=("2026.07.01", "https://example.test/qjs.exe"),
+                        return_value=(
+                            "2026.07.01",
+                            "https://example.test/qjs.exe",
+                            "sha256:" + hashlib.sha256(b"partial").hexdigest(),
+                        ),
                     ), \
                     patch.object(bin_manager, "download_file", side_effect=fake_download), \
                     patch.object(bin_manager, "save_versions", side_effect=lambda versions: saved.append(versions) or True):

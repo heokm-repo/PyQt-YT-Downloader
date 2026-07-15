@@ -14,6 +14,11 @@ from utils.dependency_checker import DependencySpec, check_startup_dependencies
 
 
 class StartupDependencyTests(unittest.TestCase):
+    def test_python_ytdlp_is_not_a_startup_dependency(self):
+        packages = {dependency.package for dependency in dependency_checker.REQUIRED_DEPENDENCIES}
+
+        self.assertNotIn("yt-dlp", packages)
+
     def test_main_defers_qt_widget_import_until_dependency_check(self):
         self.assertIsNone(main.QApplication)
         self.assertIsNone(main.QDialog)

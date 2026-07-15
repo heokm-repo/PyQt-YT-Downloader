@@ -135,6 +135,25 @@ class SettingsControlsTests(unittest.TestCase):
         self.assertEqual(button.minimumWidth(), expected_width)
         self.assertEqual(button.height(), SETTINGS_INPUT_HEIGHT)
 
+    def test_create_login_row_can_add_logout_button(self):
+        clicked = []
+        row = create_login_row(
+            "Cookies",
+            "Login",
+            lambda: clicked.append("login"),
+            "Logout",
+            lambda: clicked.append("logout"),
+        )
+
+        buttons = [
+            row.itemAt(index).widget()
+            for index in range(row.count())
+            if isinstance(row.itemAt(index).widget(), QPushButton)
+        ]
+        self.assertEqual([button.text() for button in buttons], ["Login", "Logout"])
+        buttons[1].click()
+        self.assertEqual(clicked, ["logout"])
+
     def test_create_version_row_contains_label_and_value(self):
         row = create_version_row("Version", "1.2.3")
 

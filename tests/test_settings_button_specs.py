@@ -19,13 +19,16 @@ from gui.settings.settings_button_specs import (
 
 class SettingsButtonSpecsTests(unittest.TestCase):
     def test_build_app_management_button_specs_returns_expected_order(self):
-        specs = build_app_management_button_specs("Update", "License", "Uninstall")
+        specs = build_app_management_button_specs(
+            "Update", "License", "Sponsor", "Uninstall"
+        )
 
         self.assertEqual(
             specs,
             [
                 SettingsButtonSpec("Update", "check_update", "update"),
                 SettingsButtonSpec("License", "license", "update"),
+                SettingsButtonSpec("Sponsor", "sponsor", "update"),
                 SettingsButtonSpec("Uninstall", "uninstall", "uninstall"),
             ],
         )

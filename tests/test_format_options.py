@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -10,7 +11,11 @@ os.environ["APPDATA"] = TEST_APPDATA
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from core.download.options import _build_format_options
+from core.download.options import (
+    AUDIO_EXTRACT_FFMPEG_ARGS_KEY,
+    _build_all_options,
+    _build_format_options,
+)
 from core.ytdlp.wrapper import YtDlpWrapper
 
 
@@ -136,6 +141,48 @@ class AudioOnlyFormatOptionsTests(unittest.TestCase):
 
         self.assertEqual(opts["format"], "bestaudio/best")
         self.assertEqual(opts["audio_quality"], "320k")
+
+    def test_mp3_postprocessor_args_are_scoped_to_extract_audio(self):
+        opts = _build_format_options({"format": "mp3", "audio_quality": "worst"})
+
+        self.assertEqual(
+            opts["postprocessor_args"],
+            {AUDIO_EXTRACT_FFMPEG_ARGS_KEY: ["-ac", "2"]},
+        )
+
+    def test_mp3_normalization_defers_conversion_to_app_ffmpeg_pass(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            opts = _build_all_options(
+                {"format": "mp3", "audio_quality": "worst", "normalize_audio": True},
+                tmpdir,
+                "ffmpeg.exe",
+                is_playlist=False,
+                progress_hook=lambda _: None,
+            )
+
+        self.assertEqual(opts["format"], "worstaudio/worst")
+        self.assertNotIn("extract_audio", opts)
+        self.assertNotIn("audio_format", opts)
+        self.assertNotIn("postprocessor_args", opts)
+
+    def test_video_normalization_does_not_inject_filter_into_ytdlp_merger(self):
+        mp4_opts = _build_format_options({
+            "format": "mp4",
+            "video_quality": "worst",
+            "audio_quality": "worst",
+            "normalize_audio": True,
+        })
+        webm_opts = _build_format_options({
+            "format": "webm",
+            "video_quality": "worst",
+            "audio_quality": "worst",
+            "normalize_audio": True,
+        })
+
+        self.assertEqual(mp4_opts["merge_output_format"], "mp4")
+        self.assertNotIn("postprocessor_args", mp4_opts)
+        self.assertNotIn("recode_video", webm_opts)
+        self.assertNotIn("postprocessor_args", webm_opts)
 
     def test_cli_maps_audio_quality_when_present(self):
         cmd = YtDlpWrapper("yt-dlp.exe")._build_command(

@@ -11,9 +11,17 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from core.youtube_url import _sanitize_url, extract_video_id, has_video_and_list
+from utils.utils import is_youtube_url
 
 
 class YoutubeUrlTests(unittest.TestCase):
+    def test_youtube_host_detection_uses_hostname_boundaries(self):
+        self.assertTrue(is_youtube_url("https://www.youtube.com/watch?v=video123"))
+        self.assertTrue(is_youtube_url("https://music.youtube.com/watch?v=video123"))
+        self.assertTrue(is_youtube_url("https://youtu.be/video123"))
+        self.assertFalse(is_youtube_url("https://youtube.com.example.test/watch?v=video123"))
+        self.assertFalse(is_youtube_url("https://example.test/?next=https://youtube.com/watch?v=video123"))
+
     def test_video_playlist_url_defaults_to_single_video(self):
         clean_url, is_playlist = _sanitize_url(
             "https://www.youtube.com/watch?v=video123&list=playlist456&index=2"
@@ -53,6 +61,7 @@ class YoutubeUrlTests(unittest.TestCase):
 
     def test_extract_video_id_ignores_non_youtube_url(self):
         self.assertIsNone(extract_video_id("https://example.invalid/watch?v=video123"))
+
     def test_non_youtube_url_is_returned_unchanged(self):
         url = "https://example.invalid/watch?v=video123&list=playlist456"
 

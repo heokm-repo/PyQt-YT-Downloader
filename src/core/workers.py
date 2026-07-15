@@ -2,7 +2,6 @@ import queue
 import threading
 from typing import Any, Dict, Optional, Tuple
 
-import yt_dlp
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from core.download import handler as download_handler
@@ -10,12 +9,18 @@ from core.download.file_finder import find_downloaded_file
 from core.worker_progress import apply_downloading_progress, apply_postprocessing_progress, format_speed
 from core.worker_queue import parse_task_wrapper
 from utils.logger import log
+from utils.url_security import redact_url_for_log
 from utils.settings_store import get_download_folder
 from constants import (
     MSG_PAUSED_BY_USER, QUEUE_TIMEOUT_SEC, STARTUP_STATUS_SETTLE_DELAY_SEC,
     STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING
 )
 from locales.strings import STR
+
+
+class DownloadInterruptedError(RuntimeError):
+    """Signal that the app requested the external download process to stop."""
+
 
 class PlaylistAnalysisWorker(QThread):
     """Worker thread for playlist analysis without freezing the UI."""
@@ -121,7 +126,10 @@ class DownloadWorker(QThread):
                 metadata = meta
                 self.metadata_fetched.emit(task_id, metadata)
             else:
-                log.warning(f"메타데이터 조회 실패 (task_id={task_id}): {url}")
+                log.warning(
+                    f"메타데이터 조회 실패 (task_id={task_id}): "
+                    f"{redact_url_for_log(url)}"
+                )
                 return metadata, False
         return metadata, True
 
@@ -189,7 +197,10 @@ class DownloadWorker(QThread):
                     if not is_youtube_url(url):
                         # Unsupported URL: fail immediately without trying to download.
                         error_msg = STR.ERR_UNSUPPORTED_URL
-                        log.error(f"지원되지 않는 URL (task_id={task_id}): {url}")
+                        log.error(
+                            f"지원되지 않는 URL (task_id={task_id}): "
+                            f"{redact_url_for_log(url)}"
+                        )
                         self.download_finished.emit(False, error_msg, task_id, "")
                         self.download_queue.task_done()
                         self.current_generation = None
@@ -247,19 +258,19 @@ class DownloadWorker(QThread):
     def _progress_hook(self, d: Dict[str, Any]) -> None:
         """Progress hook that works with concurrent_fragment_downloads."""
         if self.stop_event.is_set():
-            raise yt_dlp.utils.DownloadError(STR.WORKER_MSG_STOPPED)
+            raise DownloadInterruptedError(STR.WORKER_MSG_STOPPED)
         
         if not self.pause_event.is_set():
-            raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
+            raise DownloadInterruptedError(MSG_PAUSED_BY_USER)
         
         task_id = self.current_task_id
         scheduler = self.parent()
         if scheduler and hasattr(scheduler, 'is_task_cancelled'):
             if scheduler.is_task_cancelled(task_id):
-                raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
+                raise DownloadInterruptedError(MSG_PAUSED_BY_USER)
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
-                raise yt_dlp.utils.DownloadError(MSG_PAUSED_BY_USER)
+                raise DownloadInterruptedError(MSG_PAUSED_BY_USER)
 
         if d.get('filename'):
             self.current_output_path = d.get('filename')
@@ -301,7 +312,8 @@ class DownloadWorker(QThread):
 class StartupWorker(QThread):
     """Worker that runs heavy startup checks without blocking the main thread."""
     status_updated = pyqtSignal(str)
-    finished_checks = pyqtSignal(dict, tuple) # bin_updates, app_update_info (avail, latest, url)
+    # bin_updates, app_update_info (available, latest, URL, SHA-256 digest)
+    finished_checks = pyqtSignal(dict, tuple)
     error_occurred = pyqtSignal(str)
 
     def run(self):

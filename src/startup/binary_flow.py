@@ -10,7 +10,7 @@ from locales.strings import STR
 @dataclass(frozen=True)
 class StartupCheckResult:
     updates_available: dict
-    app_update_info: tuple[bool, str | None, str | None]
+    app_update_info: tuple[bool, str | None, str | None, str | None]
 
 
 def load_startup_language(logger: Any) -> None:
@@ -41,7 +41,11 @@ def run_startup_checks(dialog_factory: Callable[[], Any] | None = None) -> Start
     startup_dialog.exec_()
     return StartupCheckResult(
         updates_available=getattr(startup_dialog, "updates_available", {}),
-        app_update_info=getattr(startup_dialog, "app_update_info", (False, None, None)),
+        app_update_info=getattr(
+            startup_dialog,
+            "app_update_info",
+            (False, None, None, None),
+        ),
     )
 
 
@@ -141,7 +145,7 @@ def run_startup_binary_flow(
     accepted_result: int,
     show_error_message: Callable[[str, str, str], None],
     logger: Any,
-) -> tuple[bool, str | None, str | None]:
+) -> tuple[bool, str | None, str | None, str | None]:
     """Run startup language, external binary checks, and binary updates."""
     from utils.bin.manager import check_binaries_exist
 

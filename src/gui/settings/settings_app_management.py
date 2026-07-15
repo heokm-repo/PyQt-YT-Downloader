@@ -45,6 +45,7 @@ class UpdateCheckResult:
     latest_version: str
     download_url: str
     message: str
+    expected_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,7 @@ def build_update_check_result(
     current_version: str,
     latest_message: str,
     available_template: str,
+    expected_digest: str | None = None,
 ) -> UpdateCheckResult:
     """Build the message and data needed after checking for updates."""
     if update_available:
@@ -152,6 +154,7 @@ def build_update_check_result(
         latest_version=latest_version,
         download_url=download_url,
         message=message,
+        expected_digest=expected_digest,
     )
 
 
@@ -170,9 +173,9 @@ def build_update_completion_result(
 
 
 def run_update_flow(
-    check_for_updates: Callable[[], tuple[bool, str, str]],
-    download_update: Callable[[str], str | None],
-    apply_update: Callable[[str], bool],
+    check_for_updates: Callable[[], tuple[bool, str, str, str | None]],
+    download_update: Callable[[str, str | None], str | None],
+    apply_update: Callable[[str, str | None], bool],
     confirm_update: Callable[[UpdateCheckResult], bool],
     current_version: str,
     latest_message: str,
@@ -181,7 +184,7 @@ def run_update_flow(
     apply_error_message: str,
 ) -> UpdateFlowResult:
     """Run the non-UI update flow with injected side-effect functions."""
-    update_available, latest_version, download_url = check_for_updates()
+    update_available, latest_version, download_url, expected_digest = check_for_updates()
     check_result = build_update_check_result(
         update_available,
         latest_version,
@@ -189,6 +192,7 @@ def run_update_flow(
         current_version,
         latest_message,
         available_template,
+        expected_digest,
     )
 
     if not check_result.update_available:
@@ -197,8 +201,14 @@ def run_update_flow(
     if not confirm_update(check_result):
         return UpdateFlowResult(check_result, cancelled=True)
 
-    new_exe_path = download_update(check_result.download_url)
-    apply_succeeded = bool(new_exe_path) and apply_update(new_exe_path)
+    new_exe_path = download_update(
+        check_result.download_url,
+        check_result.expected_digest,
+    )
+    apply_succeeded = bool(new_exe_path) and apply_update(
+        new_exe_path,
+        check_result.expected_digest,
+    )
     completion = build_update_completion_result(
         new_exe_path,
         apply_succeeded,

@@ -1,4 +1,5 @@
 import os
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -43,6 +44,7 @@ class BinFfmpegDownloadTests(unittest.TestCase):
                 lambda: {},
                 lambda versions: True,
                 lambda downloaded, total: progress.append((downloaded, total)),
+                expected_digest="sha256:" + hashlib.sha256(b"zip").hexdigest(),
             )
 
             self.assertTrue(result)
@@ -86,10 +88,35 @@ class BinFfmpegDownloadTests(unittest.TestCase):
                 lambda: {},
                 lambda versions: True,
                 check_cancel=lambda: True,
+                expected_digest="sha256:" + hashlib.sha256(b"zip").hexdigest(),
             )
 
             self.assertFalse(result)
 
+        self.assertEqual(install_calls, [])
+
+    def test_download_and_install_ffmpeg_zip_rejects_digest_mismatch(self):
+        install_calls = []
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            def fake_download(url, dest_path, progress_callback=None, check_cancel=None):
+                Path(dest_path).write_bytes(b"tampered zip")
+                return True
+
+            result = download_and_install_ffmpeg_zip(
+                "2026.07.01",
+                "https://example.test/ffmpeg.zip",
+                "ffmpeg.exe",
+                ("ffmpeg.exe",),
+                lambda: tmpdir,
+                fake_download,
+                lambda *args: install_calls.append(args) or True,
+                lambda: {},
+                lambda versions: True,
+                expected_digest="sha256:" + "0" * 64,
+            )
+
+        self.assertFalse(result)
         self.assertEqual(install_calls, [])
 
 

@@ -1,8 +1,9 @@
 """Build yt-dlp CLI commands from option dictionaries."""
 
+import shlex
 from typing import Any
 
-from constants import YTDLP_RETRIES
+from constants import DEFAULT_ENCODING, YTDLP_FINAL_PATH_MARKER, YTDLP_RETRIES
 
 
 def build_command(
@@ -12,7 +13,18 @@ def build_command(
     options: dict[str, Any],
     is_resume: bool = False,
 ) -> list[str]:
-    args = [ytdlp_path, "--newline"]
+    args = [
+        ytdlp_path,
+        "--ignore-config",
+        "--no-plugin-dirs",
+        "--no-remote-components",
+        "--encoding",
+        DEFAULT_ENCODING,
+        "--newline",
+        "--progress",
+        "--print",
+        f"after_move:{YTDLP_FINAL_PATH_MARKER}%(filepath)s",
+    ]
 
     if "outtmpl" in options:
         args.extend(["--output", options["outtmpl"]])
@@ -69,6 +81,7 @@ def build_command(
     args.append("--continue")
     args.append("--fragment-retries")
     args.append(YTDLP_RETRIES)
+    args.append("--")
     args.append(url)
 
     return args
@@ -76,17 +89,15 @@ def build_command(
 
 def _add_postprocessor_args(args: list[str], options: dict[str, Any]) -> None:
     pp_args = options.get("postprocessor_args")
-    if not pp_args or "ffmpeg" not in pp_args:
+    if not pp_args:
         return
 
-    ffmpeg_args = pp_args["ffmpeg"]
-    i = 0
-    while i < len(ffmpeg_args):
-        arg = ffmpeg_args[i]
-        if i + 1 < len(ffmpeg_args):
-            value = ffmpeg_args[i + 1]
-            args.extend(["--postprocessor-args", f"ffmpeg:{arg} {value}"])
-            i += 2
-        else:
-            args.extend(["--postprocessor-args", f"ffmpeg:{arg}"])
-            i += 1
+    for postprocessor_key, postprocessor_args in pp_args.items():
+        if not postprocessor_args:
+            continue
+
+        if isinstance(postprocessor_args, str):
+            postprocessor_args = [postprocessor_args]
+
+        joined_args = shlex.join(str(arg) for arg in postprocessor_args)
+        args.extend(["--postprocessor-args", f"{postprocessor_key}:{joined_args}"])

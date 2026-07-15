@@ -56,6 +56,7 @@ EXT_YTDL = '.ytdl'
 YTDLP_TIMEOUT = 30
 YTDLP_RETRIES = '10'
 DEFAULT_ENCODING = 'utf-8'
+YTDLP_FINAL_PATH_MARKER = '__YTDLP_FINAL_PATH__:'
 
 # --- End Core Logic Constants ---
 
@@ -153,6 +154,7 @@ GITHUB_REPO_OWNER = "heokm-repo"
 GITHUB_REPO_NAME = "PyQt-YT-Downloader"
 GITHUB_API_BASE_URL = "https://api.github.com/repos"
 APP_RELEASE_API_URL = f"{GITHUB_API_BASE_URL}/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
+SPONSOR_URL = f"https://github.com/sponsors/{GITHUB_REPO_OWNER}"
 APP_UPDATE_ASSET_PREFIX = "setup"
 APP_UPDATE_ASSET_EXTENSION = ".exe"
 UPDATE_TEMP_FILENAME = "YTDownloader_Setup.exe"
@@ -213,6 +215,7 @@ PROCESS_MONITOR_INTERVAL_SEC = 0.1
 STARTUP_STATUS_SETTLE_DELAY_SEC = 0.1
 THREAD_JOIN_SHORT_TIMEOUT_SEC = 1
 YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC = 60
+FFMPEG_NORMALIZE_TIMEOUT_SEC = 24 * 60 * 60
 DOWNLOAD_DIALOG_AUTO_CLOSE_MS = 1000
 COOKIE_FALLBACK_EXPIRY_DAYS = 365
 SECONDS_PER_DAY = 24 * 60 * 60
@@ -254,7 +257,6 @@ STARTUP_REQUIRED_DEPENDENCY_SPECS = (
     ("requests", "requests"),
     ("packaging", "packaging"),
     ("qtawesome", "qtawesome"),
-    ("yt_dlp", "yt-dlp"),
 )
 STARTUP_OPTIONAL_DEPENDENCY_SPECS = (
     ("PyQt5.QtWebEngineWidgets", "PyQtWebEngine", "in-app login"),

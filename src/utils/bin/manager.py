@@ -101,7 +101,7 @@ def should_check_updates() -> bool:
     return should_check
 
 
-def check_ytdlp_latest_version() -> Tuple[Optional[str], Optional[str]]:
+def check_ytdlp_latest_version() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Check the latest yt-dlp release from GitHub."""
     return check_latest_github_release(
         YTDLP_API_URL,
@@ -111,7 +111,7 @@ def check_ytdlp_latest_version() -> Tuple[Optional[str], Optional[str]]:
     )
 
 
-def check_ffmpeg_latest_version() -> Tuple[Optional[str], Optional[str]]:
+def check_ffmpeg_latest_version() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Check the latest FFmpeg release from GitHub."""
     return check_latest_github_release(
         FFMPEG_API_URL,
@@ -126,7 +126,7 @@ def download_ytdlp(
     check_cancel: Optional[Callable[[], bool]] = None,
 ) -> bool:
     """Download and install yt-dlp.exe."""
-    version, url = check_ytdlp_latest_version()
+    version, url, digest = check_ytdlp_latest_version()
     return download_and_install_executable_binary(
         'yt-dlp',
         YTDLP_BINARY,
@@ -140,6 +140,7 @@ def download_ytdlp(
         save_versions,
         progress_callback,
         check_cancel,
+        expected_digest=digest,
     )
 
 
@@ -148,7 +149,7 @@ def download_ffmpeg(
     check_cancel: Optional[Callable[[], bool]] = None,
 ) -> bool:
     """Download and install ffmpeg.exe from a ZIP release asset."""
-    version, url = check_ffmpeg_latest_version()
+    version, url, digest = check_ffmpeg_latest_version()
     return download_and_install_ffmpeg_zip(
         version,
         url,
@@ -161,10 +162,11 @@ def download_ffmpeg(
         save_versions,
         progress_callback,
         check_cancel,
+        expected_digest=digest,
     )
 
 
-def check_quickjs_latest_version() -> Tuple[Optional[str], Optional[str]]:
+def check_quickjs_latest_version() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Check the latest QuickJS release from GitHub."""
     return check_latest_github_release(
         QUICKJS_API_URL,
@@ -179,7 +181,7 @@ def download_quickjs(
     check_cancel: Optional[Callable[[], bool]] = None,
 ) -> bool:
     """Download and install QuickJS (qjs.exe)."""
-    version, url = check_quickjs_latest_version()
+    version, url, digest = check_quickjs_latest_version()
     return download_and_install_executable_binary(
         'quickjs',
         QUICKJS_BINARY,
@@ -193,6 +195,7 @@ def download_quickjs(
         save_versions,
         progress_callback,
         check_cancel,
+        expected_digest=digest,
     )
 
 
@@ -202,9 +205,9 @@ def needs_update(binary_name: str) -> bool:
     local_version = versions.get(binary_name)
 
     if binary_name == 'yt-dlp':
-        latest_version, _ = check_ytdlp_latest_version()
+        latest_version, _, _ = check_ytdlp_latest_version()
     elif binary_name == 'ffmpeg':
-        latest_version, _ = check_ffmpeg_latest_version()
+        latest_version, _, _ = check_ffmpeg_latest_version()
     else:
         return False
 
@@ -219,8 +222,8 @@ def needs_update(binary_name: str) -> bool:
 def check_updates_available() -> Dict[str, Dict[str, str]]:
     """Check which managed binaries have available updates."""
     versions = load_versions()
-    latest_ytdlp, _ = check_ytdlp_latest_version()
-    latest_ffmpeg, _ = check_ffmpeg_latest_version()
+    latest_ytdlp, _, _ = check_ytdlp_latest_version()
+    latest_ffmpeg, _, _ = check_ffmpeg_latest_version()
     return collect_available_updates(
         versions,
         {
