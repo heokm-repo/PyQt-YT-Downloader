@@ -14,7 +14,7 @@ KEY_UNIVERSAL_COMPATIBILITY = 'universal_compatibility'
 KEY_LANGUAGE = 'language'
 
 # Defaults
-APP_VERSION = 'v2.2.0'  # App version
+APP_VERSION = 'v2.2.1'  # App version
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
