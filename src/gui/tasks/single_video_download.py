@@ -18,6 +18,12 @@ class SingleVideoDownloadPlan:
     duplicate_target: Optional[DuplicateCheckTarget]
 
 
+@dataclass(frozen=True)
+class SingleVideoDuplicateDecision:
+    cancelled: bool
+    duplicate_task: Any | None = None
+
+
 def build_single_video_download_plan(
     clean_url: str,
     video_id: Optional[str],
@@ -40,17 +46,17 @@ def build_single_video_download_plan(
     )
 
 
-def single_video_duplicate_cancelled(
+def review_single_video_duplicate(
     duplicate_checker: Any,
     duplicate_target: Optional[DuplicateCheckTarget],
     tasks: Sequence[Any],
     confirm_duplicate: Callable[[str], bool] | None = None,
-) -> bool:
-    """Return True when a duplicate single-video download should be cancelled."""
+) -> SingleVideoDuplicateDecision:
+    """Return the confirmation result and any active duplicate task."""
     if not duplicate_target:
-        return False
+        return SingleVideoDuplicateDecision(False)
 
-    is_duplicate, message, _duplicate_task = duplicate_checker.is_duplicate(
+    is_duplicate, message, duplicate_task = duplicate_checker.is_duplicate(
         duplicate_target.extractor,
         duplicate_target.video_id,
         -1,
@@ -58,9 +64,27 @@ def single_video_duplicate_cancelled(
         duplicate_target.target_format,
     )
     if not is_duplicate:
-        return False
+        return SingleVideoDuplicateDecision(False)
 
     if confirm_duplicate is None:
-        return True
+        return SingleVideoDuplicateDecision(True, duplicate_task)
 
-    return not confirm_duplicate(message)
+    return SingleVideoDuplicateDecision(
+        not confirm_duplicate(message),
+        duplicate_task,
+    )
+
+
+def single_video_duplicate_cancelled(
+    duplicate_checker: Any,
+    duplicate_target: Optional[DuplicateCheckTarget],
+    tasks: Sequence[Any],
+    confirm_duplicate: Callable[[str], bool] | None = None,
+) -> bool:
+    """Compatibility wrapper returning only the cancellation decision."""
+    return review_single_video_duplicate(
+        duplicate_checker,
+        duplicate_target,
+        tasks,
+        confirm_duplicate,
+    ).cancelled

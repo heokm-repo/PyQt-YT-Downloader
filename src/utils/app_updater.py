@@ -23,9 +23,14 @@ from constants import (
 )
 from utils.integrity import normalize_sha256_digest, verify_sha256
 from utils.logger import log
+from utils.url_security import redact_urls_in_text
 
 
 GITHUB_API_URL = APP_RELEASE_API_URL
+
+
+class AppUpdateCheckError(RuntimeError):
+    """Raised when an application update check cannot complete reliably."""
 
 
 def update_temp_dir() -> str:
@@ -54,44 +59,86 @@ def _select_update_asset(release_data: dict) -> dict | None:
     return None
 
 
+def _check_for_updates():
+    """Return update information while preserving errors for strict callers."""
+    log.info("Checking for app updates")
+    response = requests.get(GITHUB_API_URL, timeout=HTTP_API_TIMEOUT_SEC)
+    response.raise_for_status()
+
+    release_data = response.json()
+    if not isinstance(release_data, dict):
+        raise AppUpdateCheckError("GitHub release response was not an object")
+
+    latest_version = str(release_data.get("tag_name", "")).lstrip("v")
+    if not latest_version:
+        raise AppUpdateCheckError("GitHub release did not contain a version")
+
+    current_version = APP_VERSION.lstrip("v")
+    log.info(f"Current version: {current_version}, latest version: {latest_version}")
+    if version.parse(latest_version) <= version.parse(current_version):
+        log.info("Application is already up to date")
+        return False, None, None, None
+
+    asset = _select_update_asset(release_data)
+    if not asset:
+        raise AppUpdateCheckError(
+            "GitHub release did not contain an installer executable"
+        )
+
+    download_url = asset.get("browser_download_url")
+    expected_digest = asset.get("digest")
+    if not download_url or not normalize_sha256_digest(expected_digest):
+        raise AppUpdateCheckError(
+            "App update asset is missing its URL or trusted SHA-256 digest"
+        )
+
+    log.info(f"App update available: {latest_version}")
+    return True, latest_version, download_url, expected_digest
+
+
+def _app_update_check_error(exc: Exception) -> AppUpdateCheckError:
+    """Normalize low-level update failures for logs and user-visible status."""
+    if isinstance(exc, AppUpdateCheckError):
+        return exc
+    if isinstance(exc, requests.exceptions.RequestException):
+        prefix = "GitHub API request failed"
+    else:
+        prefix = "App update check failed"
+    return AppUpdateCheckError(
+        f"{prefix}: {redact_urls_in_text(exc)}"
+    )
+
+
 def check_for_updates():
-    """Return update availability, version, download URL, and trusted digest."""
+    """Return update availability, logging and suppressing check failures."""
     try:
-        log.info("Checking for app updates")
-        response = requests.get(GITHUB_API_URL, timeout=HTTP_API_TIMEOUT_SEC)
-        response.raise_for_status()
+        return _check_for_updates()
+    except (
+        AppUpdateCheckError,
+        InvalidVersion,
+        KeyError,
+        TypeError,
+        ValueError,
+        requests.exceptions.RequestException,
+    ) as exc:
+        error = _app_update_check_error(exc)
+        log.error(str(error), exc_info=True)
+        return False, None, None, None
 
-        release_data = response.json()
-        latest_version = str(release_data.get("tag_name", "")).lstrip("v")
-        if not latest_version:
-            log.warning("GitHub release did not contain a version")
-            return False, None, None, None
 
-        current_version = APP_VERSION.lstrip("v")
-        log.info(f"Current version: {current_version}, latest version: {latest_version}")
-        if version.parse(latest_version) <= version.parse(current_version):
-            log.info("Application is already up to date")
-            return False, None, None, None
-
-        asset = _select_update_asset(release_data)
-        if not asset:
-            log.warning("GitHub release did not contain an installer executable")
-            return False, None, None, None
-
-        download_url = asset.get("browser_download_url")
-        expected_digest = asset.get("digest")
-        if not download_url or not normalize_sha256_digest(expected_digest):
-            log.error("App update asset is missing its URL or trusted SHA-256 digest")
-            return False, None, None, None
-
-        log.info(f"App update available: {latest_version}")
-        return True, latest_version, download_url, expected_digest
-
-    except requests.exceptions.RequestException as exc:
-        log.error(f"GitHub API request failed: {exc}", exc_info=True)
-    except (InvalidVersion, KeyError, TypeError, ValueError) as exc:
-        log.error(f"App update check failed: {exc}", exc_info=True)
-    return False, None, None, None
+def check_for_updates_strict():
+    """Return update information or raise a user-visible check failure."""
+    try:
+        return _check_for_updates()
+    except (
+        AppUpdateCheckError,
+        InvalidVersion,
+        KeyError,
+        TypeError,
+        ValueError,
+        requests.exceptions.RequestException,
+    ) as exc:
+        raise _app_update_check_error(exc) from exc
 
 
 def _remove_downloaded_update(file_path: str | None) -> None:

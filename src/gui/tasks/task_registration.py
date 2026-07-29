@@ -5,6 +5,7 @@ from typing import Any, Callable, Mapping, MutableMapping, MutableSequence, Opti
 
 from data.models import DownloadTask
 from gui.tasks.task_widget_registry import create_registered_task_widget
+from gui.tasks.task_workspace_payload import build_workspace_execution_settings
 
 
 NORMAL_TASK_PRIORITY = 3
@@ -80,10 +81,19 @@ def register_download_task(
     )
 
     tasks.append(registration.task)
+    execution_settings = build_workspace_execution_settings(
+        registration.task,
+        registration.settings,
+        resume=False,
+    )
     scheduler.add_task(
         registration.scheduler_priority,
         task_id,
         url,
-        registration.settings,
+        execution_settings,
+        {
+            "id": registration.task.video_id,
+            "extractor": registration.task.extractor,
+        },
     )
     return registration.task

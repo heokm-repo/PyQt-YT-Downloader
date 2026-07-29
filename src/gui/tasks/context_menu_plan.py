@@ -54,15 +54,27 @@ def build_context_menu_visibility(
     count = len(selected_task_list)
     flags = context_menu_status_flags(selected_task_list)
     single_finished = flags.finished and count == 1
+    single_has_output = (
+        count == 1
+        and getattr(selected_task_list[0], "status", None)
+        in (TaskStatus.FAILED, TaskStatus.PAUSED)
+        and bool(getattr(selected_task_list[0], "output_path", ""))
+    )
+    any_has_output = any(
+        getattr(task, "status", None) in (TaskStatus.FAILED, TaskStatus.PAUSED)
+        and bool(getattr(task, "output_path", ""))
+        for task in selected_task_list
+    )
+    single_file_action = single_finished or single_has_output
 
     return ContextMenuVisibility(
-        play=single_finished,
-        open_folder=single_finished,
+        play=single_file_action,
+        open_folder=single_file_action,
         copy_url=count == 1,
         pause=flags.downloading or flags.waiting,
         resume=flags.paused,
         retry=flags.failed or flags.finished,
-        delete_file=flags.finished,
+        delete_file=flags.finished or any_has_output,
         remove=True,
         remove_completed=has_completed_task(all_tasks or []),
     )

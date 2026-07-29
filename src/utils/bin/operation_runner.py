@@ -11,8 +11,7 @@ NamedProgress = Callable[[str, int, int], None]
 CancelCheck = Callable[[], bool]
 BinaryDownloader = Callable[[Optional[BinaryProgress], Optional[CancelCheck]], bool]
 NeedsUpdate = Callable[[str], bool]
-SaveLastCheck = Callable[[], bool]
-InitialDownloadSpec = tuple[str, BinaryDownloader, str, bool]
+InitialDownloadSpec = tuple[str, BinaryDownloader, str]
 UpdateSpec = tuple[str, BinaryDownloader]
 
 
@@ -22,9 +21,8 @@ def download_initial_binary(
     progress_callback: Optional[NamedProgress],
     check_cancel: Optional[CancelCheck],
     failure_message: str,
-    required: bool = True,
 ) -> bool:
-    """Download one initial binary and handle required/optional failures."""
+    """Download one required initial binary."""
     success = downloader(
         scoped_progress_callback(binary_name, progress_callback),
         check_cancel,
@@ -32,12 +30,8 @@ def download_initial_binary(
     if success:
         return True
 
-    if required:
-        log.error(failure_message)
-        return False
-
-    log.warning(failure_message)
-    return True
+    log.error(failure_message)
+    return False
 
 
 def run_initial_binary_downloads(
@@ -48,7 +42,7 @@ def run_initial_binary_downloads(
     """Download initial binaries in order, stopping on required failures."""
     log.info("Starting initial binary download")
 
-    for binary_name, downloader, failure_message, required in specs:
+    for binary_name, downloader, failure_message in specs:
         if check_cancel and check_cancel():
             return False
 
@@ -58,7 +52,6 @@ def run_initial_binary_downloads(
             progress_callback,
             check_cancel,
             failure_message,
-            required=required,
         ):
             return False
 
@@ -91,11 +84,10 @@ def run_binary_updates(
     initial_results: Mapping[str, bool],
     updates_to_apply: Optional[Mapping[str, Any]],
     needs_update: NeedsUpdate,
-    save_last_check: SaveLastCheck,
     progress_callback: Optional[NamedProgress],
     check_cancel: Optional[CancelCheck],
 ) -> dict[str, bool]:
-    """Update selected binaries and persist a final update-check timestamp."""
+    """Update the selected managed binaries."""
     results = dict(initial_results)
     log.info("Checking for binary updates")
 
@@ -119,8 +111,5 @@ def run_binary_updates(
 
         if index != last_index and check_cancel and check_cancel():
             return results
-
-    if not (check_cancel and check_cancel()):
-        save_last_check()
 
     return results

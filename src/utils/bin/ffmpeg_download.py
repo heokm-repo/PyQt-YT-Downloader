@@ -17,6 +17,8 @@ InstallFfmpeg = Callable[
         str,
         str,
         str,
+        str,
+        tuple[str, ...],
         tuple[str, ...],
         Callable[[], Mapping[str, Any]],
         Callable[[dict[str, Any]], bool],
@@ -28,8 +30,10 @@ InstallFfmpeg = Callable[
 def download_and_install_ffmpeg_zip(
     version: Optional[str],
     url: Optional[str],
-    executable_name: str,
-    member_suffixes: tuple[str, ...],
+    ffmpeg_name: str,
+    ffprobe_name: str,
+    ffmpeg_member_suffixes: tuple[str, ...],
+    ffprobe_member_suffixes: tuple[str, ...],
     get_bin_path: Callable[[], str],
     download_file: DownloadFile,
     install_ffmpeg_from_zip: InstallFfmpeg,
@@ -59,13 +63,16 @@ def download_and_install_ffmpeg_zip(
         if not verify_sha256(temp_zip_path, expected_digest):
             return False
 
-        final_path = os.path.join(bin_path, executable_name)
-        log.info(f"Extracting ffmpeg from {temp_zip_path}")
+        ffmpeg_path = os.path.join(bin_path, ffmpeg_name)
+        ffprobe_path = os.path.join(bin_path, ffprobe_name)
+        log.info(f"Extracting FFmpeg tools from {temp_zip_path}")
         return install_ffmpeg_from_zip(
             temp_zip_path,
-            final_path,
+            ffmpeg_path,
+            ffprobe_path,
             version,
-            member_suffixes,
+            ffmpeg_member_suffixes,
+            ffprobe_member_suffixes,
             load_versions,
             save_versions,
         )

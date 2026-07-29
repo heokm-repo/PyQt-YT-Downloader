@@ -20,11 +20,6 @@ class UrlProcessor:
     """Generic URL processor."""
 
     @staticmethod
-    def extract_video_id(url: str) -> Optional[str]:
-        """Extract a YouTube video ID while preserving the existing API."""
-        return get_youtube_video_id(url)
-
-    @staticmethod
     def requires_playlist_preference(url: str) -> bool:
         """Return whether a YouTube URL needs a playlist/video preference."""
         return bool(url and validate_url(url) and is_youtube_url(url) and has_video_and_list(url))
@@ -72,7 +67,7 @@ class UrlProcessor:
         # Extract video_id for single-video URLs.
         video_id = None
         if not is_playlist:
-            video_id = UrlProcessor.extract_video_id(clean_url)
+            video_id = get_youtube_video_id(clean_url)
             log.debug(f"Extracted video_id: {video_id}")
 
         return UrlProcessResult(clean_url, is_playlist, video_id, extractor='youtube')

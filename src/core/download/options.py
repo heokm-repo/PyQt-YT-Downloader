@@ -1,28 +1,39 @@
 """yt-dlp option builder helpers."""
 
 import os
-import re
-from dataclasses import dataclass
 
 from constants import (
-    AUDIO_CHANNELS,
     AUDIO_FORMATS,
     CONCURRENT_FRAGMENT_DOWNLOADS,
     DEFAULT_AUDIO_QUALITY,
     DEFAULT_FORMAT,
-    DEFAULT_VIDEO_QUALITY,
-    FORMAT_BESTAUDIO,
+    KEY_UNIVERSAL_COMPATIBILITY,
     OUTPUT_TEMPLATE,
-    YTDL_TEMP_DIR,
 )
+from core.download.quality_policy import (
+    build_audio_quality_profile,
+    build_video_source_selector,
+)
+from core.download.audio_source_policy import build_audio_source_policy
 from utils.logger import log
 from utils.utils import is_youtube_url
+from core.download.temp_workspace import task_temp_path
+from core.download.workspace_identity import is_workspace_id
+from core.download.workspace_migration import prepare_task_workspace
 
 
-AUDIO_EXTRACT_FFMPEG_ARGS_KEY = 'ExtractAudio+ffmpeg_o'
+REMUX_VIDEO_FORMATS = frozenset(('mp4', 'mkv'))
 
 
-def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings=None, is_resume=False):
+def _build_base_options(
+    save_path,
+    ffmpeg_path,
+    is_playlist,
+    settings=None,
+    is_resume=False,
+    url=None,
+    temp_identity=None,
+):
     """
     Build base yt-dlp options.
     
@@ -30,7 +41,6 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
         save_path: Output directory.
         ffmpeg_path: Optional FFmpeg executable path.
         is_playlist: Whether the task is a playlist.
-        progress_hook: Progress callback.
         settings: Optional settings dictionary.
         is_resume: Whether the task is resuming.
     
@@ -43,18 +53,33 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
     
     opts = {
         'outtmpl': output_template,
-        'home_path': save_path,  # Used by --paths home: as the base output directory.
-        'progress_hooks': [progress_hook],
         'noplaylist': not is_playlist,
-        'quiet': True,
-        'no_warnings': True,
-        'keepvideo': False,  # Important: delete source temporary files after merging.
     }
     
-    # Dedicated temporary file directory (.ytdl_temp).
-    temp_path = os.path.join(save_path, YTDL_TEMP_DIR)
+    # Isolate concurrent downloads while keeping resume paths deterministic.
+    identity = temp_identity or {}
+    workspace_id = identity.get("workspace_id")
+    if is_workspace_id(workspace_id):
+        preparation = prepare_task_workspace(
+            save_path,
+            str(workspace_id),
+            migrate_legacy=(
+                is_resume and identity.get("legacy_workspace") is True
+            ),
+            legacy_identity=identity.get("legacy_identity"),
+        )
+        temp_path = preparation.workspace_path
+    else:
+        # Keep direct option-builder callers compatible with pre-UUID tasks.
+        temp_path = task_temp_path(
+            save_path,
+            identity.get("extractor", "unknown"),
+            identity.get("id") or url,
+            (settings or {}).get("format", DEFAULT_FORMAT),
+        )
     os.makedirs(temp_path, exist_ok=True)
     opts['temp_path'] = temp_path
+    opts['home_path'] = temp_path
     
     # Allow overwrites only when this is not a resume operation.
     # Keep .part files when resuming.
@@ -69,103 +94,51 @@ def _build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, sett
     return opts
 
 
-@dataclass(frozen=True)
-class AudioQualityProfile:
-    source_format: str
-    source_selectors: list[str]
-    encoder_quality: str
-    webm_recode_bitrate: str | None
-
-
-def _build_audio_quality_profile(value):
-    quality = str(value or DEFAULT_AUDIO_QUALITY).strip().lower()
-    match = re.fullmatch(r'(\d+)\s*k?', quality)
-    bitrate = match.group(1) if match else None
-
-    if quality == 'worst':
-        return AudioQualityProfile(
-            source_format='worstaudio/worst',
-            source_selectors=['worstaudio'],
-            encoder_quality='10',
-            webm_recode_bitrate='48k',
-        )
-
-    if bitrate:
-        return AudioQualityProfile(
-            source_format=FORMAT_BESTAUDIO,
-            source_selectors=[f'bestaudio[abr<={bitrate}]', 'bestaudio'],
-            encoder_quality=quality,
-            webm_recode_bitrate=f'{bitrate}k',
-        )
-
-    return AudioQualityProfile(
-        source_format=FORMAT_BESTAUDIO,
-        source_selectors=['bestaudio'],
-        encoder_quality='0' if quality == 'best' else quality,
-        webm_recode_bitrate=None,
-    )
-
-
-def _combine_video_audio_format(video_selector, audio_selectors, fallback_selector):
-    choices = [f'{video_selector}+{audio_selector}' for audio_selector in audio_selectors]
-    choices.append(fallback_selector)
-    return '/'.join(choices)
-
-
 def _build_format_options(settings):
     """
     Build yt-dlp format options from the selected container, video quality,
     and audio quality settings.
     """
     opts = {}
-    fmt = settings.get('format', DEFAULT_FORMAT)
+    fmt = str(settings.get('format', DEFAULT_FORMAT)).strip().lower()
+    if settings.get(KEY_UNIVERSAL_COMPATIBILITY) and fmt not in {"mp4", "mp3"}:
+        fmt = "mp4"
     normalize_audio = bool(settings.get('normalize_audio'))
-    audio_profile = _build_audio_quality_profile(settings.get('audio_quality', DEFAULT_AUDIO_QUALITY))
+    requested_audio_quality = (
+        DEFAULT_AUDIO_QUALITY
+        if fmt == 'wav'
+        else settings.get('audio_quality', DEFAULT_AUDIO_QUALITY)
+    )
+    audio_profile = build_audio_quality_profile(requested_audio_quality)
+    audio_policy = build_audio_source_policy(fmt, requested_audio_quality)
 
     if fmt in AUDIO_FORMATS:
-        opts['format'] = audio_profile.source_format
-        if not normalize_audio:
-            audio_channels = settings.get('audio_channels', AUDIO_CHANNELS)
-            opts.update({
-                'extract_audio': True,
-                'audio_format': fmt,
-                'audio_quality': audio_profile.encoder_quality,
-                'postprocessor_args': {AUDIO_EXTRACT_FFMPEG_ARGS_KEY: ['-ac', str(audio_channels)]}
-            })
-    else:
-        q = settings.get('video_quality', DEFAULT_VIDEO_QUALITY)
-
-        if q in ('best', 'worst'):
-            video_selector = f'{q}video'
-            opts['format'] = _combine_video_audio_format(video_selector, audio_profile.source_selectors, q)
+        if fmt in {"mp3", "wav"}:
+            opts['format'] = audio_profile.source_format
         else:
-            # Extract numeric height from values like '1080p'.
-            height = ''.join(filter(str.isdigit, q))
-            if height:
-                video_selector = f'bestvideo[height<={height}]'
-                fallback_selector = f'best[height<={height}]'
-                opts['format'] = _combine_video_audio_format(
-                    video_selector, audio_profile.source_selectors, fallback_selector
-                )
-            else:
-                # Fall back to the default quality if parsing fails.
-                fallback_quality = DEFAULT_VIDEO_QUALITY
-                video_selector = f'{fallback_quality}video'
-                opts['format'] = _combine_video_audio_format(
-                    video_selector, audio_profile.source_selectors, fallback_quality
-                )
+            opts['format'] = audio_policy.audio_only_selector
+    else:
+        source_selector, format_sort = build_video_source_selector(
+            settings.get('video_quality'),
+            audio_policy,
+        )
+        opts['format'] = source_selector
+        if format_sort:
+            # yt-dlp defines "res" as the smaller video dimension, so the
+            # quality cap works consistently for landscape and portrait video.
+            opts['format_sort'] = format_sort
 
         if fmt == 'webm':
-            # When normalization is enabled, the app performs the WebM conversion
-            # and loudness filter together in one external FFmpeg pass.
-            if not normalize_audio:
-                opts['recode_video'] = 'webm'
-                if audio_profile.webm_recode_bitrate:
-                    opts['postprocessor_args'] = {'ffmpeg': ['-b:a', audio_profile.webm_recode_bitrate]}
-        else:
-            opts['merge_output_format'] = fmt
+            # The app owns the exact-path WebM pass. This lets it copy compatible
+            # streams and encode only the incompatible streams or requested audio.
+            return opts
+
+        opts['merge_output_format'] = fmt
+        if fmt in REMUX_VIDEO_FORMATS:
+            opts['remux_video'] = fmt
 
     return opts
+
 
 def _build_advanced_options(settings, url: str | None = None):
     """
@@ -212,6 +185,7 @@ def _add_runtime_extract_options(
     opts: dict,
     settings: dict | None = None,
     url: str | None = None,
+    temp_identity: dict | None = None,
 ) -> dict:
     advanced_opts = _build_advanced_options(settings or {}, url)
     for key in ("cookiefile", "js_runtimes"):
@@ -248,14 +222,24 @@ def _build_all_options(
     save_path,
     ffmpeg_path,
     is_playlist,
-    progress_hook,
     is_resume=False,
     url: str | None = None,
+    temp_identity: dict | None = None,
 ) -> dict:
     """Assemble the final yt-dlp options dictionary."""
     # Merge base options.
     ydl_opts = {}
-    ydl_opts.update(_build_base_options(save_path, ffmpeg_path, is_playlist, progress_hook, settings, is_resume))
+    ydl_opts.update(
+        _build_base_options(
+            save_path,
+            ffmpeg_path,
+            is_playlist,
+            settings,
+            is_resume,
+            url,
+            temp_identity,
+        )
+    )
     ydl_opts.update(_build_format_options(settings))
     ydl_opts.update(_build_advanced_options(settings, url))
     

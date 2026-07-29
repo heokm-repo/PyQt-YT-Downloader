@@ -43,7 +43,13 @@ def load_versions_file(version_file: str) -> dict[str, Any]:
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            versions = json.load(f)
+        if not isinstance(versions, dict):
+            return {}
+        if "last_check" in versions:
+            versions.pop("last_check")
+            save_versions_file(versions, version_file)
+        return versions
     except (json.JSONDecodeError, IOError) as e:
         log.error(f"Failed to load version file: {e}")
         return {}
@@ -54,8 +60,10 @@ def save_versions_file(versions: Mapping[str, Any], version_file: str) -> bool:
     path = version_file_path(version_file)
 
     try:
+        version_data = dict(versions)
+        version_data.pop("last_check", None)
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump(dict(versions), f, indent=2, ensure_ascii=False)
+            json.dump(version_data, f, indent=2, ensure_ascii=False)
         return True
     except IOError as e:
         log.error(f"Failed to save version file: {e}")

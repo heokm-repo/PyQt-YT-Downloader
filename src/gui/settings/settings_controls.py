@@ -242,6 +242,27 @@ def create_format_combo(
     return combo
 
 
+def set_compatibility_format_mode(combo: QComboBox, enabled: bool) -> None:
+    """Limit an existing format combo to MP4 and MP3 while compatibility is on."""
+    from constants import FORMAT_OPTIONS
+    from gui.settings.settings_format_options import (
+        COMPATIBILITY_FORMATS,
+        normalized_compatibility_format,
+    )
+
+    if enabled:
+        combo.setCurrentText(normalized_compatibility_format(combo.currentText()))
+
+    model = combo.model()
+    for row in range(model.rowCount()):
+        item = model.item(row)
+        if item is None:
+            continue
+        label = item.text().strip().lower()
+        if label in FORMAT_OPTIONS:
+            item.setEnabled(not enabled or label in COMPATIBILITY_FORMATS)
+
+
 def create_version_row(label_text: str, version_text: str) -> QHBoxLayout:
     """Create the app-version row for the app-management tab."""
     layout = QHBoxLayout()

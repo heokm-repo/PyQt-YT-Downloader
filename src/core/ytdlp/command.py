@@ -3,7 +3,12 @@
 import shlex
 from typing import Any
 
-from constants import DEFAULT_ENCODING, YTDLP_FINAL_PATH_MARKER, YTDLP_RETRIES
+from constants import (
+    DEFAULT_ENCODING,
+    YTDLP_FINAL_PATH_MARKER,
+    YTDLP_METADATA_MARKER,
+    YTDLP_RETRIES,
+)
 
 
 def build_command(
@@ -24,6 +29,8 @@ def build_command(
         "--progress",
         "--print",
         f"after_move:{YTDLP_FINAL_PATH_MARKER}%(filepath)s",
+        "--print",
+        f"before_dl:{YTDLP_METADATA_MARKER}%()j",
     ]
 
     if "outtmpl" in options:
@@ -32,8 +39,14 @@ def build_command(
     if "format" in options:
         args.extend(["--format", options["format"]])
 
+    if "format_sort" in options:
+        args.extend(["--format-sort", options["format_sort"]])
+
     if "merge_output_format" in options:
         args.extend(["--merge-output-format", options["merge_output_format"]])
+
+    if "remux_video" in options:
+        args.extend(["--remux-video", options["remux_video"]])
 
     if "recode_video" in options:
         args.extend(["--recode-video", options["recode_video"]])

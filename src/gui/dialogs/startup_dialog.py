@@ -3,7 +3,6 @@ from PyQt5.QtCore import Qt
 
 from gui.dialogs.base_dialog import BaseDialog
 from resources.styles import STARTUP_DIALOG_WIDTH, STARTUP_DIALOG_HEIGHT, STARTUP_LABEL_STYLE, STARTUP_PROGRESS_STYLE
-from constants import APP_TITLE
 from locales.strings import STR
 from core.workers import StartupWorker
 

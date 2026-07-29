@@ -6,7 +6,6 @@ from typing import Any, Iterable, Sequence
 from constants import TaskStatus
 from gui.tasks.task_file_paths import existing_parent_folder
 from gui.tasks.task_selection_plan import (
-    selected_task_ids_with_status,
     should_confirm_multiple_items,
     task_ids_with_status,
 )
@@ -29,12 +28,22 @@ class BulkTaskActionPlan:
 def build_delete_files_plan(
     selected_ids: Sequence[int], tasks: Iterable[Any]
 ) -> BulkTaskActionPlan:
-    """Return finished selected tasks that are eligible for file deletion."""
-    task_ids = selected_task_ids_with_status(
-        selected_ids,
-        tasks,
-        TaskStatus.FINISHED,
-    )
+    """Return selected tasks that have a completed or retained media file."""
+    tasks_by_id = {task.id: task for task in tasks}
+    task_ids = []
+    for task_id in selected_ids:
+        task = tasks_by_id.get(task_id)
+        if not task:
+            continue
+        if (
+            getattr(task, "status", None) == TaskStatus.FINISHED
+            or (
+                getattr(task, "status", None)
+                in (TaskStatus.FAILED, TaskStatus.PAUSED)
+                and bool(getattr(task, "output_path", ""))
+            )
+        ):
+            task_ids.append(task_id)
     return BulkTaskActionPlan(task_ids, needs_confirmation=bool(task_ids))
 
 

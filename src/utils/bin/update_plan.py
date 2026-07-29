@@ -1,9 +1,8 @@
 """Planning helpers for binary update/download workflows."""
 
-from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional, Sequence
 
-MANAGED_UPDATE_BINARIES = ("yt-dlp", "ffmpeg")
+MANAGED_UPDATE_BINARIES = ("yt-dlp", "ffmpeg", "quickjs")
 
 
 def initial_update_results(binary_names: Sequence[str] = MANAGED_UPDATE_BINARIES) -> dict[str, bool]:
@@ -62,20 +61,3 @@ def collect_available_updates(
         if entry:
             updates[binary_name] = entry
     return updates
-
-
-def should_check_after(
-    last_check: Any,
-    interval_hours: int,
-    now: Optional[datetime] = None,
-) -> bool:
-    """Return whether enough time elapsed since the previous update check."""
-    if not last_check:
-        return True
-
-    try:
-        last_checked_at = datetime.fromisoformat(last_check)
-        reference_time = now or datetime.now()
-        return reference_time - last_checked_at > timedelta(hours=interval_hours)
-    except (TypeError, ValueError):
-        return True

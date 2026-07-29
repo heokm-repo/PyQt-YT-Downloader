@@ -1,9 +1,10 @@
 """Individual task-card widget."""
 
-from PyQt5.QtWidgets import (QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, 
-                             QProgressBar, QPushButton, QSizePolicy)
+from PyQt5.QtWidgets import (
+    QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QProgressBar, QPushButton,
+)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSize
-from PyQt5.QtGui import QFont, QPixmap, QFontMetrics
+from PyQt5.QtGui import QPixmap, QFontMetrics
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply
 import qtawesome as qta
 
@@ -12,8 +13,7 @@ from resources.styles import (
     get_card_style, THUMBNAIL_LABEL_STYLE, TITLE_LABEL_STYLE, UPLOADER_LABEL_STYLE,
     PROGRESS_BAR_STYLE,
     PERCENT_LABEL_STYLE, STATUS_LABEL_NORMAL_STYLE,
-    SIZE_LABEL_STYLE,
-    get_action_button_style,
+    SIZE_LABEL_STYLE, ACTION_BUTTON_STYLE,
     # Moved Constants
     CARD_HEIGHT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,
     BUTTON_SIZE,
@@ -252,7 +252,7 @@ class TaskWidget(QFrame):
         btn.setCursor(Qt.PointingHandCursor)
         btn.setToolTip(tooltip)
         btn.clicked.connect(callback)
-        btn.setStyleSheet(get_action_button_style())
+        btn.setStyleSheet(ACTION_BUTTON_STYLE)
         return btn
     
     def _signal_for_button_action(self, action):

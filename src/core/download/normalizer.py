@@ -6,9 +6,6 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
-import subprocess
-import threading
-import time
 from typing import Any, Callable, Mapping
 from uuid import uuid4
 
@@ -16,14 +13,15 @@ from constants import (
     AUDIO_CHANNELS,
     AUDIO_FORMATS,
     DEFAULT_AUDIO_QUALITY,
-    DEFAULT_ENCODING,
     DEFAULT_FORMAT,
     FFMPEG_NORMALIZE_TIMEOUT_SEC,
     LOUDNORM_FILTER,
     MSG_PAUSED_BY_USER,
-    PROCESS_MONITOR_INTERVAL_SEC,
     VIDEO_FORMATS,
 )
+from core.download.ffmpeg_process import run_ffmpeg_command
+from core.download.media_probe import probe_media_file
+from core.download.webm_encoding import webm_video_encoding_args
 from utils.logger import log
 from utils.url_security import redact_urls_in_text
 
@@ -73,8 +71,15 @@ def build_normalization_command(
     target_format: str,
     audio_quality: Any,
     audio_channels: int = AUDIO_CHANNELS,
+    audio_sample_rate: int | None = None,
+    video_codec: str | None = None,
 ) -> list[str]:
     """Build one FFmpeg pass that normalizes audio and produces the target format."""
+    if not isinstance(audio_sample_rate, int) or isinstance(audio_sample_rate, bool):
+        raise ValueError("Audio sample rate is required for normalization")
+    if audio_sample_rate <= 0:
+        raise ValueError("Audio sample rate is required for normalization")
+
     target_format = target_format.lower()
     input_extension = Path(input_path).suffix.lower().lstrip(".")
     args = [
@@ -89,8 +94,13 @@ def build_normalization_command(
 
     if target_format in VIDEO_FORMATS:
         args.extend(["-map", "0:v:0?", "-map", "0:a:0?", "-map_metadata", "0"])
-        if target_format == "webm" and input_extension != "webm":
-            args.extend(["-c:v", "libvpx-vp9"])
+        if target_format == "webm":
+            args.extend(
+                webm_video_encoding_args(
+                    video_codec,
+                    copy_when_unknown=input_extension == "webm",
+                )
+            )
         else:
             args.extend(["-c:v", "copy"])
         args.extend(_audio_codec_args(target_format, audio_quality))
@@ -108,7 +118,8 @@ def build_normalization_command(
     else:
         raise ValueError(f"Unsupported normalization format: {target_format}")
 
-    args.extend(["-af", LOUDNORM_FILTER])
+    audio_filter = f"{LOUDNORM_FILTER},aresample={audio_sample_rate}"
+    args.extend(["-af", audio_filter])
     if target_format in ("mp4", "m4a"):
         args.extend(["-movflags", "+faststart"])
     args.append(temp_output_path)
@@ -125,15 +136,6 @@ def _remove_file(path: str, description: str) -> None:
         log.warning(f"Failed to remove {description} {path}: {exc}")
 
 
-def _drain_stderr(stream: Any, output: list[str]) -> None:
-    try:
-        for line in iter(stream.readline, ""):
-            if line:
-                output.append(line)
-    except (OSError, ValueError) as exc:
-        log.debug(f"FFmpeg normalization stderr drain stopped: {exc}")
-
-
 def normalize_media_file(
     input_path: str,
     settings: Mapping[str, Any],
@@ -146,6 +148,7 @@ def normalize_media_file(
 
     temp_path = ""
     normalization_succeeded = False
+    cleanup_allowed = True
     try:
         if not ffmpeg_path or not os.path.isfile(ffmpeg_path):
             return NormalizationResult(False, input_path, "FFmpeg executable was not found")
@@ -155,6 +158,14 @@ def normalize_media_file(
         output = Path(output_path)
         temp_output = output.with_name(f".{output.stem}.{uuid4().hex}.normalize{output.suffix}")
         temp_path = str(temp_output)
+        media_probe = probe_media_file(input_path, ffmpeg_path)
+        effective_audio_sample_rate = media_probe.audio_sample_rate
+        if effective_audio_sample_rate is None:
+            return NormalizationResult(
+                False,
+                input_path,
+                "Input audio sample rate could not be determined",
+            )
 
         try:
             command = build_normalization_command(
@@ -164,56 +175,49 @@ def normalize_media_file(
                 target_format,
                 settings.get("audio_quality", DEFAULT_AUDIO_QUALITY),
                 int(settings.get("audio_channels", AUDIO_CHANNELS)),
+                effective_audio_sample_rate,
+                media_probe.video_codec,
             )
         except (TypeError, ValueError) as exc:
             return NormalizationResult(False, input_path, str(exc))
 
         log.info(f"Normalizing audio with FFmpeg: {target_format}")
-        stderr_output: list[str] = []
-        process = None
-        stderr_thread = None
-        started_at = time.monotonic()
+        execution = run_ffmpeg_command(
+            command,
+            stop_check=stop_check,
+            timeout_sec=FFMPEG_NORMALIZE_TIMEOUT_SEC,
+            timeout_error="Audio normalization timed out",
+        )
+        cleanup_allowed = execution.process_stopped
+        if execution.paused:
+            return NormalizationResult(
+                False,
+                input_path,
+                MSG_PAUSED_BY_USER,
+                paused=True,
+            )
+        if not execution.success:
+            log.error(
+                "Audio normalization failed: "
+                f"{redact_urls_in_text(execution.error)}"
+            )
+            return NormalizationResult(False, input_path, execution.error)
+
+        normalized_probe = probe_media_file(temp_path, ffmpeg_path)
+        normalized_sample_rate = normalized_probe.audio_sample_rate
+        if normalized_sample_rate != effective_audio_sample_rate:
+            if normalized_sample_rate is None:
+                error = "Normalized output sample rate could not be verified"
+            else:
+                error = (
+                    "Normalized output sample rate changed "
+                    f"from {effective_audio_sample_rate} Hz "
+                    f"to {normalized_sample_rate} Hz"
+                )
+            log.error(error)
+            return NormalizationResult(False, input_path, error)
 
         try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding=DEFAULT_ENCODING,
-                errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
-            stderr_thread = threading.Thread(
-                target=_drain_stderr,
-                args=(process.stderr, stderr_output),
-                daemon=True,
-            )
-            stderr_thread.start()
-
-            while process.poll() is None:
-                if stop_check and stop_check():
-                    process.kill()
-                    process.wait()
-                    if stderr_thread:
-                        stderr_thread.join(timeout=1)
-                    return NormalizationResult(False, input_path, MSG_PAUSED_BY_USER, paused=True)
-                if time.monotonic() - started_at > FFMPEG_NORMALIZE_TIMEOUT_SEC:
-                    process.kill()
-                    process.wait()
-                    if stderr_thread:
-                        stderr_thread.join(timeout=1)
-                    return NormalizationResult(False, input_path, "Audio normalization timed out")
-                time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
-
-            if stderr_thread:
-                stderr_thread.join(timeout=1)
-            stderr = "".join(stderr_output).strip()
-            if process.returncode != 0:
-                error = stderr.splitlines()[-1] if stderr else f"FFmpeg exited with code {process.returncode}"
-                log.error(f"Audio normalization failed: {redact_urls_in_text(error)}")
-                return NormalizationResult(False, input_path, error)
-
             os.replace(temp_path, output_path)
             if os.path.normcase(os.path.abspath(input_path)) != os.path.normcase(os.path.abspath(output_path)):
                 try:
@@ -223,12 +227,19 @@ def normalize_media_file(
             normalization_succeeded = True
             log.info(f"Audio normalization completed: {output_path}")
             return NormalizationResult(True, output_path)
-        except (OSError, subprocess.SubprocessError) as exc:
-            if process and process.poll() is None:
-                process.kill()
-            log.error(f"Audio normalization process failed: {exc}", exc_info=True)
+        except OSError as exc:
+            log.error(f"Audio normalization file commit failed: {exc}", exc_info=True)
             return NormalizationResult(False, input_path, str(exc))
     finally:
         if not normalization_succeeded:
-            _remove_file(temp_path, "incomplete normalization file")
-            _remove_file(input_path, "non-normalized downloaded file")
+            # Intentional product policy: when normalization was requested, the
+            # unnormalized download is not a valid final artifact. Remove it on
+            # failure, timeout, pause, or cancellation along with partial output.
+            if cleanup_allowed:
+                _remove_file(temp_path, "incomplete normalization file")
+                _remove_file(input_path, "non-normalized downloaded file")
+            else:
+                log.error(
+                    "Skipping normalization file cleanup because FFmpeg "
+                    "termination could not be confirmed"
+                )

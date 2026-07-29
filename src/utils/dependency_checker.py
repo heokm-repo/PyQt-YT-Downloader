@@ -16,8 +16,6 @@ from constants import STARTUP_OPTIONAL_DEPENDENCY_SPECS, STARTUP_REQUIRED_DEPEND
 class DependencySpec:
     module: str
     package: str
-    required: bool = True
-    feature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -48,8 +46,8 @@ def _build_required_dependencies() -> tuple[DependencySpec, ...]:
 
 def _build_optional_dependencies() -> tuple[DependencySpec, ...]:
     return tuple(
-        DependencySpec(module, package, required=False, feature=feature)
-        for module, package, feature in STARTUP_OPTIONAL_DEPENDENCY_SPECS
+        DependencySpec(module, package)
+        for module, package, _feature in STARTUP_OPTIONAL_DEPENDENCY_SPECS
     )
 
 

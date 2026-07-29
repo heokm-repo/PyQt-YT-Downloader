@@ -1,12 +1,10 @@
 """File opening helpers for task actions."""
 
 import os
-import subprocess
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Optional
 
-from constants import WINDOWS_EXPLORER_COMMAND, WINDOWS_EXPLORER_SELECT_PREFIX
 from gui.tasks.task_file_paths import existing_file_path, normalize_output_path, resolve_open_folder_target
 
 
@@ -73,14 +71,9 @@ def open_output_file(
     )
 
 
-def _open_selected_file_in_explorer(path: str) -> None:
-    subprocess.Popen([WINDOWS_EXPLORER_COMMAND, f"{WINDOWS_EXPLORER_SELECT_PREFIX}{path}"])
-
-
 def open_output_folder(
     output_path: str,
     start_file: Optional[Callable[[str], None]] = None,
-    select_file: Callable[[str], None] = _open_selected_file_in_explorer,
 ) -> OpenFolderResult:
     """Open the best folder target for a task output path."""
     target = resolve_open_folder_target(output_path)
@@ -89,10 +82,7 @@ def open_output_folder(
 
     start_file = start_file or os.startfile
     try:
-        if target.select_file:
-            select_file(target.path)
-        else:
-            start_file(target.path)
+        start_file(target.path)
     except Exception as error:
         return OpenFolderResult(
             OpenFolderStatus.ERROR,

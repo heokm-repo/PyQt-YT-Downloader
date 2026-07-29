@@ -23,7 +23,6 @@ def extract_playlist_video_ids(url):
         wrapper = YtDlpWrapper(ytdlp_path)
         info, success = wrapper.extract_info(
             clean_url,
-            download=False,
             options=_build_playlist_extract_options(url=clean_url),
         )
 

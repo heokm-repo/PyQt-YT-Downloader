@@ -1,6 +1,4 @@
 """Application stylesheet constants."""
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
 
 # Color constants.
 COLOR_WAITING = "#D1D3D4"    # Waiting for download or metadata loading.
@@ -40,11 +38,9 @@ SETTINGS_BUTTON_HEIGHT = 36
 TEXT_BUTTON_WIDTH_PADDING = 30
 DOWNLOAD_BUTTON_WIDTH_PADDING = TEXT_BUTTON_WIDTH_PADDING
 SETTINGS_BUTTON_WIDTH_PADDING = TEXT_BUTTON_WIDTH_PADDING
-SETTINGS_TITLE_BAR_HEIGHT = 30
 SETTINGS_DIALOG_TITLE_ICON_SIZE = 24
 SETTINGS_DIALOG_TITLE_BUTTON_SIZE = 24
 SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE = 18
-SETTINGS_CLOSE_BUTTON_SIZE = SETTINGS_DIALOG_TITLE_BUTTON_SIZE
 
 # Shadow effects.
 SETTINGS_SHADOW_BLUR_RADIUS = 15
@@ -126,6 +122,7 @@ APP_TITLE_COLOR = "#5F428B"
 # Main-window layout.
 MAIN_LAYOUT_MARGINS = (5, 5, 5, 5)
 MAIN_LAYOUT_SPACING = 5
+WINDOW_RESIZE_CONTENT_MARGIN = 5
 
 # Title bar.
 TITLE_BAR_HEIGHT = 30
@@ -151,14 +148,10 @@ DOWNLOAD_BUTTON_HEIGHT = 40
 DOWNLOAD_BUTTON_FONT_FAMILY = "Segoe UI"
 DOWNLOAD_BUTTON_FONT_SIZE = 10
 
-# Settings button.
-SETTINGS_BUTTON_TEXT = "⚙"
-SETTINGS_BUTTON_FONT_FAMILY = "Segoe UI"
-SETTINGS_BUTTON_FONT_SIZE = 12
-
 # Task list section.
 TASK_LIST_MARGINS = (10, 0, 10, 0)
 TASK_LIST_SPACING = 10
+TASK_LIST_MIN_HEIGHT = 360
 EMPTY_STATE_FONT_FAMILY = "Segoe UI"
 EMPTY_STATE_FONT_SIZE = 11
 
@@ -182,7 +175,6 @@ CARD_HEIGHT = 130
 THUMBNAIL_WIDTH = 160
 THUMBNAIL_HEIGHT = 90
 BUTTON_SIZE = 40
-BUTTON_FONT_SIZE = 15
 
 # Button color constants.
 COLOR_BTN_RED = "#F44336"
@@ -200,17 +192,14 @@ COLOR_BTN_GRAY = "#999999"
 MIN_URL_INPUT_WIDTH = 200
 MIN_DOWNLOAD_BUTTON_WIDTH = 80
 MIN_TITLE_LABEL_WIDTH = 100
-MIN_TASK_CARD_WIDTH = 400
 MIN_STATUS_LABEL_WIDTH = 100
 MIN_SETTINGS_TAB_WIDTH = 300
-MIN_SETTINGS_DIALOG_CONTENT_WIDTH = 350
 
 # Central widget style.
 CENTRAL_WIDGET_STYLE = """
 QWidget#CentralWidget {
     background-color: #FFFFFF;
-    border: 1px solid #E0E0E0;
-    border-radius: 15px;
+    border-radius: 0px;
 }
 """
 
@@ -315,34 +304,6 @@ QPushButton {
 }
 QPushButton:hover { background-color: #DCDCDC; }
 QPushButton:pressed { background-color: #CFCFCF; }
-"""
-
-# Toggle button style when enabled.
-TOGGLE_BUTTON_ENABLED_STYLE = """
-QPushButton {
-    border: none;
-    background-color: #DBC4F0;
-    color: #5F428B;
-    border-radius: 20px;
-    padding: 0px;
-    margin: 0px;
-    text-align: center;
-}
-QPushButton:hover { background-color: #C9A8E8; }
-"""
-
-# Toggle button style when disabled or stopped.
-TOGGLE_BUTTON_DISABLED_STYLE = """
-QPushButton {
-    border: none;
-    background-color: #FFE0B2;
-    color: #E65100;
-    border-radius: 20px;
-    padding: 0px;
-    margin: 0px;
-    text-align: center;
-}
-QPushButton:hover { background-color: #FFCC80; }
 """
 
 # Status-bar style.
@@ -591,10 +552,6 @@ QPushButton:hover { background-color: #E0E0E0; }
 QPushButton:pressed { background-color: #D0D0D0; }
 """
 
-def get_action_button_style(color="#555555"):
-    """Build an action button style for backward compatibility."""
-    return ACTION_BUTTON_STYLE
-
 # Empty-state label style.
 EMPTY_LABEL_STYLE = "color: #AAAAAA; padding: 20px;"
 
@@ -797,15 +754,6 @@ QTabBar::tab:hover:!selected {
 }
 """
 
-# Settings dialog help icon style.
-SETTINGS_HELP_ICON_STYLE = """
-QLabel {
-    color: #5F428B;
-    font-size: 14px;
-    font-family: "Segoe UI Emoji";
-}
-"""
-
 # Settings dialog update/delete button style.
 SETTINGS_UPDATE_BUTTON_STYLE = """
 QPushButton {
@@ -841,4 +789,3 @@ INFO_LABEL_STYLE = f"color: {COLOR_TEXT_LIGHT_GRAY};"
 MESSAGE_TITLE_STYLE = f"color: {COLOR_TEXT_PRIMARY};"
 MESSAGE_BODY_STYLE = f"color: {COLOR_TEXT_SECONDARY};"
 MESSAGE_DIVIDER_STYLE = f"background-color: {COLOR_DIVIDER};"
-

@@ -11,11 +11,11 @@ STRINGS = {
     'BTN_CLOSE': "閉じる",
     'BTN_CANCEL': "キャンセル",
     'BTN_SAVE': "保存",
+    'BTN_RESTART_NOW': "今すぐ再起動",
+    'BTN_LATER': "後で",
 
-    'TITLE_INFO': "情報",
     'TITLE_WARNING': "警告",
     'TITLE_ERROR': "エラー",
-    'TITLE_CONFIRM': "確認",
 
     # =========================================================================
     # 2. Main Window
@@ -53,6 +53,7 @@ STRINGS = {
     'SETTINGS_SEC_ADVANCED': "高度な機能",
     'SETTINGS_CHK_NORMALIZE': "音量正規化",
     'SETTINGS_CHK_ACCEL': "ダウンロード加速 (マルチスレッド)",
+    'SETTINGS_CHK_COMPATIBILITY': "汎用互換モード",
     'SETTINGS_LABEL_COOKIES': "クッキー (アプリ内ログイン):",
     'BTN_LOGIN': "ログイン",
     'BTN_SAVE_CLOSE': "保存して閉じる",
@@ -79,8 +80,6 @@ STRINGS = {
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "ダウンロードフォルダを選択してください。",
-    'ERR_SETTINGS_CREATE_FOLDER': "フォルダを作成できません:\n{error}",
-    'ERR_SETTINGS_INVALID_FOLDER': "選択したパスは有効なフォルダではありません。",
     'ERR_SPONSOR_OPEN': "スポンサー支援ページを開けませんでした。",
     'MSG_DOWNLOAD_FOLDER_FALLBACK': "ダウンロードフォルダを使用できないため、保存先を変更しました。\n\n以前の保存先:\n{old_path}\n\n新しい保存先:\n{new_path}\n\n理由:\n{reason}",
 
@@ -106,12 +105,6 @@ STRINGS = {
     'STATUS_PREPARING': "準備中...",
     'STATUS_NO_IMAGE': "画像なし",
 
-    # Worker Status
-    'WORKER_MSG_CONVERTING': "変換/結合中",
-    'WORKER_MSG_PROCESSING': "処理中...",
-    'WORKER_MSG_COMPLETE': "ダウンロード完了",
-    'WORKER_MSG_STOPPED': "ユーザーにより停止",
-
     # =========================================================================
     # 5. Dialogs & Popups
     # =========================================================================
@@ -129,15 +122,13 @@ STRINGS = {
     'MSG_DUP_ALREADY_DONE': "既に '{format}' フォーマットでダウンロード済みです。\n",
     'MSG_DUP_IN_QUEUE': "(現在 {status} 状態のタスクがあります)\n",
     'MSG_DUP_ASK_OVERWRITE': "\n再度ダウンロード(上書き)しますか？",
+    'ERR_DUPLICATE_REPLACEMENT_TIMEOUT': "既存のダウンロードが時間内に停止しなかったため、新しいダウンロードは開始されませんでした。",
     
     'TITLE_RESUME': "ダウンロード再開",
     'MSG_RESUME_CONFIRM': "以前のダウンロードタスクを再開しますか？",
     'TITLE_NO_NEW_VIDEOS': "通知",
 
     # Initialization & Update
-    'TITLE_INIT': "YT Downloader 初期化",
-    'TITLE_APP_UPDATE': "YT Downloader 更新",
-
     'MSG_INIT_DESC': "必要なコンポーネントをダウンロードしています...",
     'MSG_INIT_PREPARING': "準備中...",
     'MSG_INIT_INFO': "お待ちください。これは初回のみ実行されます。",
@@ -156,11 +147,10 @@ STRINGS = {
     'TITLE_INIT': "YT Downloader 初期化",
     'TITLE_INIT_SETUP': "初期設定",
     'LABEL_LANGUAGE_SELECT': "言語選択:",
-    'MSG_CONFIRM_INIT_DOWNLOAD': "動画のダウンロードと結合には必須コンポーネント(yt-dlp, FFmpeg)が必要です。\n\nダウンロードしますか？",
+    'MSG_CONFIRM_INIT_DOWNLOAD': "動画のダウンロード、結合、メディア検査、YouTube処理には必須コンポーネント(yt-dlp, FFmpeg, ffprobe, QuickJS)が必要です。\n\nダウンロードしますか？",
     'BTN_START_SETUP': "開始",
 
     'TITLE_APP_UPDATE': "YT Downloader 更新",
-    'MSG_INIT_TITLE': "YT Downloader 初期化中...",
 
     # Startup Dialog
     'TITLE_STARTUP': "YT Downloader 起動中",
@@ -180,8 +170,12 @@ STRINGS = {
     'TITLE_UPDATE_CHECK': "更新を確認",
     'MSG_UPDATE_AVAILABLE': "新しいバージョンが利用可能です!\n\n現在のバージョン: {current}\n最新バージョン: {latest}\n\n今すぐ更新しますか？",
     'MSG_UPDATE_LATEST': "最新バージョンを使用しています。",
+    'MSG_UPDATE_ALL_LATEST': "YT Downloaderとすべての必須コンポーネントは最新です。",
+    'MSG_UPDATE_COMPONENT_MISSING': "• {name}: インストールまたは修復が必要",
+    'MSG_UPDATE_RESTART_REQUIRED': "更新を適用するには、アプリを再起動してください。",
+    'MSG_UPDATE_RESTART_ACTIVE_TASKS': "ダウンロード中または待機中のタスクは再起動時に一時停止され、アプリの再起動後に再開できます。",
+    'ERR_RESTART_FAILED': "アプリを再起動できませんでした。手動で再起動してください。",
     'ERR_UPDATE_CHECK': "更新の確認中にエラーが発生しました:\n{error}",
-    'TITLE_UPDATE_DL': "更新中",
     'MSG_UPDATE_DL': "新しいバージョンをダウンロードしています...\nお待ちください。",
     'MSG_UPDATE_PREPARING': "更新を準備しています...",
     'MSG_UPDATE_DL_STATUS': "更新をダウンロードしています...",
@@ -214,7 +208,6 @@ STRINGS = {
     'SORT_OLDEST': "古い順",
     'SORT_STATUS': "状態順",
     'MSG_NO_NEW_ITEMS': "新しい動画はありません。",
-    'MSG_ALL_DONE': "完了",
     'ERR_PLAYLIST_FETCH': "プレイリストから動画を取得できませんでした。",
     'ERR_NOT_PLAYLIST': "プレイリストURLではありません。",
     'ERR_CANNOT_FETCH_INFO': "情報を取得できませんでした。",
@@ -258,6 +251,7 @@ STRINGS = {
     'TOOLTIP_RETRY': "再試行",
     'TOOLTIP_NORMALIZE': "音量を放送基準(-14 LUFS)に正規化します。\n変換に時間がかかります。",
     'TOOLTIP_ACCEL': "ファイルを分割して並行ダウンロードします。\n速度が向上します。\n(選択時は最大ダウンロード数が1に固定されます)",
+    'TOOLTIP_COMPATIBILITY': "出力形式をMP4またはMP3に制限します。\nMP4動画をH.264/AACに仕上げて幅広い機器との互換性を確保します。",
 
     'MENU_PLAY': "再生",
     'MENU_OPEN_FOLDER': "フォルダを開く",

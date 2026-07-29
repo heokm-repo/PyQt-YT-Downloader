@@ -1,6 +1,5 @@
 """Language and locale management for loading localized strings."""
 from typing import Dict
-import os
 
 # Supported languages.
 SUPPORTED_LANGUAGES = {
@@ -52,10 +51,6 @@ def _load_strings(lang_code: str):
         elif lang_code == 'en':
             # English uses defaults, so no separate file is loaded.
             _strings = {}
-        else:
-            # Unsupported languages fall back to Korean.
-            from . import ko
-            _strings = ko.STRINGS
     except ImportError:
         # If the language file is missing, use an empty dict and fall back to English defaults.
         _strings = {}

@@ -23,14 +23,18 @@ from data.managers import HistoryManager, TaskManager, DuplicateChecker
 from gui.main_window.click_deselect import should_clear_selection_for_click
 from gui.tasks.selection_manager import SelectionManager
 from core.scheduler_settings import target_worker_count
+from core.download.workspace_cleanup import remove_workspace_cleanup_request
 from core.task_summary import summarize_task_progress
 from gui.tasks.single_video_download import (
     build_single_video_download_plan,
-    single_video_duplicate_cancelled,
+    review_single_video_duplicate,
 )
+from gui.tasks.active_duplicate_replacement import wait_for_task_stop
 from gui.main_window.smart_paste import extract_valid_clipboard_url
+from gui.main_window.restart_policy import has_restart_sensitive_tasks
 from gui.settings.settings_apply_plan import build_settings_apply_plan
 from gui.dialogs.settings_fallback_notice import show_download_folder_fallback_notice
+from gui.dialogs.messages import show_error
 from gui.tasks.context_menu import ContextMenuBuilder
 from gui.tasks.download_completion import (
     FailedDownloadAction,
@@ -50,10 +54,15 @@ from gui.tasks.playlist_registration import build_playlist_registration_decision
 from gui.tasks.playlist_task_plan import build_playlist_task_plans
 from gui.tasks.task_actions import TaskActions
 from gui.tasks.task_context_callbacks import build_task_context_callbacks
-from gui.tasks.task_load_plan import build_loaded_tasks, handle_paused_task_restore
+from gui.tasks.task_load_plan import (
+    build_loaded_tasks,
+    handle_paused_task_restore,
+    loaded_tasks_need_workspace_persistence,
+)
 from gui.tasks.task_registration import register_download_task
 from gui.tasks.task_selection_plan import selected_tasks_for_ids, tasks_except_id
 from gui.tasks.task_status_message import build_task_status_message
+from gui.tasks.task_workspace_cleanup import build_task_cleanup_request
 from gui.tasks.task_widget_restore import create_restored_task_widget
 from gui.tasks.task_widget_signals import connect_task_widget_signals
 from gui.main_window.view_state import hide_task_list_if_empty, set_url_entry_enabled, show_task_list
@@ -84,7 +93,7 @@ from gui.main_window.chrome_state import (
     should_toggle_maximize_from_double_click,
 )
 from gui.main_window.worker_lifecycle import stop_running_worker
-from gui.windowing.resizable_mixin import ResizableMixin
+from gui.windowing.windows_custom_frame_mixin import WindowsCustomFrameMixin
 from gui.windowing.window_state_manager import (
     load_window_state,
     save_window_state,
@@ -121,11 +130,12 @@ from resources.styles import (
     MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, MAXIMIZE_BUTTON_STYLE,
     MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT,
     MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
+    WINDOW_RESIZE_CONTENT_MARGIN,
     TITLE_BAR_HEIGHT,
 )
 
 
-class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
+class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
     def __init__(self):
         super().__init__()
 
@@ -146,8 +156,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
     def _configure_window(self):
         """Apply fixed main-window flags, geometry, and base styling."""
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self.setWindowTitle(APP_TITLE)
         self.setGeometry(MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
         self.setStyleSheet(MAIN_WINDOW_STYLE)
@@ -155,7 +164,6 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
     def _init_runtime_state(self):
         """Initialize mutable state owned directly by the main window."""
-        self._init_resizable(enabled=True)
         self._is_maximized_state = False
         self.oldPos = None
         self._window_drag_active = False
@@ -166,6 +174,9 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.playlist_worker = None
         self.settings = load_settings()
         self.toggle_enabled = True
+        self._restart_requested = False
+        self._restart_launched = False
+        self._pending_duplicate_replacements = {}
 
     def _init_interaction_services(self):
         """Create helpers that coordinate UI interactions."""
@@ -248,22 +259,23 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.create_url_section(self._main_layout)
         self.create_task_list_section(self._main_layout)
         self.create_status_bar(self._main_layout)
+        self._init_windows_custom_frame(
+            enabled=True,
+            content_margin=WINDOW_RESIZE_CONTENT_MARGIN,
+        )
 
     def _apply_window_chrome_state(self, is_maximized: bool):
-        """Apply the central-widget style, layout margins, and title-bar icon."""
+        """Apply the central-widget style and title-bar icon."""
         chrome_state = build_window_chrome_state(
             is_maximized,
             CENTRAL_WIDGET_STYLE,
             CENTRAL_WIDGET_MAXIMIZED_STYLE,
-            MAIN_LAYOUT_MARGINS,
         )
         self._is_maximized_state = chrome_state.is_maximized
 
         central = self.centralWidget()
         if central:
             central.setStyleSheet(chrome_state.central_style)
-        if hasattr(self, '_main_layout'):
-            self._main_layout.setContentsMargins(*chrome_state.layout_margins)
         if hasattr(self, 'maximize_btn'):
             set_button_icon(self.maximize_btn, chrome_state.maximize_icon_name)
 
@@ -393,9 +405,6 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     def mousePressEvent(self, event):
         self.setFocus()
         if event.button() == Qt.LeftButton:
-            # Give resizing first priority.
-            if self.resizable_mouse_press(event):
-                return
             if should_start_window_drag(
                 event.button(),
                 Qt.LeftButton,
@@ -405,10 +414,6 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
                 self._window_drag_active = False
     
     def mouseMoveEvent(self, event):
-        # Handle active resizing.
-        if self.resizable_mouse_move(event):
-            return
-        # Handle dragging.
         if should_continue_window_drag(self.oldPos, event.buttons(), Qt.LeftButton):
             global_pos = event.globalPos()
             if not self._window_drag_active:
@@ -431,8 +436,6 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
     
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            if self.resizable_mouse_release(event):
-                return
             self.oldPos = None
             self._window_drag_active = False
     
@@ -635,11 +638,38 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
         self.selection_manager.clear(self.task_widgets)
         self.task_actions.remove_all_completed_from_list()
 
-    def remove_task_from_list(self, task_id):
+    def _discard_removed_task_workspace(
+        self,
+        cleanup_request,
+        attempts_left=12,
+    ):
+        removed = remove_workspace_cleanup_request(cleanup_request)
+        if not removed and attempts_left > 0:
+            QTimer.singleShot(
+                250,
+                lambda: self._discard_removed_task_workspace(
+                    cleanup_request,
+                    attempts_left - 1,
+                ),
+            )
+
+    def remove_task_from_list(self, task_id, discard_workspace=True):
         """Remove a task card from the list without deleting its file."""
+        task = self.get_task_by_id(task_id)
         widget = self.task_widgets.get(task_id)
         if not widget:
             return
+
+        self._pending_duplicate_replacements.pop(task_id, None)
+        if discard_workspace and task:
+            cleanup_request = build_task_cleanup_request(task)
+            if task.status in (
+                TaskStatus.WAITING,
+                TaskStatus.DOWNLOADING,
+                TaskStatus.PAUSED,
+            ):
+                self.scheduler.cancel_task(task_id)
+            self._discard_removed_task_workspace(cleanup_request)
         
         self.selection_manager.remove_from_selection(task_id)
 
@@ -739,7 +769,7 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self.settings,
         )
 
-        if single_video_duplicate_cancelled(
+        duplicate_decision = review_single_video_duplicate(
             self.duplicate_checker,
             plan.duplicate_target,
             self.tasks[:],
@@ -748,10 +778,22 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
                 STR.MSG_DUPLICATE_CHECK,
                 message,
             ),
-        ):
+        )
+        if duplicate_decision.cancelled:
             self.status_label.setText(STR.MSG_DL_CANCELLED)
             return
 
+        if duplicate_decision.duplicate_task is not None:
+            self._replace_active_duplicate(
+                duplicate_decision.duplicate_task,
+                plan,
+            )
+            return
+
+        self._register_single_video_plan(plan)
+
+    def _register_single_video_plan(self, plan):
+        """Register a reviewed single-video plan."""
         self.total_tasks_in_queue += 1
         task_id = self.total_tasks_in_queue
         self._create_and_register_task(
@@ -763,6 +805,48 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
         self.status_label.setText(STR.MSG_ADDED_QUEUE)
         self.update_progress_ui()
+
+    def _replace_active_duplicate(self, duplicate_task, plan):
+        """Cancel an active duplicate and replace it only after it stops."""
+        task_id = duplicate_task.id
+        if task_id in self._pending_duplicate_replacements:
+            self.status_label.setText(STR.MSG_DL_CANCELLED)
+            return
+
+        pending = (duplicate_task, plan)
+        self._pending_duplicate_replacements[task_id] = pending
+        self.scheduler.cancel_task(task_id)
+
+        def finalize_replacement():
+            if self._pending_duplicate_replacements.get(task_id) != pending:
+                return
+            self._pending_duplicate_replacements.pop(task_id, None)
+            if self.get_task_by_id(task_id) is not duplicate_task:
+                return
+            self.remove_task_from_list(task_id)
+            self._register_single_video_plan(plan)
+
+        def replacement_timeout():
+            if self._pending_duplicate_replacements.get(task_id) != pending:
+                return
+            self._pending_duplicate_replacements.pop(task_id, None)
+            self.status_label.setText(STR.MSG_DL_CANCELLED)
+            show_error(
+                self,
+                STR.TITLE_ERROR,
+                STR.ERR_DUPLICATE_REPLACEMENT_TIMEOUT,
+            )
+
+        QTimer.singleShot(
+            0,
+            lambda: wait_for_task_stop(
+                self.scheduler,
+                task_id,
+                QTimer.singleShot,
+                finalize_replacement,
+                replacement_timeout,
+            ),
+        )
 
     def start_download(self):
         """Orchestrate download start."""
@@ -859,8 +943,16 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
 
     def open_download_options(self):
         """Open the settings dialog and apply accepted changes."""
-        dialog = SettingsDialog(self.settings.copy(), self)
-        if dialog.exec_() != QDialog.Accepted:
+        dialog = SettingsDialog(
+            self.settings.copy(),
+            self,
+            active_task_check=lambda: has_restart_sensitive_tasks(self.tasks),
+        )
+        result = dialog.exec_()
+        if dialog.restart_requested:
+            self._request_restart()
+            return
+        if result != QDialog.Accepted:
             return
 
         new_settings = dialog.get_new_settings()
@@ -875,6 +967,13 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             self.scheduler.adjust_worker_count(apply_plan.worker_count)
 
         self._show_pending_settings_fallback_notice()
+
+    def _request_restart(self):
+        """Close through the normal shutdown path and relaunch the app."""
+        if self._restart_requested:
+            return
+        self._restart_requested = True
+        self.close()
 
     def _initialize_scheduler(self):
         """Initialize scheduler workers from current settings."""
@@ -993,6 +1092,10 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             )
             self.tasks.append(task)
 
+        if loaded_tasks_need_workspace_persistence(loaded_tasks):
+            # Persist assigned UUIDs before any resume migration starts.
+            self.task_manager.save_tasks(self.tasks)
+
         self._apply_task_sort_order()
 
         if max_id > self.total_tasks_in_queue:
@@ -1028,4 +1131,18 @@ class YTDownloaderPyQt5(ResizableMixin, QMainWindow):
             log.warning("Playlist worker did not stop before timeout.")
 
         self.scheduler.shutdown()
+
+        if self._restart_requested and not self._restart_launched:
+            from utils.app_restart import launch_restart
+
+            self._restart_launched = launch_restart()
+            if self._restart_launched:
+                log.info("Replacement application process started.")
+            else:
+                log.error("Failed to start replacement application process.")
+                show_error(
+                    self,
+                    STR.TITLE_ERROR,
+                    STR.ERR_RESTART_FAILED,
+                )
         event.accept()

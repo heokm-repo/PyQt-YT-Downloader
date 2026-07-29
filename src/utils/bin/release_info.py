@@ -19,23 +19,6 @@ def release_version_from_published_or_tag(data: dict[str, Any]) -> str:
     return normalize_release_tag(data.get("tag_name", ""))
 
 
-def find_asset_download_url(
-    data: dict[str, Any],
-    *,
-    exact_name: Optional[str] = None,
-    name_contains: Optional[str] = None,
-) -> Optional[str]:
-    """Find an asset download URL by exact name or substring."""
-    for asset in data.get("assets", []):
-        name = asset.get("name", "")
-        if exact_name is not None and name != exact_name:
-            continue
-        if name_contains is not None and name_contains not in name:
-            continue
-        return asset.get("browser_download_url")
-    return None
-
-
 def find_release_asset(
     data: dict[str, Any],
     *,

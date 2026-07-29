@@ -23,9 +23,6 @@ class ToggleButton(QPushButton):
         self._is_playing = playing
         self.update_icon()
     
-    def isPlaying(self):
-        return self._is_playing
-    
     def enterEvent(self, event):
         self._hover = True
         self.update_icon()

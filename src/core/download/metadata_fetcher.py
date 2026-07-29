@@ -27,7 +27,7 @@ def fetch_metadata(url, settings=None):
     try:
         wrapper = YtDlpWrapper(ytdlp_path)
         options = _build_metadata_extract_options(settings, is_playlist, url=clean_url)
-        info, success = wrapper.extract_info(clean_url, download=False, options=options)
+        info, success = wrapper.extract_info(clean_url, options=options)
 
         if not success or not info:
             return {}, False

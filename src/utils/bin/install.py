@@ -2,29 +2,18 @@
 
 import os
 import shutil
-from datetime import datetime
 from typing import Any, Callable, Mapping
 
 
-def version_record_with_check(
+def version_record(
     versions: Mapping[str, Any],
     binary_name: str,
     version: str,
-    checked_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """Return versions updated with a binary version and last_check timestamp."""
-    updated = last_check_record(versions, checked_at)
-    updated[binary_name] = version
-    return updated
-
-
-def last_check_record(
-    versions: Mapping[str, Any],
-    checked_at: datetime | None = None,
-) -> dict[str, Any]:
-    """Return versions updated with only the last_check timestamp."""
+    """Return versions updated with one managed binary version."""
     updated = dict(versions)
-    updated["last_check"] = (checked_at or datetime.now()).isoformat()
+    updated.pop("last_check", None)
+    updated[binary_name] = version
     return updated
 
 
@@ -47,21 +36,9 @@ def save_binary_version(
     version: str,
     load_versions: Callable[[], Mapping[str, Any]],
     save_versions: Callable[[dict[str, Any]], bool],
-    checked_at: datetime | None = None,
 ) -> bool:
     """Persist a binary version update."""
-    return save_versions(
-        version_record_with_check(load_versions(), binary_name, version, checked_at)
-    )
-
-
-def save_last_check(
-    load_versions: Callable[[], Mapping[str, Any]],
-    save_versions: Callable[[dict[str, Any]], bool],
-    checked_at: datetime | None = None,
-) -> bool:
-    """Persist only the last update-check timestamp."""
-    return save_versions(last_check_record(load_versions(), checked_at))
+    return save_versions(version_record(load_versions(), binary_name, version))
 
 
 def install_downloaded_binary(
@@ -71,8 +48,7 @@ def install_downloaded_binary(
     version: str,
     load_versions: Callable[[], Mapping[str, Any]],
     save_versions: Callable[[dict[str, Any]], bool],
-    checked_at: datetime | None = None,
 ) -> bool:
     """Move a downloaded temp binary into place and persist its version."""
     replace_existing_file(temp_path, final_path)
-    return save_binary_version(binary_name, version, load_versions, save_versions, checked_at)
+    return save_binary_version(binary_name, version, load_versions, save_versions)

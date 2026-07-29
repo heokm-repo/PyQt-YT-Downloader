@@ -4,8 +4,6 @@ A Windows-only YouTube video and playlist downloader with a PyQt5 GUI. It
 manages yt-dlp, FFmpeg, and QuickJS automatically, while providing video
 downloads, audio conversion, and queue-based task management in one app.
 
-Current app version: `v2.1.2`
-
 ## Screenshots
 
 ![YT Downloader main window](docs/images/main-window.png)
@@ -26,10 +24,11 @@ Current app version: `v2.1.2`
 - Choose between the full playlist or the current video when a URL contains both video and playlist information
 - Save video as MP4, MKV, or WebM
 - Extract and convert audio to MP3, M4A, or WAV
-- Select video quality: best, 1080p, 720p, 480p, 360p, worst
+- Select video quality: best, 2160p, 1440p, 1080p, 720p, 480p, 360p, worst
 - Select audio quality: best, 320k, 256k, 192k, 128k, worst
 - Configure the maximum number of concurrent downloads
 - Optional fragment download acceleration
+- Optional universal compatibility mode for MP4 (H.264/AAC) and MP3 output
 - FFmpeg `loudnorm` audio normalization
 - Display download progress, speed, file size, and conversion/merge status
 - Pause, resume, retry, play, open folder, and delete files per task
@@ -74,6 +73,7 @@ If you find it useful, you can support ongoing development through
 - Maximum concurrent downloads
 - Audio normalization
 - Fragment download acceleration
+- Universal compatibility mode (MP4 or MP3)
 - App update check, license view, GitHub Sponsors link, and uninstall
 
 ## Runtime Components
@@ -82,10 +82,12 @@ The app manages these files under `%APPDATA%\YTDownloader\bin`:
 
 - `yt-dlp.exe`
 - `ffmpeg.exe`
+- `ffprobe.exe`
 - `qjs.exe`
 
-FFmpeg is required for video/audio merging and audio conversion. QuickJS is used
-for some yt-dlp JavaScript handling paths.
+FFmpeg is required for video/audio merging and conversion, and FFprobe is
+required for deterministic media stream inspection. QuickJS is used for some
+yt-dlp JavaScript handling paths.
 
 ## Running From Source
 
@@ -99,8 +101,7 @@ python src\main.py
 These instructions are for Windows development environments.
 
 ```powershell
-pip install -r requirements.txt
-pip install pyinstaller
+pip install -r requirements-dev.txt
 .\build.bat
 ```
 
@@ -109,6 +110,7 @@ The built executable is created in `dist/`.
 ## Test
 
 ```powershell
+pip install -r requirements-dev.txt
 python -m pytest
 ```
 

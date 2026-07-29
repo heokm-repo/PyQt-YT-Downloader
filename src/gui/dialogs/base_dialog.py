@@ -5,7 +5,6 @@ from PyQt5.QtCore import Qt, QPoint, QSize
 from PyQt5.QtGui import QFont, QColor
 import qtawesome as qta
 
-from constants import BTN_TEXT_CLOSE_X
 from resources.styles import (
     SETTINGS_CONTAINER_STYLE, SETTINGS_CLOSE_BUTTON_STYLE,
     SETTINGS_SHADOW_BLUR_RADIUS, SETTINGS_SHADOW_ALPHA,
@@ -14,11 +13,11 @@ from resources.styles import (
     SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE,
     SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, MAXIMIZE_BUTTON_STYLE
 )
-from gui.windowing.resizable_mixin import ResizableMixin
+from gui.windowing.windows_custom_frame_mixin import WindowsCustomFrameMixin
 from gui.windowing.window_state_manager import save_window_state, restore_window_state
 from utils.logger import log
 
-class BaseDialog(ResizableMixin, QDialog):
+class BaseDialog(WindowsCustomFrameMixin, QDialog):
     """Base class for all designed dialogs."""
     
     def __init__(self, parent=None, title="", icon_text=None, show_close_btn=True, 
@@ -39,11 +38,9 @@ class BaseDialog(ResizableMixin, QDialog):
         self.container_layout = None # The layout of the main white container
         self.container = None
         self.maximize_btn = None
-        
-        # Initialize ResizableMixin.
-        self._init_resizable(enabled=resizable)
-        
+
         self._setup_base_ui(title, icon_text, show_close_btn, show_divider)
+        self._init_windows_custom_frame(enabled=resizable)
         
     def _setup_base_ui(self, title_text, icon_text, show_close_btn, show_divider):
         self._main_layout = self._create_main_layout()
@@ -68,7 +65,7 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def _create_main_layout(self):
         layout = QVBoxLayout(self)
-        margin = SETTINGS_CONTAINER_MARGIN if 'SETTINGS_CONTAINER_MARGIN' in globals() else 10
+        margin = SETTINGS_CONTAINER_MARGIN
         layout.setContentsMargins(margin, margin, margin, margin)
         return layout
 
@@ -80,19 +77,15 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def _apply_container_shadow(self):
         shadow = QGraphicsDropShadowEffect(self)
-        blur_radius = SETTINGS_SHADOW_BLUR_RADIUS if 'SETTINGS_SHADOW_BLUR_RADIUS' in globals() else 15
-        shadow_alpha = SETTINGS_SHADOW_ALPHA if 'SETTINGS_SHADOW_ALPHA' in globals() else 80
-        shadow.setBlurRadius(blur_radius)
-        shadow.setColor(QColor(0, 0, 0, shadow_alpha))
+        shadow.setBlurRadius(SETTINGS_SHADOW_BLUR_RADIUS)
+        shadow.setColor(QColor(0, 0, 0, SETTINGS_SHADOW_ALPHA))
         shadow.setOffset(0, 0)
         self.container.setGraphicsEffect(shadow)
 
     def _create_container_layout(self):
         layout = QVBoxLayout(self.container)
-        margins = SETTINGS_CONTENT_MARGIN if 'SETTINGS_CONTENT_MARGIN' in globals() else (15, 15, 15, 15)
-        layout.setContentsMargins(*margins)
-        spacing = SETTINGS_CONTENT_SPACING if 'SETTINGS_CONTENT_SPACING' in globals() else 10
-        layout.setSpacing(spacing)
+        layout.setContentsMargins(*SETTINGS_CONTENT_MARGIN)
+        layout.setSpacing(SETTINGS_CONTENT_SPACING)
         return layout
 
     def _create_title_bar(self, title_text, icon_text, show_close_btn):
@@ -129,8 +122,7 @@ class BaseDialog(ResizableMixin, QDialog):
     def _create_title_label(self, title_text):
         title_label = QLabel(title_text)
         title_label.setFont(QFont(SETTINGS_FONT_FAMILY, 11, QFont.Bold))
-        style = MESSAGE_TITLE_STYLE if 'MESSAGE_TITLE_STYLE' in globals() else "color: #333333;"
-        title_label.setStyleSheet(style)
+        title_label.setStyleSheet(MESSAGE_TITLE_STYLE)
         return title_label
 
     def _create_maximize_button(self):
@@ -160,8 +152,7 @@ class BaseDialog(ResizableMixin, QDialog):
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
-        style = MESSAGE_DIVIDER_STYLE if 'MESSAGE_DIVIDER_STYLE' in globals() else "background-color: #E2E8F0;"
-        line.setStyleSheet(style)
+        line.setStyleSheet(MESSAGE_DIVIDER_STYLE)
         line.setFixedHeight(1)
         return line
 
@@ -201,17 +192,9 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # Give resizing first priority.
-            if self._resizable and self.resizable_mouse_press(event):
-                return
-            # Drag the window when the cursor is not on a resize edge.
             self.oldPos = event.globalPos()
 
     def mouseMoveEvent(self, event):
-        # Handle active resizing.
-        if self._resizable and self.resizable_mouse_move(event):
-            return
-        # Handle dragging.
         if self.oldPos is not None and event.buttons() == Qt.LeftButton:
             # Restore before dragging while maximized.
             if self._is_maximized:
@@ -225,8 +208,6 @@ class BaseDialog(ResizableMixin, QDialog):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            if self._resizable and self.resizable_mouse_release(event):
-                return
             self.oldPos = None
 
     def changeEvent(self, event):
@@ -237,7 +218,6 @@ class BaseDialog(ResizableMixin, QDialog):
             if self.isMaximized() and not self._is_maximized:
                 # Maximized by the OS: sync internal state and UI.
                 self._is_maximized = True
-                self._main_layout.setContentsMargins(8, 8, 8, 8)
                 self.container.setStyleSheet("""
                     QFrame#Container {
                         background-color: #FFFFFF;
@@ -256,14 +236,8 @@ class BaseDialog(ResizableMixin, QDialog):
             elif not self.isMaximized() and not self.isMinimized() and self._is_maximized:
                 # Restored by the OS: sync internal state and UI.
                 self._is_maximized = False
-                margin = SETTINGS_CONTAINER_MARGIN if 'SETTINGS_CONTAINER_MARGIN' in globals() else 10
-                self._main_layout.setContentsMargins(margin, margin, margin, margin)
                 self.container.setStyleSheet(SETTINGS_CONTAINER_STYLE)
-                shadow = QGraphicsDropShadowEffect(self)
-                shadow.setBlurRadius(SETTINGS_SHADOW_BLUR_RADIUS)
-                shadow.setColor(QColor(0, 0, 0, SETTINGS_SHADOW_ALPHA))
-                shadow.setOffset(0, 0)
-                self.container.setGraphicsEffect(shadow)
+                self._apply_container_shadow()
                 if self.maximize_btn:
                     self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
                 log.info(f"창 기본 크기로 복구 됨 ({name})")

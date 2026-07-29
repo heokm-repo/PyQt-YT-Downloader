@@ -32,6 +32,9 @@ def build_extract_info_command(
         if "format" in options:
             args.extend(["--format", options["format"]])
 
+        if "format_sort" in options:
+            args.extend(["--format-sort", options["format_sort"]])
+
         if "cookiefile" in options:
             args.extend(["--cookies", options["cookiefile"]])
 

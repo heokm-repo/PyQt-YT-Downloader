@@ -9,11 +9,11 @@ STRINGS = {
     'BTN_CLOSE': "닫기",
     'BTN_CANCEL': "취소",
     'BTN_SAVE': "저장",
+    'BTN_RESTART_NOW': "지금 재실행",
+    'BTN_LATER': "나중에",
 
-    'TITLE_INFO': "정보",
     'TITLE_WARNING': "경고",
     'TITLE_ERROR': "오류",
-    'TITLE_CONFIRM': "확인",
 
     # =========================================================================
     # 2. Main Window
@@ -51,6 +51,7 @@ STRINGS = {
     'SETTINGS_SEC_ADVANCED': "고급 기능",
     'SETTINGS_CHK_NORMALIZE': "음량 평준화",
     'SETTINGS_CHK_ACCEL': "다운로드 가속 (멀티 스레드)",
+    'SETTINGS_CHK_COMPATIBILITY': "범용 호환 모드",
     'SETTINGS_LABEL_COOKIES': "쿠키 (인앱 로그인):",
     'BTN_LOGIN': "로그인하기",
     'BTN_SAVE_CLOSE': "저장 및 닫기",
@@ -77,8 +78,6 @@ STRINGS = {
 
     # Settings Errors
     'ERR_SETTINGS_NO_FOLDER': "다운로드 폴더를 선택해주세요.",
-    'ERR_SETTINGS_CREATE_FOLDER': "폴더를 생성할 수 없습니다:\n{error}",
-    'ERR_SETTINGS_INVALID_FOLDER': "선택한 경로가 유효한 폴더가 아닙니다.",
     'ERR_SPONSOR_OPEN': "후원 페이지를 열 수 없습니다.",
     'MSG_DOWNLOAD_FOLDER_FALLBACK': "다운로드 폴더를 사용할 수 없어 저장 위치가 변경되었습니다.\n\n이전 저장 위치:\n{old_path}\n\n새 저장 위치:\n{new_path}\n\n사유:\n{reason}",
 
@@ -104,12 +103,6 @@ STRINGS = {
     'STATUS_PREPARING': "다운로드 준비 중...",
     'STATUS_NO_IMAGE': "이미지 없음",
 
-    # Worker Status
-    'WORKER_MSG_CONVERTING': "변환/병합 중",
-    'WORKER_MSG_PROCESSING': "처리 중...",
-    'WORKER_MSG_COMPLETE': "다운로드 완료",
-    'WORKER_MSG_STOPPED': "사용자에 의해 중지됨",
-
     # =========================================================================
     # 5. Dialogs & Popups
     # =========================================================================
@@ -127,15 +120,13 @@ STRINGS = {
     'MSG_DUP_ALREADY_DONE': "이미 '{format}' 포맷으로 다운로드된 영상입니다.\n",
     'MSG_DUP_IN_QUEUE': "(현재 {status} 상태인 작업이 있습니다)\n",
     'MSG_DUP_ASK_OVERWRITE': "\n다시 다운로드(덮어쓰기) 하시겠습니까?",
+    'ERR_DUPLICATE_REPLACEMENT_TIMEOUT': "기존 다운로드가 제한 시간 안에 중지되지 않아 새 다운로드를 시작하지 않았습니다.",
     
     'TITLE_RESUME': "다운로드 재개",
     'MSG_RESUME_CONFIRM': "이전에 다운로드중인 작업을 재개하시겠습니까?",
     'TITLE_NO_NEW_VIDEOS': "알림",
 
     # Initialization & Update
-    'TITLE_INIT': "YT Downloader 초기화",
-    'TITLE_APP_UPDATE': "YT Downloader 업데이트",
-
     'MSG_INIT_DESC': "필수 구성 요소를 다운로드하고 있습니다...",
     'MSG_INIT_PREPARING': "준비 중...",
     'MSG_INIT_INFO': "잠시만 기다려주세요. 이 작업은 처음 실행 시에만 수행됩니다.",
@@ -154,11 +145,10 @@ STRINGS = {
     'TITLE_INIT': "YT Downloader 초기화",
     'TITLE_INIT_SETUP': "초기 설정",
     'LABEL_LANGUAGE_SELECT': "언어 선택:",
-    'MSG_CONFIRM_INIT_DOWNLOAD': "영상 다운로드 및 병합을 위해 필수 구성 요소(yt-dlp, FFmpeg)가 필요합니다.\n\n다운로드하시겠습니까?",
+    'MSG_CONFIRM_INIT_DOWNLOAD': "영상 다운로드, 병합, 미디어 검사 및 YouTube 처리를 위해 필수 구성 요소(yt-dlp, FFmpeg, ffprobe, QuickJS)가 필요합니다.\n\n다운로드하시겠습니까?",
     'BTN_START_SETUP': "시작",
     
     'TITLE_APP_UPDATE': "YT Downloader 업데이트",
-    'MSG_INIT_TITLE': "YT Downloader 초기화 중...",
 
     # Startup Dialog
     'TITLE_STARTUP': "YT Downloader 시작 중",
@@ -178,8 +168,12 @@ STRINGS = {
     'TITLE_UPDATE_CHECK': "업데이트 확인",
     'MSG_UPDATE_AVAILABLE': "새로운 버전이 있습니다!\n\n현재 버전: {current}\n최신 버전: {latest}\n\n지금 업데이트하시겠습니까?",
     'MSG_UPDATE_LATEST': "이미 최신 버전입니다.",
+    'MSG_UPDATE_ALL_LATEST': "YT Downloader와 모든 필수 구성 요소가 최신 버전입니다.",
+    'MSG_UPDATE_COMPONENT_MISSING': "• {name}: 설치 또는 복구 필요",
+    'MSG_UPDATE_RESTART_REQUIRED': "업데이트를 적용하려면 앱을 재실행해 주세요.",
+    'MSG_UPDATE_RESTART_ACTIVE_TASKS': "다운로드 중이거나 대기 중인 작업은 재실행 시 일시정지되며, 앱을 다시 시작한 뒤 재개할 수 있습니다.",
+    'ERR_RESTART_FAILED': "앱을 재실행하지 못했습니다. 앱을 수동으로 다시 실행해 주세요.",
     'ERR_UPDATE_CHECK': "업데이트 확인 중 오류가 발생했습니다:\n{error}",
-    'TITLE_UPDATE_DL': "업데이트 진행 중",
     'MSG_UPDATE_DL': "새 버전을 다운로드하는 중입니다...\n잠시만 기다려 주세요.",
     'MSG_UPDATE_PREPARING': "업데이트 준비 중...",
     'MSG_UPDATE_DL_STATUS': "업데이트 다운로드 중...",
@@ -212,7 +206,6 @@ STRINGS = {
     'SORT_OLDEST': "오래된순",
     'SORT_STATUS': "상태순",
     'MSG_NO_NEW_ITEMS': "추가할 새 영상이 없습니다.",
-    'MSG_ALL_DONE': "완료",
     'ERR_PLAYLIST_FETCH': "플레이리스트에서 영상을 가져올 수 없습니다.",
     'ERR_NOT_PLAYLIST': "플레이리스트 URL이 아닙니다.",
     'ERR_CANNOT_FETCH_INFO': "정보를 가져올 수 없습니다.",
@@ -257,6 +250,7 @@ STRINGS = {
     'TOOLTIP_RETRY': "재시도",
     'TOOLTIP_NORMALIZE': "음량을 방송 표준(-14 LUFS)으로 평준화합니다.\n변환에 시간이 더 소요됩니다.",
     'TOOLTIP_ACCEL': "파일을 여러 파트로 나누어 동시에 다운로드합니다.\n다운로드 속도가 향상됩니다.\n(선택 시 최대 다운로드 수는 1로 고정)",
+    'TOOLTIP_COMPATIBILITY': "출력 포맷을 MP4 또는 MP3로 제한합니다.\nMP4 영상은 폭넓은 기기 호환성을 위해 H.264/AAC로 마무리합니다.",
 
     'MENU_PLAY': "재생",
     'MENU_OPEN_FOLDER': "폴더 열기",

@@ -39,6 +39,7 @@ class DownloadScheduler(QObject):
 
         # Keep only the latest queued run valid for each task_id.
         self.task_generations = {}
+        self._active_task_generations = {}
         self._generations_lock = threading.Lock()
 
     def initialize(self, max_workers: int):
@@ -63,6 +64,33 @@ class DownloadScheduler(QObject):
         with self._generations_lock:
             return self.task_generations.get(task_id) == generation
 
+    def claim_task(self, task_id: int, generation: int) -> bool:
+        """Atomically claim a still-current task generation for one worker."""
+        with self._paused_flags_lock:
+            if (
+                task_id in self.task_cancelled_flags
+                or self.task_paused_flags.get(task_id, False)
+            ):
+                return False
+            with self._generations_lock:
+                if self.task_generations.get(task_id) != generation:
+                    return False
+                if task_id in self._active_task_generations:
+                    return False
+                self._active_task_generations[task_id] = generation
+                return True
+
+    def release_task(self, task_id: int, generation: int) -> None:
+        """Release a worker claim without affecting a newer generation."""
+        with self._generations_lock:
+            if self._active_task_generations.get(task_id) == generation:
+                del self._active_task_generations[task_id]
+
+    def is_task_running(self, task_id: int) -> bool:
+        """Return whether a worker still owns a generation for this task."""
+        with self._generations_lock:
+            return task_id in self._active_task_generations
+
     def pause_all(self):
         """Pause all downloads."""
         self.pause_event.clear()
@@ -70,10 +98,6 @@ class DownloadScheduler(QObject):
     def resume_all(self):
         """Resume all downloads."""
         self.pause_event.set()
-
-    def is_paused(self) -> bool:
-        """Return whether the scheduler is globally paused."""
-        return not self.pause_event.is_set()
 
     def pause_task(self, task_id: int):
         """Set the pause flag for one task in a thread-safe way."""
@@ -151,11 +175,6 @@ class DownloadScheduler(QObject):
         self.workers = [w for w in self.workers if w.isRunning()]
         # Relay the signal.
         self.download_finished.emit(success, message, task_id, final_path)
-
-    def get_worker_count(self) -> int:
-        """Return the current active worker count."""
-        self.workers = [w for w in self.workers if w.isRunning()]
-        return len(self.workers)
 
     def shutdown(self):
         """Shut down the scheduler and clean up all workers."""

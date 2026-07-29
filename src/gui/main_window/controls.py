@@ -57,6 +57,7 @@ from resources.styles import (
     STATUS_SORT_BUTTON_STYLE,
     STATUS_SORT_MENU_STYLE,
     TASK_LIST_MARGINS,
+    TASK_LIST_MIN_HEIGHT,
     TASK_LIST_SPACING,
     TITLE_BAR_BUTTON_SIZE,
     TITLE_BAR_BUTTON_ICON_SIZE,
@@ -431,6 +432,7 @@ def create_task_list_section(empty_text: str) -> TaskListSectionControls:
     """Create the task-list scroll area, content layout, and empty-state label."""
     scroll_area = QScrollArea()
     scroll_area.setWidgetResizable(True)
+    scroll_area.setMinimumHeight(TASK_LIST_MIN_HEIGHT)
     scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
     scroll_area.setStyleSheet("background: transparent; border: none;")
 
@@ -445,11 +447,14 @@ def create_task_list_section(empty_text: str) -> TaskListSectionControls:
     scroll_area.setWidget(scroll_content)
     scroll_area.hide()
 
+    empty_label = create_empty_state_label(empty_text)
+    empty_label.setMinimumHeight(TASK_LIST_MIN_HEIGHT)
+
     return TaskListSectionControls(
         scroll_area,
         scroll_content,
         task_layout,
-        create_empty_state_label(empty_text),
+        empty_label,
     )
 
 

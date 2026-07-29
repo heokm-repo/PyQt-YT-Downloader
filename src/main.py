@@ -40,11 +40,15 @@ def load_qt_widgets():
     """Import Qt widget classes after dependency checks have completed."""
     global QApplication, QMessageBox, QDialog
     if QApplication is None:
+        from PyQt5.QtCore import Qt as _Qt
         from PyQt5.QtWidgets import (
             QApplication as _QApplication,
             QDialog as _QDialog,
             QMessageBox as _QMessageBox,
         )
+        from gui.windowing.high_dpi import configure_qt_display_policy
+
+        configure_qt_display_policy(_QApplication, _Qt)
 
         QApplication = _QApplication
         QMessageBox = _QMessageBox
@@ -202,6 +206,10 @@ def main():
             sys.exit(1)
 
         configure_startup_paths()
+        from utils.app_restart import wait_for_restart_parent
+
+        if not wait_for_restart_parent():
+            log.warning("Timed out while waiting for the previous app process to exit.")
         ensure_dependencies_or_exit()
         load_qt_widgets()
 

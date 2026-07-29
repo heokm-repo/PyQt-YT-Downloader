@@ -10,6 +10,7 @@ from constants import (
     KEY_MAX_DOWNLOADS,
     KEY_NORMALIZE_AUDIO,
     KEY_USE_ACCELERATION,
+    KEY_UNIVERSAL_COMPATIBILITY,
     KEY_VIDEO_QUALITY,
 )
 from locales import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
@@ -67,6 +68,7 @@ def build_settings_from_form_values(
     use_acceleration: bool,
     max_downloads: int,
     language_index: int,
+    universal_compatibility: bool = False,
 ) -> dict[str, Any]:
     """Return updated settings from the current dialog form values."""
     settings = dict(current_settings)
@@ -76,6 +78,7 @@ def build_settings_from_form_values(
     settings[KEY_FORMAT] = output_format
     settings[KEY_NORMALIZE_AUDIO] = normalize_audio
     settings[KEY_USE_ACCELERATION] = use_acceleration
+    settings[KEY_UNIVERSAL_COMPATIBILITY] = universal_compatibility
     settings[KEY_MAX_DOWNLOADS] = max_downloads
     settings[KEY_LANGUAGE] = language_code_at_index(language_index)
     return settings

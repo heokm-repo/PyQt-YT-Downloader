@@ -10,20 +10,31 @@ KEY_FORMAT = 'format'
 KEY_MAX_DOWNLOADS = 'max_downloads'
 KEY_NORMALIZE_AUDIO = 'normalize_audio'
 KEY_USE_ACCELERATION = 'use_acceleration'
+KEY_UNIVERSAL_COMPATIBILITY = 'universal_compatibility'
 KEY_LANGUAGE = 'language'
 
 # Defaults
-APP_VERSION = 'v2.1.2'  # App version
+APP_VERSION = 'v2.2.0'  # App version
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
 DEFAULT_MAX_DOWNLOADS = 3
 DEFAULT_ACCELERATION = False
 DEFAULT_NORMALIZE = False
+DEFAULT_UNIVERSAL_COMPATIBILITY = False
 
 # Settings dialog options
-VIDEO_QUALITY_OPTIONS = ['best', '1080p', '720p', '480p', '360p', 'worst']
-AUDIO_QUALITY_OPTIONS = ['best', '320k', '256k', '192k', '128k', 'worst']
+VIDEO_QUALITY_OPTIONS = [
+    'best',
+    '2160p',
+    '1440p',
+    '1080p',
+    '720p',
+    '480p',
+    '360p',
+    'worst',
+]
+AUDIO_QUALITY_OPTIONS = ['best', '320k', '256k', '192k', '128k', '96k', 'worst']
 FORMAT_OPTIONS = ['mp4', 'mkv', 'webm', 'mp3', 'm4a', 'wav']
 VIDEO_FORMATS = ['mp4', 'mkv', 'webm']
 AUDIO_FORMATS = ['mp3', 'm4a', 'wav']
@@ -57,6 +68,7 @@ YTDLP_TIMEOUT = 30
 YTDLP_RETRIES = '10'
 DEFAULT_ENCODING = 'utf-8'
 YTDLP_FINAL_PATH_MARKER = '__YTDLP_FINAL_PATH__:'
+YTDLP_METADATA_MARKER = '__YTDLP_METADATA__:'
 
 # --- End Core Logic Constants ---
 
@@ -125,7 +137,6 @@ YOUTUBE_SHORTS_PATH = '/shorts/'
 
 # UI Symbols (Moved from strings.py)
 MSG_0_PERCENT = "0%"
-BTN_TEXT_CLOSE_X = "✕"
 BTN_MINIMIZE = "─"
 
 class TaskStatus(Enum):
@@ -195,6 +206,7 @@ ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY = 'Path is not a directory.'
 # Bin Manager Constants
 YTDLP_BINARY = 'yt-dlp.exe'
 FFMPEG_BINARY = 'ffmpeg.exe'
+FFPROBE_BINARY = 'ffprobe.exe'
 QUICKJS_BINARY = 'qjs.exe'
 YTDLP_RELEASE_API_URL = f"{GITHUB_API_BASE_URL}/yt-dlp/yt-dlp/releases/latest"
 FFMPEG_RELEASE_API_URL = f"{GITHUB_API_BASE_URL}/BtbN/FFmpeg-Builds/releases/latest"
@@ -202,9 +214,10 @@ QUICKJS_RELEASE_API_URL = f"{GITHUB_API_BASE_URL}/quickjs-ng/quickjs/releases/la
 FFMPEG_ZIP_NAME_WIN = "ffmpeg-master-latest-win64-gpl.zip"
 FFMPEG_EXE_INTERNAL_PATH = "bin/ffmpeg.exe"
 FFMPEG_EXE_INTERNAL_PATH_ROOT = "ffmpeg.exe"
+FFPROBE_EXE_INTERNAL_PATH = "bin/ffprobe.exe"
+FFPROBE_EXE_INTERNAL_PATH_ROOT = "ffprobe.exe"
 QUICKJS_ASSET_NAME = 'qjs-windows-x86_64.exe'
 BIN_VERSION_FILENAME = '.version.json'
-BIN_UPDATE_CHECK_INTERVAL_HOURS = 12
 
 # Network / Process Constants
 HTTP_API_TIMEOUT_SEC = 10

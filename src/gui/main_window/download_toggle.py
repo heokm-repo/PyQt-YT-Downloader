@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, MutableSequence
 
 from constants import TaskStatus
+from gui.tasks.task_resume_plan import build_resume_task_plan
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,10 @@ def resume_paused_tasks(
         if task.status != TaskStatus.PAUSED:
             continue
 
+        resume_plan = build_resume_task_plan(task, default_settings)
+        if resume_plan is None:
+            continue
+
         if scheduler.is_task_paused(task.id):
             scheduler.resume_task(task.id)
 
@@ -47,9 +52,14 @@ def resume_paused_tasks(
 
         task.status = TaskStatus.WAITING
 
-        settings = task.settings if task.settings else dict(default_settings)
-        meta = task.meta if task.meta else {}
-        scheduler.add_task(1, task.id, task.url, settings, meta, is_resume=True)
+        scheduler.add_task(
+            1,
+            task.id,
+            resume_plan.url,
+            resume_plan.settings,
+            resume_plan.meta,
+            is_resume=True,
+        )
 
 
 def mark_downloading_tasks_paused(tasks: MutableSequence[Any]) -> list[int]:

@@ -5,12 +5,13 @@ from typing import Any, Dict, Optional, Tuple
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from core.download import handler as download_handler
-from core.download.file_finder import find_downloaded_file
-from core.worker_progress import apply_downloading_progress, apply_postprocessing_progress, format_speed
+from core.download.workspace_identity import (
+    LEGACY_WORKSPACE_SETTING,
+    WORKSPACE_ID_SETTING,
+)
+from core.worker_progress import apply_downloading_progress, apply_postprocessing_progress
 from core.worker_queue import parse_task_wrapper
 from utils.logger import log
-from utils.url_security import redact_url_for_log
-from utils.settings_store import get_download_folder
 from constants import (
     MSG_PAUSED_BY_USER, QUEUE_TIMEOUT_SEC, STARTUP_STATUS_SETTLE_DELAY_SEC,
     STATUS_DOWNLOADING, STATUS_FINISHED, STATUS_POSTPROCESSING
@@ -65,20 +66,20 @@ class DownloadWorker(QThread):
     # Helper methods.
     # ============================================================
     
-    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool, Optional[int]]]:
+    def _extract_task_data(self, task_wrapper: Any) -> Optional[Tuple[int, str, Dict, Dict, bool, int]]:
         """
         Parse a queue entry into (task_id, url, settings, metadata, is_resume, generation).
-        Return None for shutdown markers or invalid queue entries.
+        Return None for the scheduler shutdown marker.
         """
         task_data, should_mark_done = parse_task_wrapper(task_wrapper)
         if should_mark_done:
             self.download_queue.task_done()
         return task_data
 
-    def _should_skip_task(self, task_id: int, generation: Optional[int] = None) -> bool:
+    def _should_skip_task(self, task_id: int, generation: int) -> bool:
         """Return True when the queued task should be skipped."""
         scheduler = self.parent()
-        if scheduler and generation is not None and hasattr(scheduler, 'is_current_generation'):
+        if scheduler and hasattr(scheduler, 'is_current_generation'):
             if not scheduler.is_current_generation(task_id, generation):
                 log.info(f"Skipping stale queued task (task_id={task_id}, generation={generation})")
                 self.download_queue.task_done()
@@ -94,6 +95,34 @@ class DownloadWorker(QThread):
                 self.download_queue.task_done()
                 return True
         return False
+
+    def _claim_task(self, task_id: int, generation: int) -> bool:
+        """Atomically claim a task after the fast skip checks."""
+        scheduler = self.parent()
+        if scheduler and hasattr(scheduler, "claim_task"):
+            return scheduler.claim_task(task_id, generation)
+        return True
+
+    def _release_current_claim(self) -> None:
+        """Release scheduler ownership of the current task generation."""
+        task_id = self.current_task_id
+        generation = self.current_generation
+        scheduler = self.parent()
+        if (
+            scheduler
+            and generation is not None
+            and hasattr(scheduler, "release_task")
+        ):
+            scheduler.release_task(task_id, generation)
+        self.current_task_id = -1
+        self.current_generation = None
+
+    def _finish_current_queue_entry(self) -> None:
+        """Mark a claimed queue entry done and release worker ownership."""
+        try:
+            self.download_queue.task_done()
+        finally:
+            self._release_current_claim()
 
     def _stop_check(self) -> bool:
         """Quickly check stop and pause state for each stdout line."""
@@ -113,49 +142,40 @@ class DownloadWorker(QThread):
                 return True
         return False
 
-    def _process_metadata(self, task_id: int, url: str, metadata: Dict, settings: Dict = None) -> Tuple[Dict, bool]:
-        """
-        Fetch metadata lazily when it is missing.
-        
-        Returns:
-            Tuple of metadata dictionary and success flag.
-        """
-        if not metadata or not metadata.get('title'):
-            meta, meta_success = download_handler.fetch_metadata(url, settings)
-            if meta_success and meta:
-                metadata = meta
-                self.metadata_fetched.emit(task_id, metadata)
-            else:
-                log.warning(
-                    f"메타데이터 조회 실패 (task_id={task_id}): "
-                    f"{redact_url_for_log(url)}"
-                )
-                return metadata, False
-        return metadata, True
-
     def _init_progress_tracking(self, task_id: int, metadata: Dict) -> None:
-        """Initialize progress tracking for video and audio phases."""
+        """Initialize progress tracking from the streams yt-dlp selected."""
         video_size_est = metadata.get('video_size', 0) or 0
         audio_size_est = metadata.get('audio_size', 0) or 0
+        selected_streams = metadata.get("download_streams")
+        streams = []
+        if isinstance(selected_streams, list):
+            for index, stream in enumerate(selected_streams):
+                if not isinstance(stream, dict):
+                    continue
+                streams.append(
+                    {
+                        "id": str(stream.get("id") or index),
+                        "kind": str(stream.get("kind") or "unknown"),
+                        "downloaded": 0,
+                        "total": stream.get("size", 0) or 0,
+                        "filename": None,
+                    }
+                )
         
-        self.download_progress[task_id] = {
+        progress_info = {
+            'active_stream_index': 0,
             'video': {'downloaded': 0, 'total': video_size_est, 'filename': None},
             'audio': {'downloaded': 0, 'total': audio_size_est, 'filename': None},
             'postprocessing': False,
+            'active_stream': 'video',
             'total_size_est': video_size_est + audio_size_est,
             'video_size_est': video_size_est,
             'audio_size_est': audio_size_est
         }
+        if streams:
+            progress_info['streams'] = streams
+        self.download_progress[task_id] = progress_info
         self.last_update_times[task_id] = 0.0
-
-    def _find_downloaded_file(self, task_id: int, metadata: Dict, settings: Dict) -> str:
-        """Find and return the downloaded file path, or an empty string if not found."""
-        save_path = get_download_folder(settings)
-        return find_downloaded_file(self.current_output_path, metadata, save_path, task_id)
-
-    def _format_speed(self, speed: float) -> str:
-        """Convert bytes per second to a human-readable string."""
-        return format_speed(speed)
 
     # ============================================================
     # Main execution method.
@@ -184,52 +204,92 @@ class DownloadWorker(QThread):
 
                 if self._should_skip_task(task_id, generation):
                     continue
+                if not self._claim_task(task_id, generation):
+                    log.info(
+                        "Skipping unclaimable queued task "
+                        "(task_id=%s, generation=%s)",
+                        task_id,
+                        generation,
+                    )
+                    self.download_queue.task_done()
+                    continue
                 
                 self.current_task_id = task_id
                 self.current_generation = generation
                 self.current_output_path = ""
-                
-                metadata, meta_ok = self._process_metadata(task_id, url, metadata, current_settings)
-                
-                # Treat metadata lookup failure as a failed task without trying to download.
-                if not meta_ok:
-                    from utils.utils import is_youtube_url
-                    if not is_youtube_url(url):
-                        # Unsupported URL: fail immediately without trying to download.
-                        error_msg = STR.ERR_UNSUPPORTED_URL
-                        log.error(
-                            f"지원되지 않는 URL (task_id={task_id}): "
-                            f"{redact_url_for_log(url)}"
-                        )
-                        self.download_finished.emit(False, error_msg, task_id, "")
-                        self.download_queue.task_done()
-                        self.current_generation = None
-                        continue
-                
-                self.task_started.emit(task_id)
 
                 self._init_progress_tracking(task_id, metadata)
 
-                success, message = download_handler.download_video(
-                    url, current_settings, self._progress_hook, is_resume, self._stop_check
+                task_started = False
+                metadata_received = False
+
+                def mark_task_started() -> None:
+                    nonlocal task_started
+                    if not task_started:
+                        self.task_started.emit(task_id)
+                        task_started = True
+
+                def handle_metadata(fetched_metadata: Dict) -> None:
+                    nonlocal metadata, metadata_received
+                    if metadata_received or not fetched_metadata:
+                        return
+                    metadata_received = True
+                    metadata = {**metadata, **fetched_metadata}
+                    selected_audio_bitrate = fetched_metadata.get("audio_bitrate")
+                    if selected_audio_bitrate:
+                        execution_settings["_selected_audio_bitrate"] = (
+                            selected_audio_bitrate
+                        )
+                    self._init_progress_tracking(task_id, metadata)
+                    self.metadata_fetched.emit(task_id, metadata)
+                    mark_task_started()
+
+                def handle_progress(progress: Dict[str, Any]) -> None:
+                    # Normally before_dl metadata arrives first. Keep progress
+                    # functional if yt-dlp omits or cannot parse that output.
+                    mark_task_started()
+                    self._progress_hook(progress)
+
+                execution_settings = dict(current_settings)
+                legacy_identity = execution_settings.get(
+                    LEGACY_WORKSPACE_SETTING
                 )
+                execution_settings["_temp_identity"] = {
+                    "id": metadata.get("id"),
+                    "extractor": metadata.get("extractor", "unknown"),
+                    "workspace_id": execution_settings.get(
+                        WORKSPACE_ID_SETTING
+                    ),
+                    "legacy_workspace": isinstance(legacy_identity, dict),
+                    "legacy_identity": legacy_identity,
+                }
+                result = download_handler.download_video_with_result(
+                    url,
+                    execution_settings,
+                    handle_progress,
+                    is_resume=is_resume,
+                    stop_check=self._stop_check,
+                    metadata_hook=handle_metadata,
+                )
+                success = result.success
+                message = result.message
+                final_path = result.final_path
                 
                 if not success and MSG_PAUSED_BY_USER in str(message):
-                    self.download_finished.emit(False, STR.STATUS_PAUSED, task_id, "")
-                    self.download_queue.task_done()
-                    self.current_generation = None
+                    self.download_finished.emit(
+                        False,
+                        STR.STATUS_PAUSED,
+                        task_id,
+                        final_path,
+                    )
+                    self._finish_current_queue_entry()
                     continue
 
                 if task_id in self.download_progress:
                     del self.download_progress[task_id]
                 
-                final_path = ""
-                if success:
-                    final_path = self._find_downloaded_file(task_id, metadata, current_settings)
-                
                 self.download_finished.emit(success, message, task_id, final_path)
-                self.download_queue.task_done()
-                self.current_generation = None
+                self._finish_current_queue_entry()
                 
                 if self.retire_flag:
                     break
@@ -246,8 +306,11 @@ class DownloadWorker(QThread):
             try:
                 if isinstance(task_wrapper, tuple) and len(task_wrapper) == 7:
                     error_task_id = task_wrapper[2]
-                elif isinstance(task_wrapper, tuple) and len(task_wrapper) > 1:
-                    error_task_id = task_wrapper[1]
+                if (
+                    self.current_generation is not None
+                    and error_task_id == self.current_task_id
+                ):
+                    self._release_current_claim()
                 self.download_queue.task_done()
             except (IndexError, TypeError, ValueError) as cleanup_error:
                 log.debug(f"Failed to mark errored queue entry done: {cleanup_error}")

@@ -53,7 +53,11 @@ def format_binary_update_message(updates: dict, header: str, ask_now: str) -> st
     """Build the visible update prompt for external binary updates."""
     message = header
     for name, info in updates.items():
-        message += f"\u2022 {name}: {info['current']} \u2192 {info['latest']}\n"
+        display_name = "FFmpeg / ffprobe" if name == "ffmpeg" else name
+        message += (
+            f"\u2022 {display_name}: "
+            f"{info['current']} \u2192 {info['latest']}\n"
+        )
     return message + ask_now
 
 
@@ -61,6 +65,7 @@ def run_initial_binary_install(
     accepted_result: int,
     show_error_message: Callable[[str, str, str], None],
     logger: Any,
+    binary_names: tuple[str, ...] | None = None,
     setup_dialog_factory: Callable[[], Any] | None = None,
     progress_dialog_factory: Callable[..., Any] | None = None,
 ) -> None:
@@ -83,7 +88,7 @@ def run_initial_binary_install(
     logger.info(f"Initial setup completed. Language: {get_language()}")
     logger.info("Binaries not found. Starting initial download...")
 
-    progress_dialog = progress_dialog_factory()
+    progress_dialog = progress_dialog_factory(binary_names=binary_names)
     progress_dialog.exec_()
     if not progress_dialog.download_success:
         show_error_message(
@@ -94,6 +99,37 @@ def run_initial_binary_install(
         raise SystemExit(1) from None
 
     logger.info("Initial binary download completed successfully")
+
+
+def run_missing_binary_repair(
+    binary_names: tuple[str, ...],
+    show_error_message: Callable[[str, str, str], None],
+    logger: Any,
+    progress_dialog_factory: Callable[..., Any] | None = None,
+) -> None:
+    """Repair only missing managed binaries without repeating first-run setup."""
+    if not binary_names:
+        return
+    if progress_dialog_factory is None:
+        from gui.dialogs.download_progress_dialog import DownloadProgressDialog
+
+        progress_dialog_factory = DownloadProgressDialog
+
+    logger.info(
+        f"Repairing missing managed binaries: {', '.join(binary_names)}"
+    )
+    progress_dialog = progress_dialog_factory(binary_names=binary_names)
+    progress_dialog.exec_()
+    if progress_dialog.download_success:
+        logger.info("Missing binary repair completed successfully")
+        return
+
+    show_error_message(
+        STR.TITLE_INIT_FAIL,
+        STR.ERR_DL_COMPONENT_FAIL,
+        STR.MSG_CHECK_NET,
+    )
+    raise SystemExit(1) from None
 
 
 def run_binary_update_prompt(
@@ -147,14 +183,31 @@ def run_startup_binary_flow(
     logger: Any,
 ) -> tuple[bool, str | None, str | None, str | None]:
     """Run startup language, external binary checks, and binary updates."""
-    from utils.bin.manager import check_binaries_exist
+    from utils.bin.manager import (
+        check_binary_presence,
+        missing_binary_downloads,
+    )
 
     load_startup_language(logger)
     startup_result = run_startup_checks()
 
-    if not check_binaries_exist():
-        run_initial_binary_install(accepted_result, show_error_message, logger)
-    else:
+    presence = check_binary_presence()
+    if all(presence.values()):
         run_binary_update_prompt(startup_result.updates_available, accepted_result, logger)
+    else:
+        binary_names = missing_binary_downloads(presence)
+        if any(presence.values()):
+            run_missing_binary_repair(
+                binary_names,
+                show_error_message,
+                logger,
+            )
+        else:
+            run_initial_binary_install(
+                accepted_result,
+                show_error_message,
+                logger,
+                binary_names=binary_names,
+            )
 
     return startup_result.app_update_info

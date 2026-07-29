@@ -5,7 +5,6 @@ from PyQt5.QtGui import QFont
 from gui.dialogs.base_dialog import BaseDialog
 from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
-from constants import BTN_TEXT_CLOSE_X
 from resources.styles import (
     SETTINGS_CANCEL_BUTTON_STYLE, SETTINGS_SAVE_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY, MESSAGE_BTN_HEIGHT,

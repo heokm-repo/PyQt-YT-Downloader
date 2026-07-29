@@ -138,11 +138,35 @@ class TaskActions:
         self.main_window.update_progress_ui()
 
     def retry_task(self, task_id: int) -> None:
-        """Retry or redownload a task from the beginning."""
+        """Resume a failed task, or redownload a completed task."""
         if not self.main_window.toggle_enabled:
             self.main_window.toggle_download()
 
         task = self._get_task(task_id)
+        if task and task.status == TaskStatus.FAILED:
+            resume_plan = build_resume_task_plan(task, self._settings)
+            if not resume_plan:
+                return
+
+            self._scheduler.resume_task(task_id)
+            task.status = TaskStatus.WAITING
+
+            widget = self._get_widget(task_id)
+            if widget:
+                widget.set_status('waiting')
+                widget.status_label.setText(STR.STATUS_WAITING_DOTS)
+
+            self._scheduler.add_task(
+                1,
+                task_id,
+                resume_plan.url,
+                resume_plan.settings,
+                resume_plan.meta,
+                is_resume=True,
+            )
+            self.main_window.update_progress_ui()
+            return
+
         plan = build_retry_task_plan(task, self.main_window.settings)
         if not plan:
             return
@@ -156,7 +180,7 @@ class TaskActions:
         ):
             return
 
-        self.main_window.remove_task_from_list(task_id)
+        self.main_window.remove_task_from_list(task_id, discard_workspace=False)
         self.main_window.url_input.setText(plan.url)
         self.main_window.start_download()
 

@@ -4,7 +4,7 @@ import os
 import sys
 import subprocess
 from utils.logger import log
-from constants import APPDATA_DIR_NAME, INNO_UNINSTALL_ARGS, INNO_UNINSTALLER_FILENAME
+from constants import INNO_UNINSTALL_ARGS, INNO_UNINSTALLER_FILENAME
 
 
 def uninstall_app():

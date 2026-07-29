@@ -13,12 +13,14 @@ class DownloadWorker(QThread):
 
     progress = pyqtSignal(str, int, int)  # binary_name, downloaded, total
     finished = pyqtSignal(bool)  # success
-    status = pyqtSignal(str)  # status message
 
-    def __init__(self, update_mode=False, updates=None):
+    def __init__(self, update_mode=False, updates=None, binary_names=None):
         super().__init__()
         self.update_mode = update_mode
         self.updates = updates  # Binaries to update.
+        self.binary_names = (
+            tuple(binary_names) if binary_names is not None else None
+        )
         self.is_cancelled = False
 
     def cancel(self):
@@ -32,34 +34,25 @@ class DownloadWorker(QThread):
     def run(self):
         """Run the download workflow."""
         try:
+            def progress_callback(binary_name, downloaded, total):
+                self.progress.emit(binary_name, downloaded, total)
+
             if self.update_mode:
                 from utils.bin.manager import update_binaries
 
-                def progress_callback(binary_name, downloaded, total):
-                    self.progress.emit(binary_name, downloaded, total)
-
                 # Pass the selected binary update set.
                 results = update_binaries(progress_callback, self.updates, self.check_cancel)
-
-                if self.is_cancelled:
-                    self.finished.emit(False)
-                    return
-
                 success = all(results.values())
-                self.finished.emit(success)
             else:
                 from utils.bin.manager import download_initial_binaries
 
-                def progress_callback(binary_name, downloaded, total):
-                    self.progress.emit(binary_name, downloaded, total)
+                success = download_initial_binaries(
+                    progress_callback,
+                    self.check_cancel,
+                    binary_names=self.binary_names,
+                )
 
-                success = download_initial_binaries(progress_callback, self.check_cancel)
-
-                if self.is_cancelled:
-                    self.finished.emit(False)
-                    return
-
-                self.finished.emit(success)
+            self.finished.emit(False if self.is_cancelled else success)
 
         except Exception as e:
             log.error(f"Download worker error: {e}")
@@ -69,9 +62,18 @@ class DownloadWorker(QThread):
 class DownloadProgressDialog(ProgressDialogBase):
     """Progress dialog for initial binary downloads and binary updates."""
 
-    def __init__(self, parent=None, update_mode=False, updates=None):
+    def __init__(
+        self,
+        parent=None,
+        update_mode=False,
+        updates=None,
+        binary_names=None,
+    ):
         self.update_mode = update_mode
         self.updates = updates  # Binaries to update.
+        self.binary_names = (
+            tuple(binary_names) if binary_names is not None else None
+        )
         title_text = STR.TITLE_APP_UPDATE if update_mode else STR.TITLE_INIT
         info_text = STR.MSG_UPDATE_DL if update_mode else STR.MSG_INIT_INFO
 
@@ -101,7 +103,11 @@ class DownloadProgressDialog(ProgressDialogBase):
         if self.worker is not None:
             return
 
-        self.worker = DownloadWorker(self.update_mode, self.updates)
+        self.worker = DownloadWorker(
+            self.update_mode,
+            self.updates,
+            self.binary_names,
+        )
         self.worker.progress.connect(self._on_progress)
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
@@ -114,7 +120,7 @@ class DownloadProgressDialog(ProgressDialogBase):
         Update download progress.
 
         Args:
-            binary_name: yt-dlp or ffmpeg.
+            binary_name: yt-dlp, the FFmpeg/ffprobe bundle, or quickjs.
             downloaded: Downloaded bytes.
             total: Total bytes.
         """
@@ -125,7 +131,12 @@ class DownloadProgressDialog(ProgressDialogBase):
             downloaded_mb = downloaded / (1024 * 1024)
             total_mb = total / (1024 * 1024)
 
-            display_name = "yt-dlp" if binary_name == "yt-dlp" else "FFmpeg"
+            display_names = {
+                "yt-dlp": "yt-dlp",
+                "ffmpeg": "FFmpeg / ffprobe",
+                "quickjs": "QuickJS",
+            }
+            display_name = display_names.get(binary_name, binary_name)
             self.status_label.setText(STR.MSG_INIT_DL_STATUS.format(item=display_name))
             self.detail_label.setText(
                 f"{downloaded_mb:.1f} MB / {total_mb:.1f} MB ({bounded_percent}%)"

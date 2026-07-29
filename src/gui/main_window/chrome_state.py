@@ -1,11 +1,9 @@
 """Build visual state for the custom main-window chrome."""
 
 from dataclasses import dataclass
-from typing import Sequence
 
 MAXIMIZE_ICON_NAME = "mdi.window-maximize"
 RESTORE_ICON_NAME = "mdi.window-restore"
-MAXIMIZED_LAYOUT_MARGINS = (15, 15, 15, 15)
 TITLE_BAR_DOUBLE_CLICK_PADDING = 10
 WINDOW_DRAG_START_DISTANCE = 4
 
@@ -14,7 +12,6 @@ WINDOW_DRAG_START_DISTANCE = 4
 class WindowChromeState:
     is_maximized: bool
     central_style: str
-    layout_margins: tuple[int, int, int, int]
     maximize_icon_name: str
 
 
@@ -22,21 +19,18 @@ def build_window_chrome_state(
     is_maximized: bool,
     normal_style: str,
     maximized_style: str,
-    normal_margins: Sequence[int],
 ) -> WindowChromeState:
-    """Return the style, margins, and title-bar icon for a window state."""
+    """Return the style and title-bar icon for a window state."""
     if is_maximized:
         return WindowChromeState(
             is_maximized=True,
             central_style=maximized_style,
-            layout_margins=MAXIMIZED_LAYOUT_MARGINS,
             maximize_icon_name=RESTORE_ICON_NAME,
         )
 
     return WindowChromeState(
         is_maximized=False,
         central_style=normal_style,
-        layout_margins=tuple(normal_margins),
         maximize_icon_name=MAXIMIZE_ICON_NAME,
     )
 

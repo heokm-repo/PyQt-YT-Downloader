@@ -3,6 +3,10 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 
 from constants import TaskStatus
+from core.download.workspace_identity import (
+    new_workspace_id,
+    restore_workspace_identity,
+)
 
 
 @dataclass
@@ -16,6 +20,8 @@ class DownloadTask:
     output_path: str = ""
     settings: Dict[str, Any] = field(default_factory=dict)
     meta: Dict[str, Any] = field(default_factory=dict)
+    workspace_id: str = field(default_factory=new_workspace_id)
+    legacy_workspace: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-serializable dictionary."""
@@ -27,12 +33,15 @@ class DownloadTask:
             'extractor': self.extractor,
             'output_path': self.output_path,
             'settings': self.settings,
-            'meta': self.meta
+            'meta': self.meta,
+            'workspace_id': self.workspace_id,
+            'legacy_workspace': self.legacy_workspace,
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'DownloadTask':
         """Create a DownloadTask from a dictionary during JSON deserialization."""
+        workspace = restore_workspace_identity(data)
         return cls(
             id=data.get('id', 0),
             url=data.get('url', ''),
@@ -41,17 +50,11 @@ class DownloadTask:
             extractor=data.get('extractor', 'youtube'),  # Backward compatibility: existing data is youtube.
             output_path=data.get('output_path', ''),
             settings=data.get('settings', {}),
-            meta=data.get('meta', {})
+            meta=data.get('meta', {}),
+            workspace_id=workspace.workspace_id,
+            legacy_workspace=workspace.legacy_workspace,
         )
     
     def is_active(self) -> bool:
         """Return whether the task is active."""
         return self.status in [TaskStatus.WAITING, TaskStatus.DOWNLOADING, TaskStatus.PAUSED]
-    
-    def is_completed(self) -> bool:
-        """Return whether the task is completed."""
-        return self.status == TaskStatus.FINISHED
-    
-    def is_failed(self) -> bool:
-        """Return whether the task failed."""
-        return self.status == TaskStatus.FAILED

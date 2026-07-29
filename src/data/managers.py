@@ -140,25 +140,6 @@ class HistoryManager:
         except Exception as e:
             log.error(f"DB 삭제 오류 (extractor={extractor}, video_id={video_id}, fmt={fmt}): {e}", exc_info=True)
     
-    # Backward-compatible methods that existing code may still use.
-    def is_video_downloaded(self, extractor, video_id):
-        """Return whether a video exists in download history regardless of extension, for backward compatibility."""
-        if not video_id:
-            return False
-        
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    f"SELECT 1 FROM {HISTORY_TABLE_NAME} WHERE extractor = ? AND video_id = ? LIMIT 1", 
-                    (extractor, video_id)
-                )
-                return cursor.fetchone() is not None
-        except Exception as e:
-            log.error(f"DB 검색 오류 (extractor={extractor}, video_id={video_id}): {e}", exc_info=True)
-            return False
-
-
 class TaskManager:
     """Manage the saved task list."""
     
@@ -202,7 +183,7 @@ class TaskManager:
 class DuplicateChecker:
     """Duplicate download checker that includes extractor and extension."""
     
-    def __init__(self, history_manager, parent_widget=None):
+    def __init__(self, history_manager):
         self.history_manager = history_manager
     
     def is_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
@@ -256,10 +237,3 @@ class DuplicateChecker:
         
         # Return False when no duplicate was found.
         return False, None, None
-    
-    def check_duplicate(self, extractor, video_id, current_task_id, tasks: list[DownloadTask], target_ext=DEFAULT_FORMAT):
-        """Return only whether a duplicate exists; GUI handles user confirmation."""
-        is_dup, _message, _duplicate_task = self.is_duplicate(
-            extractor, video_id, current_task_id, tasks, target_ext
-        )
-        return is_dup

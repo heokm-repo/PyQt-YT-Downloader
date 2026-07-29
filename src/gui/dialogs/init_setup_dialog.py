@@ -1,14 +1,13 @@
-from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QComboBox)
+from PyQt5.QtWidgets import QHBoxLayout, QLabel, QPushButton, QComboBox
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtGui import QFont
 
 from gui.dialogs.base_dialog import BaseDialog
 from gui.widgets.button_sizing import set_text_button_minimum_width
 
 from locales import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, set_language
 from locales.strings import STR
-from constants import BTN_TEXT_CLOSE_X, KEY_LANGUAGE
+from constants import KEY_LANGUAGE
 from utils.settings_store import save_settings, load_settings
 from resources.styles import (
     SETTINGS_SAVE_BUTTON_STYLE,
@@ -31,7 +30,13 @@ class InitSetupDialog(BaseDialog):
         )
         
         self.settings = load_settings()
-        self.current_lang = DEFAULT_LANGUAGE # Always start from the default language.
+        saved_language = self.settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
+        self.current_lang = (
+            saved_language
+            if saved_language in SUPPORTED_LANGUAGES
+            else DEFAULT_LANGUAGE
+        )
+        set_language(self.current_lang)
         
         self._setup_content()
         self._setup_buttons()

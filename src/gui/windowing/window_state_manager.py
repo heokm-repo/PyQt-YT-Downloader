@@ -1,7 +1,7 @@
 """Utilities for saving and restoring multi-window state under the window_states settings key."""
 import os
 import json
-from PyQt5.QtWidgets import QApplication, QDesktopWidget
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect
 
 from utils.utils import get_user_data_path

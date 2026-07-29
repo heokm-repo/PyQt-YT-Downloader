@@ -163,10 +163,6 @@ class SelectionManager:
         """Return whether a task_id is selected."""
         return task_id in self.selected_task_ids
     
-    def get_selected_count(self) -> int:
-        """Return the number of selected tasks."""
-        return len(self.selected_task_ids)
-    
     def get_selected_ids(self) -> List[int]:
         """Return a copy of selected task IDs."""
         return self.selected_task_ids[:]

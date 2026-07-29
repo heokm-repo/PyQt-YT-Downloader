@@ -6,13 +6,12 @@ yt-dlp.exe subprocess wrapper.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import re
 import subprocess
 import threading
-import time
-from json import JSONDecodeError
+from json import JSONDecodeError, loads
+from queue import Empty, Queue
 from typing import Callable, Dict, List, Optional, Tuple
 
 from constants import (
@@ -23,12 +22,14 @@ from constants import (
     THREAD_JOIN_SHORT_TIMEOUT_SEC,
     YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC,
     YTDLP_FINAL_PATH_MARKER,
+    YTDLP_METADATA_MARKER,
     YTDLP_TIMEOUT,
 )
 from core.ytdlp.command import build_command
 from core.ytdlp.info_command import build_extract_info_command
 from core.ytdlp.info_parser import parse_info_output
-from core.ytdlp.progress import convert_to_bytes, parse_eta, parse_progress
+from core.ytdlp.process_watchdog import ProcessWatchdog
+from core.ytdlp.progress import parse_progress
 from utils.logger import log
 from utils.url_security import redact_url_for_log, redact_urls_in_text
 
@@ -39,13 +40,6 @@ def _ytdlp_environment() -> dict[str, str]:
     environment["YTDLP_NO_PLUGINS"] = "1"
     environment["PYTHONIOENCODING"] = DEFAULT_ENCODING
     return environment
-
-
-@dataclass(frozen=True)
-class ProgressLoopResult:
-    current_file: Optional[str]
-    last_progress: dict
-    stopped: bool = False
 
 
 class YtDlpWrapper:
@@ -61,9 +55,11 @@ class YtDlpWrapper:
         self.ffmpeg_path = ffmpeg_path
         self.current_process: Optional[subprocess.Popen] = None
         self.final_output_path: Optional[str] = None
+        self._process_kill_lock = threading.Lock()
 
         self.destination_pattern = re.compile(
-            r'\[(?:download|ExtractAudio|VideoConvertor|ffmpeg)\] Destination:\s*"?(.+?)"?$'
+            r'\[(?:download|ExtractAudio|VideoConvertor|VideoRemuxer|ffmpeg)\]'
+            r'.*?\bDestination:\s*"?(.+?)"?$'
         )
         self.merger_pattern = re.compile(r'\[Merger\] Merging formats into\s*"(.+?)"$')
         self.complete_pattern = re.compile(r'\[download\] 100%')
@@ -87,55 +83,61 @@ class YtDlpWrapper:
         self.current_process = process
         return process
 
-    def _kill_process(self, process: subprocess.Popen, graceful: bool = False) -> None:
-        """Terminate a process gracefully or forcefully."""
-        try:
-            if process and process.poll() is None:
-                if graceful and os.name == 'nt':
-                    import signal
-                    try:
-                        os.kill(process.pid, signal.CTRL_BREAK_EVENT)
-                        process.wait(timeout=PROCESS_TERMINATE_WAIT_SEC)
-                        return
-                    except subprocess.TimeoutExpired as exc:
-                        log.debug(f"Graceful process termination timed out (pid={process.pid}): {exc}")
-                    except OSError as exc:
-                        log.debug(f"Graceful process termination failed (pid={process.pid}): {exc}")
-
-                if os.name == 'nt':
-                    try:
-                        subprocess.run(
-                            ['taskkill', '/F', '/T', '/PID', str(process.pid)],
-                            capture_output=True,
-                            creationflags=subprocess.CREATE_NO_WINDOW,
-                        )
-                    except (OSError, subprocess.SubprocessError) as exc:
-                        log.debug(f"taskkill failed for pid={process.pid}, falling back to process.kill(): {exc}")
+    def _kill_process(self, process: subprocess.Popen) -> None:
+        """Terminate a process forcefully."""
+        with self._process_kill_lock:
+            try:
+                if process and process.poll() is None:
+                    if os.name == 'nt':
+                        try:
+                            subprocess.run(
+                                ['taskkill', '/F', '/T', '/PID', str(process.pid)],
+                                capture_output=True,
+                                creationflags=subprocess.CREATE_NO_WINDOW,
+                                timeout=PROCESS_TERMINATE_WAIT_SEC,
+                                check=True,
+                            )
+                        except (OSError, subprocess.SubprocessError) as exc:
+                            log.debug(
+                                f"taskkill failed for pid={process.pid}, "
+                                f"falling back to process.kill(): {exc}"
+                            )
+                            try:
+                                process.kill()
+                            except OSError as kill_error:
+                                log.debug(
+                                    f"process.kill fallback failed for pid={process.pid}: "
+                                    f"{kill_error}"
+                                )
+                    else:
                         try:
                             process.kill()
                         except OSError as kill_error:
-                            log.debug(f"process.kill fallback failed for pid={process.pid}: {kill_error}")
-                else:
+                            log.debug(f"process.kill failed for pid={process.pid}: {kill_error}")
+
                     try:
-                        process.kill()
-                    except OSError as kill_error:
-                        log.debug(f"process.kill failed for pid={process.pid}: {kill_error}")
+                        process.wait(timeout=PROCESS_TERMINATE_WAIT_SEC)
+                    except subprocess.TimeoutExpired as exc:
+                        log.debug(f"Process did not exit after kill (pid={process.pid}): {exc}")
+                    except OSError as exc:
+                        log.debug(f"Process wait after kill failed (pid={process.pid}): {exc}")
+            except (OSError, subprocess.SubprocessError) as exc:
+                log.debug(f"Process termination cleanup failed: {exc}")
+            finally:
+                if self.current_process is process:
+                    self.current_process = None
 
-                try:
-                    process.wait(timeout=PROCESS_TERMINATE_WAIT_SEC)
-                except subprocess.TimeoutExpired as exc:
-                    log.debug(f"Process did not exit after kill (pid={process.pid}): {exc}")
-                except OSError as exc:
-                    log.debug(f"Process wait after kill failed (pid={process.pid}): {exc}")
-        except (OSError, subprocess.SubprocessError) as exc:
-            log.debug(f"Process termination cleanup failed: {exc}")
-        finally:
-            self.current_process = None
-
-    def _drain_stderr(self, process: subprocess.Popen, output_list: list[str]) -> None:
+    def _drain_stderr(
+        self,
+        process: subprocess.Popen,
+        output_list: list[str],
+        activity_hook: Callable[[], None] | None = None,
+    ) -> None:
         try:
             for line in iter(process.stderr.readline, ''):
                 if line:
+                    if activity_hook:
+                        activity_hook()
                     output_list.append(line)
         except (OSError, ValueError) as exc:
             log.debug(f"stderr drain stopped: {exc}")
@@ -144,37 +146,13 @@ class YtDlpWrapper:
         self,
         process: subprocess.Popen,
         output_list: list[str],
+        activity_hook: Callable[[], None] | None = None,
     ) -> threading.Thread:
         thread = threading.Thread(
             target=self._drain_stderr,
-            args=(process, output_list),
+            args=(process, output_list, activity_hook),
             daemon=True,
         )
-        thread.start()
-        return thread
-
-    def _start_stop_monitor(
-        self,
-        process: subprocess.Popen,
-        stop_check: Callable[[], bool] | None,
-        stop_requested: threading.Event,
-    ) -> threading.Thread | None:
-        if not stop_check:
-            return None
-
-        def watch_stop() -> None:
-            while process.poll() is None:
-                try:
-                    if stop_check():
-                        stop_requested.set()
-                        log.info("Stop/pause detected by monitor, killing process forcefully")
-                        self._kill_process(process, graceful=False)
-                        return
-                except Exception as exc:
-                    log.debug(f"stop_check monitor error: {exc}")
-                time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
-
-        thread = threading.Thread(target=watch_stop, daemon=True)
         thread.start()
         return thread
 
@@ -225,31 +203,113 @@ class YtDlpWrapper:
             log.info("Download complete")
             progress_hook({'status': 'finished', 'filename': current_file})
 
+    def _emit_metadata(self, line: str, metadata_hook: Callable[[Dict], None] | None) -> bool:
+        """Parse and dispatch a marked metadata line without exposing its raw JSON."""
+        if not line.startswith(YTDLP_METADATA_MARKER):
+            return False
+
+        if metadata_hook is None:
+            return True
+
+        try:
+            metadata = loads(line[len(YTDLP_METADATA_MARKER):])
+        except (JSONDecodeError, TypeError):
+            log.warning("Failed to parse yt-dlp metadata output")
+            return True
+
+        if not isinstance(metadata, dict):
+            log.warning("Ignoring non-object yt-dlp metadata output")
+            return True
+
+        try:
+            metadata_hook(metadata)
+        except Exception as exc:
+            log.warning(f"yt-dlp metadata hook failed ({type(exc).__name__})")
+
+        return True
+
     def _run_stdout_progress_loop(
         self,
         process: subprocess.Popen,
         progress_hook: Callable,
         stop_check: Callable[[], bool] | None,
-    ) -> ProgressLoopResult:
+        metadata_hook: Callable[[Dict], None] | None = None,
+        process_watchdog: ProcessWatchdog | None = None,
+    ) -> bool:
         current_file = None
         last_progress: dict = {}
+        stdout_queue: Queue[tuple[str, object | None]] = Queue()
+
+        def read_stdout() -> None:
+            try:
+                for raw_line in iter(process.stdout.readline, ''):
+                    if raw_line:
+                        if process_watchdog:
+                            process_watchdog.notify_activity()
+                        stdout_queue.put(("line", raw_line))
+            except (OSError, ValueError) as exc:
+                stdout_queue.put(("error", exc))
+            finally:
+                stdout_queue.put(("eof", None))
+
+        stdout_thread = threading.Thread(
+            target=read_stdout,
+            name="yt-dlp-stdout-reader",
+            daemon=True,
+        )
+        stdout_thread.start()
 
         try:
-            for raw_line in iter(process.stdout.readline, ''):
-                if not raw_line:
+            while True:
+                # A stop request has priority when it lands on the same
+                # monitoring tick as the inactivity deadline.
+                if process_watchdog:
+                    if process_watchdog.check_stop_requested():
+                        return True
+                    if process_watchdog.inactivity_timed_out.is_set():
+                        return False
+                elif stop_check and stop_check():
+                    log.info("Stop/pause detected via stop_check, killing process forcefully")
+                    self._kill_process(process)
+                    return True
+
+                try:
+                    item_type, item = stdout_queue.get(
+                        timeout=PROCESS_MONITOR_INTERVAL_SEC
+                    )
+                except Empty:
+                    continue
+
+                if item_type == "error":
+                    if isinstance(item, BaseException):
+                        raise item
+                    raise RuntimeError("yt-dlp stdout reader failed")
+                if item_type == "eof":
+                    if process_watchdog:
+                        if process_watchdog.check_stop_requested():
+                            return True
+                        if process_watchdog.inactivity_timed_out.is_set():
+                            return False
                     break
 
-                if stop_check and stop_check():
-                    log.info("Stop/pause detected via stop_check, killing process forcefully")
-                    self._kill_process(process, graceful=False)
-                    return ProgressLoopResult(current_file, last_progress, stopped=True)
-
+                raw_line = str(item)
                 line = raw_line.strip()
                 if line.startswith(YTDLP_FINAL_PATH_MARKER):
                     self.final_output_path = line[len(YTDLP_FINAL_PATH_MARKER):]
+                    if process_watchdog:
+                        process_watchdog.watch_output_path(self.final_output_path)
                     log.info(f"Final output path: {self.final_output_path}")
                     continue
+                if self._emit_metadata(line, metadata_hook):
+                    continue
+                previous_file = current_file
                 current_file = self._emit_destination_progress(line, current_file, progress_hook)
+                if (
+                    process_watchdog
+                    and current_file
+                    and current_file != previous_file
+                ):
+                    process_watchdog.watch_output_path(current_file)
                 last_progress = self._emit_download_progress(
                     line,
                     current_file,
@@ -262,40 +322,66 @@ class YtDlpWrapper:
                 log.info("Progress hook requested download interruption")
             else:
                 log.error("Progress loop failed, killing process forcefully", exc_info=True)
-            self._kill_process(process, graceful=False)
+            self._kill_process(process)
             raise hook_error
+        finally:
+            self._join_thread(stdout_thread, PROCESS_MONITOR_INTERVAL_SEC)
 
-        return ProgressLoopResult(current_file, last_progress)
+        return False
 
     def _join_thread(self, thread: threading.Thread | None, timeout: float) -> None:
         if thread:
             thread.join(timeout=timeout)
+
+    def _watchdog_result(
+        self,
+        process_watchdog: ProcessWatchdog,
+    ) -> Tuple[bool, str] | None:
+        """Return a stop/timeout result after bounded termination completion."""
+        if (
+            not process_watchdog.stop_requested.is_set()
+            and not process_watchdog.inactivity_timed_out.is_set()
+        ):
+            return None
+
+        termination_wait = (
+            PROCESS_TERMINATE_WAIT_SEC * 2
+            + THREAD_JOIN_SHORT_TIMEOUT_SEC
+        )
+        if not process_watchdog.wait_for_termination(termination_wait):
+            log.warning("Timed out waiting for yt-dlp termination cleanup")
+
+        if process_watchdog.stop_requested.is_set():
+            return False, MSG_PAUSED_BY_USER
+        return False, "Download timeout"
 
     def _wait_for_download_result(
         self,
         process: subprocess.Popen,
         stderr_output: list[str],
         stderr_thread: threading.Thread,
-        monitor_thread: threading.Thread | None,
-        stop_requested: threading.Event,
+        process_watchdog: ProcessWatchdog,
     ) -> Tuple[bool, str]:
-        if stop_requested.is_set():
-            self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
+        watchdog_result = self._watchdog_result(process_watchdog)
+        if watchdog_result:
             self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
-            return False, MSG_PAUSED_BY_USER
+            return watchdog_result
 
-        try:
-            process.wait(timeout=YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC)
-        except subprocess.TimeoutExpired:
-            log.warning("yt-dlp process timeout, killing...")
-            self._kill_process(process)
-            self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
-            return False, "Download timeout"
+        while True:
+            watchdog_result = self._watchdog_result(process_watchdog)
+            if watchdog_result:
+                self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
+                return watchdog_result
+            try:
+                process.wait(timeout=PROCESS_MONITOR_INTERVAL_SEC)
+                break
+            except subprocess.TimeoutExpired:
+                continue
 
-        self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
-        if stop_requested.is_set():
+        watchdog_result = self._watchdog_result(process_watchdog)
+        if watchdog_result:
             self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
-            return False, MSG_PAUSED_BY_USER
+            return watchdog_result
 
         self.current_process = None
         self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
@@ -326,6 +412,7 @@ class YtDlpWrapper:
         progress_hook: Callable,
         is_resume: bool = False,
         stop_check: Callable | None = None,
+        metadata_hook: Callable[[Dict], None] | None = None,
     ) -> Tuple[bool, str]:
         """
         Download a video through the managed external yt-dlp executable.
@@ -336,13 +423,14 @@ class YtDlpWrapper:
             progress_hook: Progress callback.
             is_resume: Whether the task is being resumed.
             stop_check: Callback returning True when the process should stop.
+            metadata_hook: Optional callback for metadata emitted before download.
 
         Returns:
             (success, error message)
         """
         process = None
         stderr_output: list[str] = []
-        stop_requested = threading.Event()
+        process_watchdog: ProcessWatchdog | None = None
         self.final_output_path = None
 
         try:
@@ -351,21 +439,43 @@ class YtDlpWrapper:
             log.info(f"Running yt-dlp: {' '.join(logged_args)}")
 
             process = self._start_download_process(args)
-            stderr_thread = self._start_stderr_drain(process, stderr_output)
-            monitor_thread = self._start_stop_monitor(process, stop_check, stop_requested)
+            process_watchdog = ProcessWatchdog(
+                process=process,
+                stop_check=stop_check,
+                terminate=self._kill_process,
+                inactivity_timeout=YTDLP_DOWNLOAD_PROCESS_TIMEOUT_SEC,
+                poll_interval=PROCESS_MONITOR_INTERVAL_SEC,
+            )
+            watched_directories: set[str] = set()
+            for option_name in ("temp_path", "home_path"):
+                output_directory = str(options.get(option_name) or "")
+                if output_directory and output_directory not in watched_directories:
+                    process_watchdog.watch_output_directory(output_directory)
+                    watched_directories.add(output_directory)
+            process_watchdog.start()
+            stderr_thread = self._start_stderr_drain(
+                process,
+                stderr_output,
+                process_watchdog.notify_activity,
+            )
 
-            progress_result = self._run_stdout_progress_loop(process, progress_hook, stop_check)
-            if progress_result.stopped:
-                self._join_thread(monitor_thread, THREAD_JOIN_SHORT_TIMEOUT_SEC)
+            stopped = self._run_stdout_progress_loop(
+                process,
+                progress_hook,
+                stop_check,
+                metadata_hook,
+                process_watchdog,
+            )
+            if stopped:
+                watchdog_result = self._watchdog_result(process_watchdog)
                 self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
-                return False, MSG_PAUSED_BY_USER
+                return watchdog_result or (False, MSG_PAUSED_BY_USER)
 
             return self._wait_for_download_result(
                 process,
                 stderr_output,
                 stderr_thread,
-                monitor_thread,
-                stop_requested,
+                process_watchdog,
             )
         except subprocess.SubprocessError as exc:
             self._kill_process(process)
@@ -377,11 +487,13 @@ class YtDlpWrapper:
             error_msg = f"Unexpected error: {exc}"
             log.error(error_msg)
             return False, error_msg
+        finally:
+            if process_watchdog:
+                process_watchdog.close(THREAD_JOIN_SHORT_TIMEOUT_SEC)
 
     def extract_info(
         self,
         url: str,
-        download: bool = False,
         options: Optional[Dict] = None,
     ) -> Tuple[Optional[Dict], bool]:
         """
@@ -389,7 +501,6 @@ class YtDlpWrapper:
 
         Args:
             url: YouTube URL.
-            download: Whether to download. False means metadata only.
             options: Additional options.
 
         Returns:
@@ -431,14 +542,6 @@ class YtDlpWrapper:
     def _parse_progress(self, line: str) -> Optional[Dict]:
         """Parse yt-dlp stdout progress while preserving the existing API."""
         return parse_progress(line)
-
-    def _convert_to_bytes(self, size: float, unit: str) -> int:
-        """Convert a yt-dlp size string unit to bytes while preserving the existing API."""
-        return convert_to_bytes(size, unit)
-
-    def _parse_eta(self, eta_str: str) -> int:
-        """Convert a yt-dlp ETA string to seconds while preserving the existing API."""
-        return parse_eta(eta_str)
 
     def _build_command(self, url: str, options: Dict, is_resume: bool = False) -> List[str]:
         """Convert yt-dlp option dicts to CLI arguments while preserving the existing API."""

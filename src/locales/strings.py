@@ -21,15 +21,15 @@ class Strings:
     def BTN_CANCEL(self):   return get_string('BTN_CANCEL', "Cancel")
     @property
     def BTN_SAVE(self):     return get_string('BTN_SAVE', "Save")
-    
     @property
-    def TITLE_INFO(self):     return get_string('TITLE_INFO', "Info")
+    def BTN_RESTART_NOW(self): return get_string('BTN_RESTART_NOW', "Restart Now")
+    @property
+    def BTN_LATER(self):       return get_string('BTN_LATER', "Later")
+
     @property
     def TITLE_WARNING(self):  return get_string('TITLE_WARNING', "Warning")
     @property
     def TITLE_ERROR(self):    return get_string('TITLE_ERROR', "Error")
-    @property
-    def TITLE_CONFIRM(self):  return get_string('TITLE_CONFIRM', "Confirm")
 
     # =========================================================================
     # 2. Main Window
@@ -89,6 +89,8 @@ class Strings:
     @property
     def SETTINGS_CHK_ACCEL(self):       return get_string('SETTINGS_CHK_ACCEL', "Download Acceleration (Multi-thread)")
     @property
+    def SETTINGS_CHK_COMPATIBILITY(self): return get_string('SETTINGS_CHK_COMPATIBILITY', "Universal Compatibility Mode")
+    @property
     def SETTINGS_LABEL_COOKIES(self):   return get_string('SETTINGS_LABEL_COOKIES', "Cookie (In-App Login):")
     @property
     def BTN_LOGIN(self):                return get_string('BTN_LOGIN', "Login")
@@ -134,10 +136,6 @@ class Strings:
     # Settings Errors
     @property
     def ERR_SETTINGS_NO_FOLDER(self):      return get_string('ERR_SETTINGS_NO_FOLDER', "Please select a download folder.")
-    @property
-    def ERR_SETTINGS_CREATE_FOLDER(self):  return get_string('ERR_SETTINGS_CREATE_FOLDER', "Cannot create folder:\n{error}")
-    @property
-    def ERR_SETTINGS_INVALID_FOLDER(self): return get_string('ERR_SETTINGS_INVALID_FOLDER', "The selected path is not a valid folder.")
     @property
     def ERR_SPONSOR_OPEN(self):            return get_string('ERR_SPONSOR_OPEN', "Could not open the sponsor page.")
     @property
@@ -218,6 +216,11 @@ class Strings:
     def MSG_DUP_IN_QUEUE(self):      return get_string('MSG_DUP_IN_QUEUE', "(Task currently in {status} state)\n")
     @property
     def MSG_DUP_ASK_OVERWRITE(self): return get_string('MSG_DUP_ASK_OVERWRITE', "\nDownload again (overwrite)?")
+    @property
+    def ERR_DUPLICATE_REPLACEMENT_TIMEOUT(self): return get_string(
+        'ERR_DUPLICATE_REPLACEMENT_TIMEOUT',
+        "The existing download did not stop in time. The replacement was not started.",
+    )
     
     @property
     def TITLE_RESUME(self):          return get_string('TITLE_RESUME', "Resume Download")
@@ -234,7 +237,7 @@ class Strings:
     @property
     def LABEL_LANGUAGE_SELECT(self):return get_string('LABEL_LANGUAGE_SELECT', "Select Language:")
     @property
-    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg) are required for video downloading and merging.\n\nDo you want to download them?")
+    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg, ffprobe, QuickJS) are required for video downloading, merging, inspection, and YouTube processing.\n\nDo you want to download them?")
     @property
     def BTN_START_SETUP(self):      return get_string('BTN_START_SETUP', "Start")
     
@@ -294,9 +297,17 @@ class Strings:
     @property
     def MSG_UPDATE_LATEST(self):      return get_string('MSG_UPDATE_LATEST', "You are already using the latest version.")
     @property
-    def ERR_UPDATE_CHECK(self):       return get_string('ERR_UPDATE_CHECK', "An error occurred while checking for updates:\n{error}")
+    def MSG_UPDATE_ALL_LATEST(self):  return get_string('MSG_UPDATE_ALL_LATEST', "YT Downloader and all required components are up to date.")
     @property
-    def TITLE_UPDATE_DL(self):        return get_string('TITLE_UPDATE_DL', "Update in Progress")
+    def MSG_UPDATE_COMPONENT_MISSING(self): return get_string('MSG_UPDATE_COMPONENT_MISSING', "\u2022 {name}: installation or repair required")
+    @property
+    def MSG_UPDATE_RESTART_REQUIRED(self): return get_string('MSG_UPDATE_RESTART_REQUIRED', "Restart the application to apply the updates.")
+    @property
+    def MSG_UPDATE_RESTART_ACTIVE_TASKS(self): return get_string('MSG_UPDATE_RESTART_ACTIVE_TASKS', "Downloading or waiting tasks will be paused during restart and can be resumed after the application starts again.")
+    @property
+    def ERR_RESTART_FAILED(self):     return get_string('ERR_RESTART_FAILED', "Could not restart the application. Please start it manually.")
+    @property
+    def ERR_UPDATE_CHECK(self):       return get_string('ERR_UPDATE_CHECK', "An error occurred while checking for updates:\n{error}")
     @property
     def MSG_UPDATE_DL(self):          return get_string('MSG_UPDATE_DL', "Downloading the new version...\nPlease wait.")
     @property
@@ -345,8 +356,6 @@ class Strings:
     def SORT_STATUS(self):             return get_string('SORT_STATUS', "Status")
     @property
     def MSG_NO_NEW_ITEMS(self):        return get_string('MSG_NO_NEW_ITEMS', "No new videos to add.")
-    @property
-    def MSG_ALL_DONE(self):            return get_string('MSG_ALL_DONE', "Complete")
     @property
     def ERR_PLAYLIST_FETCH(self):      return get_string('ERR_PLAYLIST_FETCH', "Could not fetch videos from playlist.")
     @property
@@ -425,6 +434,8 @@ class Strings:
     def TOOLTIP_NORMALIZE(self):    return get_string('TOOLTIP_NORMALIZE', "Standardize volume to broadcast standard (-14 LUFS).\nConversion takes a bit longer.")
     @property
     def TOOLTIP_ACCEL(self):        return get_string('TOOLTIP_ACCEL', "Download file in multiple parts concurrently.\nIncreases download speed.\n(Max downloads fixed to 1 when selected)")
+    @property
+    def TOOLTIP_COMPATIBILITY(self): return get_string('TOOLTIP_COMPATIBILITY', "Limits output to MP4 or MP3.\nMP4 video is finalized as H.264/AAC for broad device compatibility.")
 
     @property
     def MENU_PLAY(self):         return get_string('MENU_PLAY', "Play")

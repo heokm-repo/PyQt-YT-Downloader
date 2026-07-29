@@ -1,20 +1,33 @@
 import sys
-from PyQt5.QtWidgets import (QVBoxLayout,
-                             QFormLayout,
-                             QFileDialog, QTabWidget, QWidget)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QFormLayout,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QDesktopServices, QFont
 
 from constants import (
     KEY_DOWNLOAD_FOLDER, KEY_VIDEO_QUALITY, KEY_AUDIO_QUALITY, KEY_FORMAT,
     KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
+    KEY_UNIVERSAL_COMPATIBILITY,
     DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
+    DEFAULT_UNIVERSAL_COMPATIBILITY,
     VIDEO_QUALITY_OPTIONS, AUDIO_QUALITY_OPTIONS,
     APP_VERSION, SPONSOR_URL
 )
 from locales.strings import STR
 from gui.dialogs.base_dialog import BaseDialog
-from gui.dialogs.messages import ask_question, show_error, show_info, show_warning
+from gui.dialogs.messages import (
+    ask_custom_question,
+    ask_question,
+    show_error,
+    show_info,
+    show_warning,
+)
 from gui.settings.settings_general_rows import create_folder_picker_row, create_login_row
 from gui.settings.settings_option_row import add_option_row
 from gui.settings.settings_controls import (
@@ -26,6 +39,7 @@ from gui.settings.settings_controls import (
     create_settings_checkbox,
     create_settings_combo,
     create_settings_label,
+    set_compatibility_format_mode,
     create_version_row,
 )
 from gui.settings.settings_form_data import (
@@ -33,6 +47,7 @@ from gui.settings.settings_form_data import (
     is_download_folder_input_valid,
     normalize_download_folder_input,
 )
+from gui.settings.settings_format_options import quality_control_state_for_format
 from gui.settings.settings_acceleration import max_downloads_state_for_acceleration
 from gui.settings.settings_button_specs import (
     build_app_management_button_specs,
@@ -41,7 +56,9 @@ from gui.settings.settings_button_specs import (
 from gui.settings.settings_app_management import (
     build_error_message,
     run_uninstall_flow,
-    run_update_flow,
+)
+from gui.settings.settings_update_check import (
+    format_update_check_message,
 )
 from resources.styles import (
     SETTINGS_TITLE_LABEL_STYLE,
@@ -61,8 +78,19 @@ from utils.logger import log
 class SettingsDialog(BaseDialog):
     """Download settings dialog."""
 
-    def __init__(self, current_settings, parent=None):
+    def __init__(
+        self,
+        current_settings,
+        parent=None,
+        active_task_check=None,
+        update_worker_factory=None,
+    ):
         self.settings = current_settings
+        self.restart_requested = False
+        self._active_task_check = active_task_check or (lambda: False)
+        self._update_worker_factory = update_worker_factory
+        self._update_check_worker = None
+        self.update_check_button = None
 
         super().__init__(
             parent=parent,
@@ -118,7 +146,7 @@ class SettingsDialog(BaseDialog):
         layout.setSpacing(10)
 
         add_section_label(STR.SETTINGS_SEC_LOCATION, layout)
-        folder_layout, self.folder_line, self.browse_btn = create_folder_picker_row(
+        folder_layout, self.folder_line, _ = create_folder_picker_row(
             self.settings[KEY_DOWNLOAD_FOLDER],
             STR.SETTINGS_BTN_BROWSE,
             self._browse_folder,
@@ -179,6 +207,7 @@ class SettingsDialog(BaseDialog):
             STR.SETTINGS_HEADER_VIDEO,
             STR.SETTINGS_HEADER_AUDIO,
         )
+        self.format_combo.currentTextChanged.connect(self._on_format_changed)
         grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_FORMAT), self.format_combo)
 
         # Maximum concurrent downloads.
@@ -200,6 +229,21 @@ class SettingsDialog(BaseDialog):
             layout, STR.SETTINGS_CHK_NORMALIZE, STR.TOOLTIP_NORMALIZE, self.norm_check
         )
 
+        # Universal compatibility.
+        self.compatibility_check = create_settings_checkbox(
+            self.settings.get(
+                KEY_UNIVERSAL_COMPATIBILITY,
+                DEFAULT_UNIVERSAL_COMPATIBILITY,
+            ),
+            lambda state: self._on_compatibility_changed(state == 2),
+        )
+        add_option_row(
+            layout,
+            STR.SETTINGS_CHK_COMPATIBILITY,
+            STR.TOOLTIP_COMPATIBILITY,
+            self.compatibility_check,
+        )
+
         # Download acceleration.
         self.accel_check = create_settings_checkbox(
             self.settings.get(KEY_USE_ACCELERATION, DEFAULT_ACCELERATION),
@@ -210,6 +254,8 @@ class SettingsDialog(BaseDialog):
         )
 
         # Apply initial state.
+        self._on_format_changed(self.format_combo.currentText())
+        self._on_compatibility_changed(self.compatibility_check.isChecked())
         self._on_acceleration_changed(self.accel_check.isChecked())
 
         layout.addStretch()
@@ -248,6 +294,8 @@ class SettingsDialog(BaseDialog):
                 button_callbacks,
                 fixed_height=45,
             )
+            if spec.action == "check_update":
+                self.update_check_button = button
             layout.addWidget(button)
 
         layout.addStretch()
@@ -296,6 +344,17 @@ class SettingsDialog(BaseDialog):
         if state.value is not None:
             self.max_downloads_spin.setValue(state.value)
         self.max_downloads_spin.setEnabled(state.enabled)
+
+    def _on_compatibility_changed(self, checked):
+        """Allow only broadly compatible output formats while enabled."""
+        set_compatibility_format_mode(self.format_combo, checked)
+        self._on_format_changed(self.format_combo.currentText())
+
+    def _on_format_changed(self, selected_format):
+        """Enable only quality controls that affect the selected format."""
+        state = quality_control_state_for_format(selected_format)
+        self.quality_combo.setEnabled(state.video_quality_enabled)
+        self.audio_quality_combo.setEnabled(state.audio_quality_enabled)
 
     def _on_login_clicked(self):
         """Handle in-app login button clicks."""
@@ -351,9 +410,21 @@ class SettingsDialog(BaseDialog):
             self.accel_check.isChecked(),
             self.max_downloads_spin.value(),
             self.language_combo.currentIndex(),
+            self.compatibility_check.isChecked(),
         )
 
+        self._detach_update_check_worker()
         super().accept()
+
+    def reject(self):
+        """Close the dialog without allowing a background result to reopen UI."""
+        self._detach_update_check_worker()
+        super().reject()
+
+    def closeEvent(self, event):
+        """Detach any in-flight update check before the dialog is closed."""
+        self._detach_update_check_worker()
+        super().closeEvent(event)
 
     def get_new_settings(self):
         """Return changed settings."""
@@ -403,86 +474,111 @@ class SettingsDialog(BaseDialog):
                 build_error_message(STR.ERR_UNINSTALL_FAIL, e),
             )
 
-    def _confirm_update(self, update_result):
-        """Ask whether the available update should be installed."""
-        return ask_question(self, STR.TITLE_UPDATE_CHECK, update_result.message)
-
-    def _download_update_with_progress(
-        self,
-        download_update,
-        download_url,
-        expected_digest,
-    ):
-        """Download an update while displaying the app-styled progress dialog."""
-        from PyQt5.QtWidgets import QApplication
-
-        from gui.dialogs.app_update_progress_dialog import AppUpdateProgressDialog
-
-        progress_dialog = AppUpdateProgressDialog(parent=self)
-        progress_dialog.show()
-
-        def update_progress(value):
-            progress_dialog.set_progress(value)
-            QApplication.processEvents()
-            if progress_dialog.was_cancelled():
-                raise RuntimeError("Cancelled by user")
-
-        try:
-            result = download_update(
-                download_url,
-                update_progress,
-                expected_digest,
-            )
-            if result:
-                progress_dialog.mark_installing()
-                QApplication.processEvents()
-            return result
-        except Exception as exc:
-            log.warning(f"Update download cancelled or failed: {exc}")
-            return None
-        finally:
-            progress_dialog.close()
-
     def _on_check_update_clicked(self):
-        """Handle update checks and update installation."""
+        """Start a non-blocking update check."""
+        worker = self._update_check_worker
+        if worker is not None and worker.isRunning():
+            log.info("Settings update check is already running")
+            return
+
         try:
-            from utils.app_updater import check_for_updates, download_update, apply_update
-            from PyQt5.QtWidgets import QApplication
+            if self._update_worker_factory is None:
+                from gui.settings.settings_update_worker import SettingsUpdateWorker
 
-            result = run_update_flow(
-                check_for_updates,
-                lambda url, digest: self._download_update_with_progress(
-                    download_update,
-                    url,
-                    digest,
-                ),
-                apply_update,
-                self._confirm_update,
+                worker_factory = SettingsUpdateWorker
+            else:
+                worker_factory = self._update_worker_factory
+
+            worker = worker_factory(
                 APP_VERSION,
-                STR.MSG_UPDATE_LATEST,
-                STR.MSG_UPDATE_AVAILABLE,
-                STR.ERR_UPDATE_DOWNLOAD,
-                STR.ERR_UPDATE_APPLY,
+                parent=QApplication.instance(),
             )
+            self._update_check_worker = worker
+            worker.completed.connect(self._on_update_check_completed)
+            worker.failed.connect(self._on_update_check_failed)
+            worker.finished.connect(self._on_update_check_worker_finished)
+            worker.finished.connect(worker.deleteLater)
+            self._set_update_check_busy(True)
+            worker.start()
+        except Exception as exc:
+            self._detach_update_check_worker()
+            self._on_update_check_failed(str(exc) or exc.__class__.__name__)
 
-            if not result.update_available:
-                show_info(self, STR.TITLE_UPDATE_CHECK, result.check_result.message)
-                return
-
-            if result.cancelled:
-                return
-
-            if result.should_quit:
-                log.info("Update applied successfully; quitting application.")
-                QApplication.quit()
-                return
-
-            show_warning(self, STR.TITLE_UPDATE_CHECK, result.error_message)
-
-        except Exception as e:
-            log.error(f"Update check failed: {e}", exc_info=True)
-            show_error(
+    def _on_update_check_completed(self, summary):
+        """Show the result delivered by the background update worker."""
+        self._set_update_check_busy(False)
+        if not summary.update_available:
+            show_info(
                 self,
                 STR.TITLE_UPDATE_CHECK,
-                build_error_message(STR.ERR_UPDATE_CHECK, e),
+                STR.MSG_UPDATE_ALL_LATEST,
             )
+            return
+
+        message = format_update_check_message(
+            summary,
+            STR.MSG_UPDATE_COMPONENTS,
+            STR.MSG_UPDATE_COMPONENT_MISSING,
+            STR.MSG_UPDATE_RESTART_REQUIRED,
+            STR.MSG_UPDATE_RESTART_ACTIVE_TASKS,
+            bool(self._active_task_check()),
+        )
+        choice = ask_custom_question(
+            self,
+            STR.TITLE_UPDATE_CHECK,
+            message,
+            [
+                {"text": STR.BTN_LATER, "role": "reject"},
+                {"text": STR.BTN_RESTART_NOW, "role": "accept"},
+            ],
+        )
+        if choice == 1:
+            self.restart_requested = True
+            self.reject()
+
+    def _on_update_check_failed(self, error_message):
+        """Restore the UI and surface a failed update check."""
+        self._set_update_check_busy(False)
+        log.error(f"Update check failed: {error_message}")
+        show_error(
+            self,
+            STR.TITLE_UPDATE_CHECK,
+            build_error_message(STR.ERR_UPDATE_CHECK, error_message),
+        )
+
+    def _on_update_check_worker_finished(self):
+        """Release the completed worker while keeping the button usable."""
+        worker = self.sender()
+        if worker is not self._update_check_worker:
+            return
+        self._update_check_worker = None
+        self._set_update_check_busy(False)
+
+    def _set_update_check_busy(self, busy):
+        """Reflect update-check state on the settings button."""
+        if self.update_check_button is None:
+            return
+        self.update_check_button.setEnabled(not busy)
+        self.update_check_button.setText(
+            STR.MSG_CHECKING_INFO if busy else STR.SETTINGS_BTN_CHECK_UPDATE
+        )
+
+    def _detach_update_check_worker(self):
+        """Disconnect this dialog from an in-flight app-owned worker."""
+        worker = self._update_check_worker
+        if worker is None:
+            self._set_update_check_busy(False)
+            return
+
+        for signal, slot in (
+            (worker.completed, self._on_update_check_completed),
+            (worker.failed, self._on_update_check_failed),
+            (worker.finished, self._on_update_check_worker_finished),
+        ):
+            try:
+                signal.disconnect(slot)
+            except TypeError as exc:
+                log.debug(f"Update worker signal was already disconnected: {exc}")
+
+        self._update_check_worker = None
+        self._set_update_check_busy(False)
