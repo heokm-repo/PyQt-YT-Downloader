@@ -6,15 +6,15 @@ downloads, audio conversion, and queue-based task management in one app.
 
 ## Screenshots
 
-![YT Downloader main window](docs/images/main-window.png)
+![YT Downloader main window](docs/images/main-window-v2.3.1.png)
 
-![YT Downloader task list](docs/images/task-list.png)
+![YT Downloader task list](docs/images/task-list-v2.3.1.png)
 
-![YT Downloader general settings](docs/images/settings-general.png)
+![YT Downloader general settings](docs/images/settings-general-v2.3.1.png)
 
-![YT Downloader quality and format settings](docs/images/settings-quality-format.png)
+![YT Downloader quality and format settings](docs/images/settings-quality-format-v2.3.1.png)
 
-![YT Downloader app management settings](docs/images/settings-app-management.png)
+![YT Downloader app management settings](docs/images/settings-app-management-v2.3.1.png)
 
 ## Supported Platform
 
