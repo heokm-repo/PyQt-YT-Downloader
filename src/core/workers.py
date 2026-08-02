@@ -381,8 +381,11 @@ class StartupWorker(QThread):
 
     def run(self):
         try:
-            from utils.bin.manager import check_binaries_exist, check_updates_available
-            from utils.app_updater import check_for_updates
+            from utils.bin.manager import (
+                check_binaries_exist,
+                check_updates_available_strict,
+            )
+            from utils.app_updater import check_for_updates_strict
             from locales.strings import STR
             import time
             
@@ -392,11 +395,11 @@ class StartupWorker(QThread):
             
             bin_updates = {}
             if check_binaries_exist():
-                bin_updates = check_updates_available()
+                bin_updates = check_updates_available_strict()
                 
             # Check for app self-updates.
             self.status_updated.emit(STR.MSG_STARTUP_CHECK_APP)
-            app_update_info = check_for_updates()
+            app_update_info = check_for_updates_strict()
             
             self.finished_checks.emit(bin_updates, app_update_info)
             

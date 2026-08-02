@@ -12,7 +12,7 @@ if SRC not in sys.path:
 
 from PyQt5.QtWidgets import QApplication, QLineEdit, QPushButton, QSizePolicy
 
-from constants import MAX_DOWNLOADS_RANGE
+from constants import MAX_DOWNLOADS_RANGE, THEME_DARK
 from resources.styles import SETTINGS_BUTTON_WIDTH_PADDING, SETTINGS_INPUT_HEIGHT, TEXT_BUTTON_WIDTH_PADDING
 from gui.settings.settings_button_specs import SettingsButtonSpec
 from gui.settings.settings_general_rows import create_login_row
@@ -22,6 +22,7 @@ from gui.settings.settings_controls import (
     create_max_downloads_spin,
     create_settings_button,
     create_settings_combo,
+    create_theme_combo,
     create_version_row,
     set_compatibility_format_mode,
 )
@@ -41,6 +42,12 @@ class SettingsControlsTests(unittest.TestCase):
         combo = create_language_combo("en")
 
         self.assertTrue(combo.currentText().startswith("en - "))
+
+    def test_create_theme_combo_selects_saved_theme(self):
+        combo = create_theme_combo(THEME_DARK, "Light", "Dark")
+
+        self.assertEqual(combo.currentIndex(), 1)
+        self.assertEqual(combo.currentText(), "Dark")
 
     def test_create_format_combo_adds_disabled_headers_and_selects_format(self):
         combo = create_format_combo("mp3", "Video", "Audio")

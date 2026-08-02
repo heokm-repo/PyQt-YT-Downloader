@@ -1,0 +1,198 @@
+"""Semantic color tokens for the active application theme."""
+
+from constants import DEFAULT_THEME, THEME_DARK, THEME_LIGHT, THEME_OPTIONS
+
+
+_LIGHT_COLORS = {
+    # Foundation.
+    "COLOR_TRANSPARENT": "transparent",
+    "COLOR_SHADOW": "#000000",
+    # Brand and emphasis.
+    "COLOR_ACCENT": "#5F428B",
+    "COLOR_ACCENT_HOVER": "#70529E",
+    "COLOR_ACCENT_PRESSED": "#4E3672",
+    "COLOR_TITLE_BAR_MINIMIZE_HOVER": "#2196F3",
+    "COLOR_TITLE_BAR_MAXIMIZE_HOVER": "#43A047",
+    "COLOR_TITLE_BAR_CLOSE_HOVER": "#EF5350",
+    "COLOR_TITLE_BAR_HOVER_ICON": "#FFFFFF",
+    # Text.
+    "COLOR_TEXT_PRIMARY": "#333333",
+    "COLOR_TEXT_SECONDARY": "#444444",
+    "COLOR_TEXT_DEFAULT": "#555555",
+    "COLOR_TEXT_SUBDUED": "#666666",
+    "COLOR_TEXT_MUTED": "#888888",
+    "COLOR_TEXT_FAINT": "#999999",
+    "COLOR_TEXT_DISABLED": "#A0A0A0",
+    "COLOR_TEXT_PLACEHOLDER": "#AAAAAA",
+    # Surfaces and selection.
+    "COLOR_SURFACE": "#FFFFFF",
+    "COLOR_SURFACE_SUBTLE": "#F9F9F9",
+    "COLOR_SURFACE_MUTED": "#F8F9FA",
+    "COLOR_SELECTION_SURFACE": "#F3E8FF",
+    "COLOR_MENU_SELECTION_SURFACE": "#F3F3F3",
+    # Neutral controls and interaction states.
+    "COLOR_CONTROL_SURFACE": "#F5F5F5",
+    "COLOR_CONTROL_SURFACE_ALT": "#F0F0F0",
+    "COLOR_CONTROL_SURFACE_HOVER": "#EEEEEE",
+    "COLOR_CONTROL_SURFACE_ACTIVE": "#E0E0E0",
+    "COLOR_CONTROL_SURFACE_PRESSED": "#D0D0D0",
+    "COLOR_CONTROL_SURFACE_EMPHASIS": "#EDEDED",
+    "COLOR_CONTROL_SURFACE_EMPHASIS_HOVER": "#DCDCDC",
+    "COLOR_CONTROL_SURFACE_EMPHASIS_PRESSED": "#CFCFCF",
+    "COLOR_CONTROL_SURFACE_HOVER_STRONG": "#E8E8E8",
+    "COLOR_CONTROL_SURFACE_PRESSED_STRONG": "#DDDDDD",
+    # Borders.
+    "COLOR_BORDER": "#E0E0E0",
+    "COLOR_BORDER_HOVER": "#D6D6D6",
+    "COLOR_BORDER_STRONG": "#D0D0D0",
+    "COLOR_BORDER_PRESSED": "#CFCFCF",
+    "COLOR_BORDER_UPDATE": "#CCCCCC",
+    # Progress and scrolling.
+    "COLOR_PROGRESS_TRACK": "#EAEAEA",
+    "COLOR_PROGRESS_SLIDER_FILL": "#BDBDBD",
+    "COLOR_SCROLLBAR_THUMB": "#D1D1D1",
+    "COLOR_SCROLLBAR_THUMB_HOVER": "#A8A8A8",
+    # Feedback.
+    "COLOR_SUCCESS": "#4CAF50",
+    "COLOR_WARNING": "#FF9800",
+    "COLOR_ERROR": "#F44336",
+    "COLOR_INFO": "#2196F3",
+    "COLOR_DANGER": "#FF5252",
+    "COLOR_DANGER_STRONG": "#D32F2F",
+    "COLOR_INFO_SURFACE": "#E8F4FD",
+    "COLOR_SUCCESS_SURFACE": "#E8FDE8",
+    "COLOR_DANGER_SURFACE": "#FFEEEE",
+    "COLOR_DESTRUCTIVE_SURFACE": "#FFEBEE",
+    "COLOR_DESTRUCTIVE_BORDER": "#FFCDD2",
+    # Task presentation.
+    "COLOR_TASK_WAITING_BORDER": "#D1D3D4",
+    "COLOR_TASK_DOWNLOADING_BORDER": "#DBC4F0",
+    "COLOR_TASK_FINISHED_BORDER": "#B8E8FC",
+    "COLOR_TASK_FAILED_BORDER": "#FF0000",
+    "COLOR_TASK_PAUSED_BORDER": "#FFE0B2",
+    "COLOR_TASK_STOPPED_ICON": "#E65100",
+    "COLOR_GLOBAL_TOGGLE_ACTIVE_SURFACE": "#DBC4F0",
+    "COLOR_GLOBAL_TOGGLE_STOPPED_SURFACE": "#FFE0B2",
+}
+
+
+_DARK_COLORS = {
+    # Foundation.
+    "COLOR_TRANSPARENT": "transparent",
+    "COLOR_SHADOW": "#000000",
+    # Brand and emphasis. The accent stays light because on-accent follows the dark surface.
+    "COLOR_ACCENT": "#B79AE0",
+    "COLOR_ACCENT_HOVER": "#C4AAE7",
+    "COLOR_ACCENT_PRESSED": "#A78AD0",
+    "COLOR_TITLE_BAR_MINIMIZE_HOVER": "#1976D2",
+    "COLOR_TITLE_BAR_MAXIMIZE_HOVER": "#2E7D32",
+    "COLOR_TITLE_BAR_CLOSE_HOVER": "#D32F2F",
+    "COLOR_TITLE_BAR_HOVER_ICON": "#FFFFFF",
+    # Text.
+    "COLOR_TEXT_PRIMARY": "#CCCCCC",
+    "COLOR_TEXT_SECONDARY": "#BBBBBB",
+    "COLOR_TEXT_DEFAULT": "#AAAAAA",
+    "COLOR_TEXT_SUBDUED": "#999999",
+    "COLOR_TEXT_MUTED": "#777777",
+    "COLOR_TEXT_FAINT": "#666666",
+    "COLOR_TEXT_DISABLED": "#5F5F5F",
+    "COLOR_TEXT_PLACEHOLDER": "#777777",
+    # Surfaces and selection.
+    "COLOR_SURFACE": "#202124",
+    "COLOR_SURFACE_SUBTLE": "#25262A",
+    "COLOR_SURFACE_MUTED": "#2A2B2F",
+    "COLOR_SELECTION_SURFACE": "#31243F",
+    "COLOR_MENU_SELECTION_SURFACE": "#34363B",
+    # Neutral controls and interaction states.
+    "COLOR_CONTROL_SURFACE": "#2D2F33",
+    "COLOR_CONTROL_SURFACE_ALT": "#313338",
+    "COLOR_CONTROL_SURFACE_HOVER": "#383A3F",
+    "COLOR_CONTROL_SURFACE_ACTIVE": "#44464D",
+    "COLOR_CONTROL_SURFACE_PRESSED": "#50525A",
+    "COLOR_CONTROL_SURFACE_EMPHASIS": "#34363B",
+    "COLOR_CONTROL_SURFACE_EMPHASIS_HOVER": "#41434A",
+    "COLOR_CONTROL_SURFACE_EMPHASIS_PRESSED": "#4C4F56",
+    "COLOR_CONTROL_SURFACE_HOVER_STRONG": "#3D3F45",
+    "COLOR_CONTROL_SURFACE_PRESSED_STRONG": "#484A51",
+    # Borders.
+    "COLOR_BORDER": "#44464D",
+    "COLOR_BORDER_HOVER": "#52555D",
+    "COLOR_BORDER_STRONG": "#50525A",
+    "COLOR_BORDER_PRESSED": "#4C4F56",
+    "COLOR_BORDER_UPDATE": "#5A5D66",
+    # Progress and scrolling.
+    "COLOR_PROGRESS_TRACK": "#33353A",
+    "COLOR_PROGRESS_SLIDER_FILL": "#666A73",
+    "COLOR_SCROLLBAR_THUMB": "#4E5158",
+    "COLOR_SCROLLBAR_THUMB_HOVER": "#686C75",
+    # Feedback.
+    "COLOR_SUCCESS": "#81C784",
+    "COLOR_WARNING": "#FFB74D",
+    "COLOR_ERROR": "#EF6C6C",
+    "COLOR_INFO": "#64B5F6",
+    "COLOR_DANGER": "#FF6B6B",
+    "COLOR_DANGER_STRONG": "#EF5350",
+    "COLOR_INFO_SURFACE": "#172A38",
+    "COLOR_SUCCESS_SURFACE": "#19351F",
+    "COLOR_DANGER_SURFACE": "#3A1D20",
+    "COLOR_DESTRUCTIVE_SURFACE": "#3A1D24",
+    "COLOR_DESTRUCTIVE_BORDER": "#6B343A",
+    # Task presentation.
+    "COLOR_TASK_WAITING_BORDER": "#656A70",
+    "COLOR_TASK_DOWNLOADING_BORDER": "#9C7BC0",
+    "COLOR_TASK_FINISHED_BORDER": "#55A9CE",
+    "COLOR_TASK_FAILED_BORDER": "#EF5350",
+    "COLOR_TASK_PAUSED_BORDER": "#D99A4A",
+    "COLOR_TASK_STOPPED_ICON": "#FF8A50",
+    "COLOR_GLOBAL_TOGGLE_ACTIVE_SURFACE": "#352A44",
+    "COLOR_GLOBAL_TOGGLE_STOPPED_SURFACE": "#40301F",
+}
+
+
+_THEME_COLORS = {
+    THEME_LIGHT: _LIGHT_COLORS,
+    THEME_DARK: _DARK_COLORS,
+}
+_active_theme = DEFAULT_THEME
+
+
+def normalize_theme(theme_name: str | None) -> str:
+    """Return a supported theme name, falling back to the default theme."""
+    return theme_name if theme_name in THEME_OPTIONS else DEFAULT_THEME
+
+
+def theme_colors(theme_name: str | None) -> dict[str, str]:
+    """Return a resolved copy of the requested semantic palette."""
+    palette = dict(_THEME_COLORS[normalize_theme(theme_name)])
+    palette["COLOR_SURFACE_MUTED"] = palette["COLOR_SURFACE_SUBTLE"]
+    palette["COLOR_DESTRUCTIVE_SURFACE"] = palette["COLOR_DANGER_SURFACE"]
+    palette["COLOR_CONTROL_SURFACE_EMPHASIS_PRESSED"] = palette[
+        "COLOR_CONTROL_SURFACE_PRESSED"
+    ]
+    palette["COLOR_BORDER_STRONG"] = palette["COLOR_CONTROL_SURFACE_PRESSED"]
+    palette["COLOR_BORDER_PRESSED"] = palette["COLOR_CONTROL_SURFACE_PRESSED"]
+    palette["COLOR_CONTROL_SURFACE_PRESSED_STRONG"] = palette[
+        "COLOR_CONTROL_SURFACE_EMPHASIS_HOVER"
+    ]
+    palette["COLOR_ON_ACCENT"] = palette["COLOR_SURFACE"]
+    palette["COLOR_ICON_DEFAULT"] = palette["COLOR_TEXT_DEFAULT"]
+    palette["COLOR_ICON_SUBDUED"] = palette["COLOR_TEXT_SUBDUED"]
+    palette["COLOR_ICON_MUTED"] = palette["COLOR_TEXT_FAINT"]
+    palette["COLOR_DIVIDER"] = palette["COLOR_BORDER"]
+    return palette
+
+
+def activate_theme(theme_name: str | None) -> str:
+    """Activate a palette and expose its semantic tokens as module attributes."""
+    global _active_theme
+    _active_theme = normalize_theme(theme_name)
+    globals().update(theme_colors(_active_theme))
+    return _active_theme
+
+
+def active_theme() -> str:
+    """Return the active theme name."""
+    return _active_theme
+
+
+activate_theme(DEFAULT_THEME)

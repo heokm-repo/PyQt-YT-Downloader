@@ -5,13 +5,12 @@ from PyQt5.QtCore import QPoint, QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QToolTip
 
+from resources import colors, styles
 from resources.styles import (
     SETTINGS_FONT_FAMILY,
-    SETTINGS_LABEL_STYLE,
     SETTINGS_SECTION_FONT_SIZE,
 )
 
-HELP_ICON_COLOR = "#5F428B"
 HELP_ICON_NAME = "mdi.help-circle-outline"
 HELP_ICON_SIZE = 22
 
@@ -38,7 +37,7 @@ def create_option_row_layout(text, tooltip, checkbox):
 
 def _create_help_icon(tooltip):
     help_icon = QLabel()
-    help_pixmap = qta.icon(HELP_ICON_NAME, color=HELP_ICON_COLOR).pixmap(
+    help_pixmap = qta.icon(HELP_ICON_NAME, color=colors.COLOR_ACCENT).pixmap(
         QSize(HELP_ICON_SIZE, HELP_ICON_SIZE)
     )
     help_icon.setPixmap(help_pixmap)
@@ -58,5 +57,5 @@ def _create_help_icon(tooltip):
 def _create_option_label(text):
     label = QLabel(text)
     label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
-    label.setStyleSheet(SETTINGS_LABEL_STYLE)
+    label.setStyleSheet(styles.SETTINGS_LABEL_STYLE)
     return label

@@ -5,12 +5,10 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton
 
 from gui.widgets.button_sizing import set_text_button_minimum_width
+from resources import styles
 from resources.styles import (
-    SETTINGS_BROWSE_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY,
     SETTINGS_INPUT_HEIGHT,
-    SETTINGS_INPUT_STYLE,
-    SETTINGS_LABEL_STYLE,
     SETTINGS_SECTION_FONT_SIZE,
 )
 
@@ -24,7 +22,7 @@ def create_folder_picker_row(folder_path, browse_text, browse_callback):
     folder_line = QLineEdit(folder_path)
     folder_line.setReadOnly(True)
     folder_line.setFixedHeight(SETTINGS_INPUT_HEIGHT)
-    folder_line.setStyleSheet(SETTINGS_INPUT_STYLE)
+    folder_line.setStyleSheet(styles.SETTINGS_INPUT_STYLE)
 
     browse_button = QPushButton(browse_text)
     browse_button.setCursor(Qt.PointingHandCursor)
@@ -32,7 +30,7 @@ def create_folder_picker_row(folder_path, browse_text, browse_callback):
     browse_button.setAutoDefault(False)
     browse_button.setFixedHeight(SETTINGS_INPUT_HEIGHT)
     browse_button.clicked.connect(browse_callback)
-    browse_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
+    browse_button.setStyleSheet(styles.SETTINGS_BROWSE_BUTTON_STYLE)
 
     layout.addWidget(folder_line)
     layout.addWidget(browse_button)
@@ -52,7 +50,7 @@ def create_login_row(
 
     label = QLabel(label_text)
     label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
-    label.setStyleSheet(SETTINGS_LABEL_STYLE)
+    label.setStyleSheet(styles.SETTINGS_LABEL_STYLE)
     layout.addWidget(label)
 
     layout.addStretch()
@@ -63,7 +61,7 @@ def create_login_row(
     login_button.setCursor(Qt.PointingHandCursor)
     login_button.setDefault(False)
     login_button.setAutoDefault(False)
-    login_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
+    login_button.setStyleSheet(styles.SETTINGS_BROWSE_BUTTON_STYLE)
     login_button.clicked.connect(login_callback)
     layout.addWidget(login_button)
 
@@ -74,7 +72,7 @@ def create_login_row(
         logout_button.setCursor(Qt.PointingHandCursor)
         logout_button.setDefault(False)
         logout_button.setAutoDefault(False)
-        logout_button.setStyleSheet(SETTINGS_BROWSE_BUTTON_STYLE)
+        logout_button.setStyleSheet(styles.SETTINGS_BROWSE_BUTTON_STYLE)
         logout_button.clicked.connect(logout_callback)
         layout.addWidget(logout_button)
 

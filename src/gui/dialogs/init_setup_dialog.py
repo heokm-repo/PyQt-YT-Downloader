@@ -9,12 +9,10 @@ from locales import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, set_language
 from locales.strings import STR
 from constants import KEY_LANGUAGE
 from utils.settings_store import save_settings, load_settings
+from resources import styles
 from resources.styles import (
-    SETTINGS_SAVE_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY, 
     MESSAGE_BTN_HEIGHT,
-    MESSAGE_BODY_STYLE,
-    SETTINGS_COMBO_STYLE
 )
 
 class InitSetupDialog(BaseDialog):
@@ -50,7 +48,7 @@ class InitSetupDialog(BaseDialog):
         lang_layout.addWidget(self.lang_label)
         
         self.lang_combo = QComboBox()
-        self.lang_combo.setStyleSheet(SETTINGS_COMBO_STYLE)
+        self.lang_combo.setStyleSheet(styles.SETTINGS_COMBO_STYLE)
         self.lang_combo.setMinimumWidth(150)
         self.lang_combo.setCursor(Qt.PointingHandCursor)
         
@@ -72,7 +70,7 @@ class InitSetupDialog(BaseDialog):
         # Message Body
         self.msg_label = QLabel()
         self.msg_label.setFont(QFont(SETTINGS_FONT_FAMILY, 10))
-        self.msg_label.setStyleSheet(MESSAGE_BODY_STYLE)
+        self.msg_label.setStyleSheet(styles.MESSAGE_BODY_STYLE)
         self.msg_label.setWordWrap(True)
         self.msg_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.msg_label.setMinimumWidth(400)
@@ -83,7 +81,7 @@ class InitSetupDialog(BaseDialog):
         self.start_btn.setFixedHeight(MESSAGE_BTN_HEIGHT)
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self._on_start_clicked)
-        self.start_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE) 
+        self.start_btn.setStyleSheet(styles.SETTINGS_SAVE_BUTTON_STYLE)
         self.button_layout.addWidget(self.start_btn)
 
     def _update_text(self):

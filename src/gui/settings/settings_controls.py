@@ -9,19 +9,19 @@ from PyQt5.QtWidgets import QLabel, QCheckBox, QComboBox, QHBoxLayout, QLineEdit
 import qtawesome as qta
 
 from constants import DEFAULT_FORMAT, MAX_DOWNLOADS_RANGE
-from gui.settings.settings_form_data import language_display_options, language_index_for_code
+from gui.settings.settings_form_data import (
+    language_display_options,
+    language_index_for_code,
+    theme_index_for_value,
+)
 from gui.settings.settings_format_options import build_format_combo_entries, normalize_format_selection
+from gui.settings.settings_checkbox import SettingsCheckBox
 from gui.widgets.button_sizing import set_text_button_minimum_width
+from resources import colors, styles
 from resources.styles import (
-    COLOR_DIVIDER,
-    SETTINGS_CHECKBOX_STYLE,
-    SETTINGS_COMBO_STYLE,
     SETTINGS_FONT_FAMILY,
     SETTINGS_INPUT_HEIGHT,
-    SETTINGS_LABEL_STYLE,
     SETTINGS_SECTION_FONT_SIZE,
-    SETTINGS_SECTION_LABEL_STYLE,
-    SETTINGS_STEPPER_STYLE,
 )
 
 
@@ -33,7 +33,7 @@ class SettingsComboBox(QComboBox):
 
     def __init__(self):
         super().__init__()
-        self._arrow_icon = qta.icon("mdi.menu-down", color="#666666")
+        self._arrow_icon = qta.icon("mdi.menu-down", color=colors.COLOR_ICON_SUBDUED)
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -61,7 +61,7 @@ class SettingsStepper(QWidget):
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setFixedHeight(SETTINGS_INPUT_HEIGHT)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setStyleSheet(SETTINGS_STEPPER_STYLE)
+        self.setStyleSheet(styles.SETTINGS_STEPPER_STYLE)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(1, 1, 1, 1)
@@ -97,7 +97,7 @@ class SettingsStepper(QWidget):
         button.setObjectName("SettingsStepperButton")
         button.setFixedSize(self._button_size, self._button_size)
         button.setCursor(Qt.PointingHandCursor)
-        button.setIcon(qta.icon(icon_name, color="#555555"))
+        button.setIcon(qta.icon(icon_name, color=colors.COLOR_ICON_DEFAULT))
         button.setIconSize(QSize(self._icon_size, self._icon_size))
         button.clicked.connect(lambda: self.setValue(self._value + delta))
         return button
@@ -138,7 +138,7 @@ def add_section_label(text: str, layout) -> None:
     """Add a styled section label to a settings layout."""
     label = QLabel(text)
     label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE, QFont.Bold))
-    label.setStyleSheet(SETTINGS_SECTION_LABEL_STYLE)
+    label.setStyleSheet(styles.SETTINGS_SECTION_LABEL_STYLE)
     layout.addWidget(label)
 
 
@@ -146,7 +146,7 @@ def create_settings_label(text: str) -> QLabel:
     """Create a styled form label for settings rows."""
     label = QLabel(text)
     label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
-    label.setStyleSheet(SETTINGS_LABEL_STYLE)
+    label.setStyleSheet(styles.SETTINGS_LABEL_STYLE)
     return label
 
 
@@ -156,7 +156,7 @@ def create_settings_combo(items: Sequence[str], current_value: str) -> QComboBox
     combo.addItems(list(items))
     combo.setCurrentText(current_value)
     combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
-    combo.setStyleSheet(SETTINGS_COMBO_STYLE)
+    combo.setStyleSheet(styles.SETTINGS_COMBO_STYLE)
     return combo
 
 
@@ -164,11 +164,11 @@ def create_settings_checkbox(
     checked: bool, state_changed: Callable[[int], None] | None = None
 ) -> QCheckBox:
     """Create a styled settings checkbox."""
-    checkbox = QCheckBox()
+    checkbox = SettingsCheckBox()
     checkbox.setChecked(checked)
     if state_changed:
         checkbox.stateChanged.connect(state_changed)
-    checkbox.setStyleSheet(SETTINGS_CHECKBOX_STYLE)
+    checkbox.setStyleSheet(styles.SETTINGS_CHECKBOX_STYLE)
     return checkbox
 
 
@@ -208,7 +208,21 @@ def create_language_combo(language_code: str | None) -> QComboBox:
     combo.addItems(language_display_options())
     combo.setCurrentIndex(language_index_for_code(language_code))
     combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
-    combo.setStyleSheet(SETTINGS_COMBO_STYLE)
+    combo.setStyleSheet(styles.SETTINGS_COMBO_STYLE)
+    return combo
+
+
+def create_theme_combo(
+    theme: str | None,
+    light_label: str,
+    dark_label: str,
+) -> QComboBox:
+    """Create the light/dark theme selection combo box."""
+    combo = SettingsComboBox()
+    combo.addItems([light_label, dark_label])
+    combo.setCurrentIndex(theme_index_for_value(theme))
+    combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
+    combo.setStyleSheet(styles.SETTINGS_COMBO_STYLE)
     return combo
 
 
@@ -216,7 +230,7 @@ def create_format_combo(
     current_format: str | None,
     video_header: str,
     audio_header: str,
-    divider_color: str = COLOR_DIVIDER,
+    divider_color: str | None = None,
 ) -> QComboBox:
     """Create the output format combo box with non-selectable headers."""
     combo = SettingsComboBox()
@@ -231,14 +245,14 @@ def create_format_combo(
             header_item.setFont(header_font)
             header_item.setTextAlignment(Qt.AlignCenter)
             header_item.setEnabled(False)
-            header_item.setBackground(QColor(divider_color))
+            header_item.setBackground(QColor(divider_color or colors.COLOR_DIVIDER))
             model.appendRow(header_item)
         else:
             combo.addItem(entry.label)
 
     combo.setCurrentText(normalize_format_selection(current_format or DEFAULT_FORMAT))
     combo.setFixedHeight(SETTINGS_INPUT_HEIGHT)
-    combo.setStyleSheet(SETTINGS_COMBO_STYLE)
+    combo.setStyleSheet(styles.SETTINGS_COMBO_STYLE)
     return combo
 
 
@@ -272,7 +286,7 @@ def create_version_row(label_text: str, version_text: str) -> QHBoxLayout:
 
     value_label = QLabel(version_text)
     value_label.setFont(QFont(SETTINGS_FONT_FAMILY, 14, QFont.Bold))
-    value_label.setStyleSheet("color: #5F428B;")
+    value_label.setStyleSheet(f"color: {colors.COLOR_ACCENT};")
 
     layout.addWidget(label)
     layout.addWidget(value_label)

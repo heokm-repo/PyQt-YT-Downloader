@@ -28,9 +28,9 @@ from utils.cookie_store import (
 from utils.logger import log
 from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
+from resources import styles
 from resources.styles import (
-    SETTINGS_FONT_FAMILY, SETTINGS_SAVE_BUTTON_STYLE,
-    SETTINGS_CANCEL_BUTTON_STYLE
+    SETTINGS_FONT_FAMILY,
 )
 
 
@@ -110,14 +110,14 @@ class LoginBrowser(QDialog):
         # Bottom button bar.
         btn_frame = QFrame()
         btn_frame.setFixedHeight(48)
-        btn_frame.setStyleSheet("background-color: #F5F5F5; border-top: 1px solid #E0E0E0;")
+        btn_frame.setStyleSheet(styles.LOGIN_BUTTON_BAR_STYLE)
         btn_layout = QHBoxLayout(btn_frame)
         btn_layout.setContentsMargins(10, 4, 10, 4)
         
         # Status label.
         self.status_label = QLabel(STR.MSG_LOGIN_WAITING)
         self.status_label.setFont(QFont(SETTINGS_FONT_FAMILY, 9))
-        self.status_label.setStyleSheet("color: #666666; border: none;")
+        self.status_label.setStyleSheet(styles.LOGIN_STATUS_NORMAL_STYLE)
         btn_layout.addWidget(self.status_label)
         
         btn_layout.addStretch()
@@ -127,7 +127,7 @@ class LoginBrowser(QDialog):
         cancel_btn.setFixedHeight(32)
         set_text_button_minimum_width(cancel_btn)
         cancel_btn.setCursor(Qt.PointingHandCursor)
-        cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
+        cancel_btn.setStyleSheet(styles.SETTINGS_CANCEL_BUTTON_STYLE)
         cancel_btn.setAutoDefault(False)
         cancel_btn.setDefault(False)
         cancel_btn.clicked.connect(self.reject)
@@ -138,7 +138,7 @@ class LoginBrowser(QDialog):
         self.save_btn.setFixedHeight(32)
         set_text_button_minimum_width(self.save_btn)
         self.save_btn.setCursor(Qt.PointingHandCursor)
-        self.save_btn.setStyleSheet(SETTINGS_SAVE_BUTTON_STYLE)
+        self.save_btn.setStyleSheet(styles.SETTINGS_SAVE_BUTTON_STYLE)
         self.save_btn.setAutoDefault(False)
         self.save_btn.setDefault(False)
         self.save_btn.setEnabled(False)  # Disabled until cookies are stabilized.
@@ -193,7 +193,7 @@ class LoginBrowser(QDialog):
                 self._state = self.STATE_STABILIZING
                 
                 self.status_label.setText(STR.MSG_LOGIN_STABILIZING)
-                self.status_label.setStyleSheet("color: #FF9800; font-weight: bold; border: none;")
+                self.status_label.setStyleSheet(styles.LOGIN_STATUS_WARNING_STYLE)
                 
                 # Redirect to robots.txt instead of the YouTube home page to stabilize cookies.
                 # Keeping existing cookies while loading robots.txt lets cookie rotation settle.
@@ -220,7 +220,7 @@ class LoginBrowser(QDialog):
         log.info(f"Cookie stabilization complete. Total: {len(self._cookies)}, YouTube: {yt_count}")
         
         self.status_label.setText(STR.MSG_LOGIN_SUCCESS)
-        self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold; border: none;")
+        self.status_label.setStyleSheet(styles.LOGIN_STATUS_SUCCESS_STYLE)
         self.save_btn.setEnabled(True)
     
     def _save_and_close(self):
@@ -236,7 +236,7 @@ class LoginBrowser(QDialog):
         if not yt_cookies:
             log.warning("No YouTube cookies found")
             self.status_label.setText(STR.ERR_LOGIN_NO_COOKIES)
-            self.status_label.setStyleSheet("color: #F44336; font-weight: bold; border: none;")
+            self.status_label.setStyleSheet(styles.LOGIN_STATUS_ERROR_STYLE)
             self._abort_login_session()
             return
         
@@ -284,7 +284,7 @@ class LoginBrowser(QDialog):
                     )
             log.error(f"Failed to save cookies: {e}", exc_info=True)
             self.status_label.setText(STR.ERR_LOGIN_SAVE_FAILED.format(error=e))
-            self.status_label.setStyleSheet("color: #F44336; font-weight: bold; border: none;")
+            self.status_label.setStyleSheet(styles.LOGIN_STATUS_ERROR_STYLE)
             self._abort_login_session()
 
     def _cleanup_webengine_data(self):

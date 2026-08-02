@@ -14,6 +14,7 @@ from startup.binary_flow import (
     format_binary_update_message,
     run_binary_update_prompt,
     run_missing_binary_repair,
+    run_startup_checks,
 )
 
 
@@ -66,6 +67,68 @@ class StartupBinaryFlowTests(unittest.TestCase):
         FakeDialog.instances = []
         FakeDialog.next_result = 1
         FakeProgressDialog.instances = []
+
+    def test_run_startup_checks_preserves_failure_state(self):
+        class FailedStartupDialog:
+            updates_available = {}
+            app_update_info = (False, None, None, None)
+            check_failed = True
+            check_error = "offline"
+
+            def show(self):
+                pass
+
+            def start_checks(self):
+                pass
+
+            def exec_(self):
+                return 0
+
+        result = run_startup_checks(FailedStartupDialog)
+
+        self.assertTrue(result.check_failed)
+        self.assertEqual(result.error_message, "offline")
+
+    def test_failed_update_check_does_not_report_binaries_up_to_date(self):
+        logger = FakeLogger()
+        show_error = Mock()
+        startup_result = StartupCheckResult(
+            updates_available={},
+            app_update_info=(False, None, None, None),
+            check_failed=True,
+            error_message="offline",
+        )
+        presence = {
+            "yt-dlp": True,
+            "ffmpeg": True,
+            "ffprobe": True,
+            "quickjs": True,
+        }
+
+        with patch.object(binary_flow, "load_startup_language"), patch.object(
+            binary_flow,
+            "run_startup_checks",
+            return_value=startup_result,
+        ), patch(
+            "utils.bin.manager.check_binary_presence",
+            return_value=presence,
+        ), patch.object(
+            binary_flow,
+            "run_binary_update_prompt",
+        ) as update_prompt:
+            result = binary_flow.run_startup_binary_flow(
+                accepted_result=1,
+                show_error_message=show_error,
+                logger=logger,
+            )
+
+        self.assertEqual(result, startup_result.app_update_info)
+        update_prompt.assert_not_called()
+        self.assertIn(
+            "Startup update checks did not complete: offline",
+            logger.warnings,
+        )
+        self.assertNotIn("All binaries are up to date", logger.infos)
 
     def test_format_binary_update_message_lists_updates(self):
         message = format_binary_update_message(

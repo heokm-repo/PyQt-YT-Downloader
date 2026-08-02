@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import QLabel, QProgressBar, QVBoxLayout
 from PyQt5.QtCore import Qt
 
 from gui.dialogs.base_dialog import BaseDialog
-from resources.styles import STARTUP_DIALOG_WIDTH, STARTUP_DIALOG_HEIGHT, STARTUP_LABEL_STYLE, STARTUP_PROGRESS_STYLE
+from resources import styles
+from resources.styles import STARTUP_DIALOG_WIDTH, STARTUP_DIALOG_HEIGHT
 from locales.strings import STR
 from core.workers import StartupWorker
 
@@ -21,17 +22,19 @@ class StartupDialog(BaseDialog):
         self.setFixedSize(STARTUP_DIALOG_WIDTH, STARTUP_DIALOG_HEIGHT)
         
         self.worker = None
+        self.check_failed = False
+        self.check_error = None
         self._setup_ui()
         
     def _setup_ui(self):
         # Status message label.
         self.status_label = QLabel(STR.MSG_STARTUP_CHECK_EXT)
-        self.status_label.setStyleSheet(STARTUP_LABEL_STYLE)
+        self.status_label.setStyleSheet(styles.STARTUP_LABEL_STYLE)
         self.status_label.setAlignment(Qt.AlignCenter)
         
         # Indeterminate progress bar.
         self.progress_bar = QProgressBar()
-        self.progress_bar.setStyleSheet(STARTUP_PROGRESS_STYLE)
+        self.progress_bar.setStyleSheet(styles.STARTUP_PROGRESS_STYLE)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setRange(0, 0) # Indeterminate mode
         
@@ -58,6 +61,8 @@ class StartupDialog(BaseDialog):
         """Store check results and close the dialog."""
         self.updates_available = updates_available
         self.app_update_info = app_update_info
+        self.check_failed = False
+        self.check_error = None
         
         # Switch to the opening message and close without delay.
         self.status_label.setText(STR.MSG_STARTUP_OPENING)
@@ -69,6 +74,8 @@ class StartupDialog(BaseDialog):
         log.error(f"Startup check error: {err_msg}")
         self.updates_available = {}
         self.app_update_info = (False, None, None, None)
+        self.check_failed = True
+        self.check_error = err_msg
         self.accept()
         
     def closeEvent(self, event):

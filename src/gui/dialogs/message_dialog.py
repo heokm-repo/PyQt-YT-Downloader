@@ -5,10 +5,9 @@ from PyQt5.QtGui import QFont
 from gui.dialogs.base_dialog import BaseDialog
 from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
+from resources import styles
 from resources.styles import (
-    SETTINGS_CANCEL_BUTTON_STYLE, SETTINGS_SAVE_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY, MESSAGE_BTN_HEIGHT,
-    MESSAGE_BODY_STYLE
 )
 
 class MessageDialog(BaseDialog):
@@ -47,7 +46,7 @@ class MessageDialog(BaseDialog):
         # Message Body
         msg_label = QLabel(self.message)
         msg_label.setFont(QFont(SETTINGS_FONT_FAMILY, 10))
-        msg_label.setStyleSheet(MESSAGE_BODY_STYLE)
+        msg_label.setStyleSheet(styles.MESSAGE_BODY_STYLE)
         msg_label.setWordWrap(True)
         msg_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         # Set minimum width for better look
@@ -70,9 +69,9 @@ class MessageDialog(BaseDialog):
                 text = btn_config.get('text', f'Button {i}')
                 role = btn_config.get('role', 'action')
                 style = (
-                    SETTINGS_SAVE_BUTTON_STYLE
+                    styles.SETTINGS_SAVE_BUTTON_STYLE
                     if role == 'accept' or role == 'action'
-                    else SETTINGS_CANCEL_BUTTON_STYLE
+                    else styles.SETTINGS_CANCEL_BUTTON_STYLE
                 )
                 btn = self._create_text_button(
                     text,
@@ -84,14 +83,14 @@ class MessageDialog(BaseDialog):
         elif self.dialog_type == self.QUESTION:
             no_btn = self._create_text_button(
                 STR.BTN_NO,
-                SETTINGS_CANCEL_BUTTON_STYLE,
+                styles.SETTINGS_CANCEL_BUTTON_STYLE,
                 self.reject,
             )
             self.button_layout.addWidget(no_btn)
 
             yes_btn = self._create_text_button(
                 STR.BTN_YES,
-                SETTINGS_SAVE_BUTTON_STYLE,
+                styles.SETTINGS_SAVE_BUTTON_STYLE,
                 self.accept,
             )
             self.button_layout.addWidget(yes_btn)
@@ -99,14 +98,14 @@ class MessageDialog(BaseDialog):
         elif self.show_cancel:
             cancel_btn = self._create_text_button(
                 STR.BTN_CANCEL,
-                SETTINGS_CANCEL_BUTTON_STYLE,
+                styles.SETTINGS_CANCEL_BUTTON_STYLE,
                 self.reject,
             )
             self.button_layout.addWidget(cancel_btn)
 
             ok_btn = self._create_text_button(
                 STR.BTN_OK,
-                SETTINGS_SAVE_BUTTON_STYLE,
+                styles.SETTINGS_SAVE_BUTTON_STYLE,
                 self.accept,
             )
             self.button_layout.addWidget(ok_btn)
@@ -114,7 +113,7 @@ class MessageDialog(BaseDialog):
         else:
             ok_btn = self._create_text_button(
                 STR.BTN_OK,
-                SETTINGS_SAVE_BUTTON_STYLE,
+                styles.SETTINGS_SAVE_BUTTON_STYLE,
                 self.accept,
             )
             self.button_layout.addWidget(ok_btn)

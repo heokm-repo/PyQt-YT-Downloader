@@ -77,9 +77,15 @@ class Strings:
     @property
     def SETTINGS_SEC_GENERAL(self):     return get_string('SETTINGS_SEC_GENERAL', "General Settings")
     @property
-    def SETTINGS_LABEL_MAX_DL(self):    return get_string('SETTINGS_LABEL_MAX_DL', "Max Downloads:")
+    def SETTINGS_LABEL_MAX_DL(self):    return get_string('SETTINGS_LABEL_MAX_DL', "Max Concurrent Downloads:")
     @property
     def SETTINGS_LABEL_LANGUAGE(self):  return get_string('SETTINGS_LABEL_LANGUAGE', "Language:")
+    @property
+    def SETTINGS_LABEL_THEME(self):     return get_string('SETTINGS_LABEL_THEME', "Theme:")
+    @property
+    def SETTINGS_THEME_LIGHT(self):     return get_string('SETTINGS_THEME_LIGHT', "Light")
+    @property
+    def SETTINGS_THEME_DARK(self):      return get_string('SETTINGS_THEME_DARK', "Dark")
     
     # Section: Advanced Features
     @property
@@ -87,15 +93,15 @@ class Strings:
     @property
     def SETTINGS_CHK_NORMALIZE(self):   return get_string('SETTINGS_CHK_NORMALIZE', "Loudness Normalization")
     @property
-    def SETTINGS_CHK_ACCEL(self):       return get_string('SETTINGS_CHK_ACCEL', "Download Acceleration (Multi-thread)")
+    def SETTINGS_CHK_ACCEL(self):       return get_string('SETTINGS_CHK_ACCEL', "Download Acceleration (Multithreaded)")
     @property
-    def SETTINGS_CHK_COMPATIBILITY(self): return get_string('SETTINGS_CHK_COMPATIBILITY', "Universal Compatibility Mode")
+    def SETTINGS_CHK_COMPATIBILITY(self): return get_string('SETTINGS_CHK_COMPATIBILITY', "Broad Compatibility Mode")
     @property
-    def SETTINGS_LABEL_COOKIES(self):   return get_string('SETTINGS_LABEL_COOKIES', "Cookie (In-App Login):")
+    def SETTINGS_LABEL_COOKIES(self):   return get_string('SETTINGS_LABEL_COOKIES', "In-App Login:")
     @property
     def BTN_LOGIN(self):                return get_string('BTN_LOGIN', "Login")
     @property
-    def BTN_LOGOUT(self):               return get_string('BTN_LOGOUT', "Log Out / Delete Cookies")
+    def BTN_LOGOUT(self):               return get_string('BTN_LOGOUT', "Log Out")
     @property
     def BTN_SAVE_CLOSE(self):           return get_string('BTN_SAVE_CLOSE', "Save & Close")
     @property
@@ -105,7 +111,7 @@ class Strings:
     @property
     def MSG_LOGIN_SUCCESS(self):        return get_string('MSG_LOGIN_SUCCESS', "Login detected! Click 'Save & Close'.")
     @property
-    def MSG_LOGIN_STABILIZING(self):    return get_string('MSG_LOGIN_STABILIZING', "Stabilizing cookies...")
+    def MSG_LOGIN_STABILIZING(self):    return get_string('MSG_LOGIN_STABILIZING', "Finalizing sign-in...")
     @property
     def ERR_LOGIN_NO_COOKIES(self):     return get_string('ERR_LOGIN_NO_COOKIES', "No YouTube cookies captured!")
     @property
@@ -142,7 +148,7 @@ class Strings:
     def MSG_DOWNLOAD_FOLDER_FALLBACK(self):
         return get_string(
             'MSG_DOWNLOAD_FOLDER_FALLBACK',
-            "The download folder could not be used, so it was changed.\n\nPrevious folder:\n{old_path}\n\nNew folder:\n{new_path}\n\nReason:\n{reason}"
+            "The download folder could not be used, so the save location was changed.\n\nPrevious folder:\n{old_path}\n\nNew folder:\n{new_path}\n\nReason:\n{reason}"
         )
 
     # =========================================================================
@@ -197,17 +203,17 @@ class Strings:
     @property
     def TITLE_CHOICE(self):          return get_string('TITLE_CHOICE', "Download Option")
     @property
-    def MSG_CHOICE_PLAYLIST(self):   return get_string('MSG_CHOICE_PLAYLIST', "This URL contains both video and playlist information.\n\nHow would you like to download?")
+    def MSG_CHOICE_PLAYLIST(self):   return get_string('MSG_CHOICE_PLAYLIST', "This URL contains both video and playlist information.\n\nWhat would you like to download?")
     @property
     def BTN_CHOICE_ALL(self):        return get_string('BTN_CHOICE_ALL', "Entire Playlist")
     @property
-    def BTN_CHOICE_VIDEO(self):      return get_string('BTN_CHOICE_VIDEO', "Video Only")
+    def BTN_CHOICE_VIDEO(self):      return get_string('BTN_CHOICE_VIDEO', "This Video Only")
 
     # Duplicate / Resume
     @property
     def TITLE_DUPLICATE(self):       return get_string('TITLE_DUPLICATE', "Duplicate Videos")
     @property
-    def MSG_DUPLICATE_FOUND(self):   return get_string('MSG_DUPLICATE_FOUND', "{duplicate} out of {total} videos in playlist are already downloaded.\nExclude duplicate videos?")
+    def MSG_DUPLICATE_FOUND(self):   return get_string('MSG_DUPLICATE_FOUND', "Already downloaded: {duplicate} / {total}\nExclude duplicate videos?")
     @property
     def MSG_DUPLICATE_CHECK(self):   return get_string('MSG_DUPLICATE_CHECK', "Duplicate Download Check")
     @property
@@ -225,7 +231,7 @@ class Strings:
     @property
     def TITLE_RESUME(self):          return get_string('TITLE_RESUME', "Resume Download")
     @property
-    def MSG_RESUME_CONFIRM(self):    return get_string('MSG_RESUME_CONFIRM', "Resume previously downloading task?")
+    def MSG_RESUME_CONFIRM(self):    return get_string('MSG_RESUME_CONFIRM', "Resume previously paused downloads?")
     @property
     def TITLE_NO_NEW_VIDEOS(self):   return get_string('TITLE_NO_NEW_VIDEOS', "Notification")
 
@@ -237,7 +243,7 @@ class Strings:
     @property
     def LABEL_LANGUAGE_SELECT(self):return get_string('LABEL_LANGUAGE_SELECT', "Select Language:")
     @property
-    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg, ffprobe, QuickJS) are required for video downloading, merging, inspection, and YouTube processing.\n\nDo you want to download them?")
+    def MSG_CONFIRM_INIT_DOWNLOAD(self): return get_string('MSG_CONFIRM_INIT_DOWNLOAD', "Essential components (yt-dlp, FFmpeg, ffprobe, QuickJS) are required for downloading videos, merging files, inspecting media, and processing YouTube content.\n\nDo you want to download them?")
     @property
     def BTN_START_SETUP(self):      return get_string('BTN_START_SETUP', "Start")
     
@@ -303,7 +309,7 @@ class Strings:
     @property
     def MSG_UPDATE_RESTART_REQUIRED(self): return get_string('MSG_UPDATE_RESTART_REQUIRED', "Restart the application to apply the updates.")
     @property
-    def MSG_UPDATE_RESTART_ACTIVE_TASKS(self): return get_string('MSG_UPDATE_RESTART_ACTIVE_TASKS', "Downloading or waiting tasks will be paused during restart and can be resumed after the application starts again.")
+    def MSG_UPDATE_RESTART_ACTIVE_TASKS(self): return get_string('MSG_UPDATE_RESTART_ACTIVE_TASKS', "Active downloads and queued tasks will be paused during restart and can be resumed after the application starts again.")
     @property
     def ERR_RESTART_FAILED(self):     return get_string('ERR_RESTART_FAILED', "Could not restart the application. Please start it manually.")
     @property
@@ -377,9 +383,9 @@ class Strings:
     @property
     def MSG_ANALYZING_PLAYLIST(self):  return get_string('MSG_ANALYZING_PLAYLIST', "Analyzing playlist...")
     @property
-    def MSG_REGISTERING_PLAYLIST(self):return get_string('MSG_REGISTERING_PLAYLIST', "Registering {count} videos from playlist...")
+    def MSG_REGISTERING_PLAYLIST(self):return get_string('MSG_REGISTERING_PLAYLIST', "Adding playlist videos to the queue... ({count})")
     @property
-    def MSG_ADDED_PLAYLIST(self):      return get_string('MSG_ADDED_PLAYLIST', "{count} videos from playlist added to queue.")
+    def MSG_ADDED_PLAYLIST(self):      return get_string('MSG_ADDED_PLAYLIST', "Playlist videos added to the queue: {count}.")
 
     # System / Fatal Errors
     @property
@@ -431,11 +437,11 @@ class Strings:
     @property
     def TOOLTIP_RETRY(self):        return get_string('TOOLTIP_RETRY', "Retry")
     @property
-    def TOOLTIP_NORMALIZE(self):    return get_string('TOOLTIP_NORMALIZE', "Standardize volume to broadcast standard (-14 LUFS).\nConversion takes a bit longer.")
+    def TOOLTIP_NORMALIZE(self):    return get_string('TOOLTIP_NORMALIZE', "Normalize loudness to -14 LUFS.\nConversion takes a bit longer.")
     @property
-    def TOOLTIP_ACCEL(self):        return get_string('TOOLTIP_ACCEL', "Download file in multiple parts concurrently.\nIncreases download speed.\n(Max downloads fixed to 1 when selected)")
+    def TOOLTIP_ACCEL(self):        return get_string('TOOLTIP_ACCEL', "Download the file in multiple parts concurrently.\nMay improve download speed.\n(Maximum concurrent downloads is fixed at 1 when enabled)")
     @property
-    def TOOLTIP_COMPATIBILITY(self): return get_string('TOOLTIP_COMPATIBILITY', "Limits output to MP4 or MP3.\nMP4 video is finalized as H.264/AAC for broad device compatibility.")
+    def TOOLTIP_COMPATIBILITY(self): return get_string('TOOLTIP_COMPATIBILITY', "Limits output to MP4 or MP3.\nMP4 video is encoded as H.264/AAC for broad device compatibility.")
 
     @property
     def MENU_PLAY(self):         return get_string('MENU_PLAY', "Play")
@@ -487,9 +493,9 @@ class Strings:
     @property
     def TITLE_REMOVE_CONFIRM(self):     return get_string('TITLE_REMOVE_CONFIRM', "Confirm Remove")
     @property
-    def MSG_REMOVE_CONFIRM(self):       return get_string('MSG_REMOVE_CONFIRM', "Remove {count} items from the list?")
+    def MSG_REMOVE_CONFIRM(self):       return get_string('MSG_REMOVE_CONFIRM', "Remove selected items from the list? ({count})")
     @property
-    def MSG_REMOVE_COMPLETED_CONFIRM(self): return get_string('MSG_REMOVE_COMPLETED_CONFIRM', "Remove {count} completed items from the list?")
+    def MSG_REMOVE_COMPLETED_CONFIRM(self): return get_string('MSG_REMOVE_COMPLETED_CONFIRM', "Remove completed items from the list? ({count})")
 
     # =========================================================================
     # 9. Constants & Lists

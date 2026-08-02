@@ -3,9 +3,7 @@ import qtawesome as qta
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor
-from resources.styles import (
-    COLOR_DOWNLOADING, COLOR_PAUSED, COLOR_PRIMARY, COLOR_DEEP_ORANGE
-)
+from resources import colors
 
 
 class ToggleButton(QPushButton):
@@ -38,13 +36,19 @@ class ToggleButton(QPushButton):
         icon_size = int(size * 1.2) if size > 0 else 60
             
         if self._is_playing:
-            bg_color = QColor(COLOR_DOWNLOADING).darker(110).name() if self._hover else COLOR_DOWNLOADING
-            icon_color = COLOR_PRIMARY
+            surface_color = colors.COLOR_GLOBAL_TOGGLE_ACTIVE_SURFACE
+            icon_color = colors.COLOR_ACCENT
             self.setIcon(qta.icon('ri.play-circle-line', color=icon_color))
         else:
-            bg_color = QColor(COLOR_PAUSED).darker(110).name() if self._hover else COLOR_PAUSED
-            icon_color = COLOR_DEEP_ORANGE
+            surface_color = colors.COLOR_GLOBAL_TOGGLE_STOPPED_SURFACE
+            icon_color = colors.COLOR_TASK_STOPPED_ICON
             self.setIcon(qta.icon('ri.stop-circle-line', color=icon_color))
+
+        bg_color = (
+            QColor(surface_color).lighter(115).name()
+            if self._hover
+            else surface_color
+        )
             
         self.setIconSize(QSize(icon_size, icon_size))
         

@@ -67,6 +67,8 @@ from gui.tasks.task_widget_restore import create_restored_task_widget
 from gui.tasks.task_widget_signals import connect_task_widget_signals
 from gui.main_window.view_state import hide_task_list_if_empty, set_url_entry_enabled, show_task_list
 from gui.main_window.language import MainWindowLanguageTexts, apply_main_window_language
+from gui.main_window.theme import apply_main_window_theme
+from gui.theme import apply_application_theme
 from gui.dialogs.main_window_messages import (
     ask_duplicate_confirmation_dialog,
     ask_playlist_video_preference,
@@ -107,7 +109,7 @@ from constants import (
     TaskStatus,
     WORKER_TERMINATE_WAIT_MS, WORKER_SHUTDOWN_WAIT_MS,
     APP_TITLE,
-    KEY_LANGUAGE, change_language,
+    DEFAULT_THEME, KEY_LANGUAGE, KEY_THEME, change_language,
 )
 from data.models import DownloadTask
 from core.scheduler import DownloadScheduler
@@ -124,10 +126,8 @@ TASK_STATUS_SORT_PRIORITY = {
     TaskStatus.FINISHED: 4,
 }
 
+from resources import colors, styles
 from resources.styles import (
-    MAIN_WINDOW_STYLE, CENTRAL_WIDGET_STYLE, CENTRAL_WIDGET_MAXIMIZED_STYLE,
-    TITLE_BAR_STYLE,
-    MINIMIZE_BUTTON_STYLE, CLOSE_BUTTON_STYLE, MAXIMIZE_BUTTON_STYLE,
     MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT,
     MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING,
     WINDOW_RESIZE_CONTENT_MARGIN,
@@ -136,11 +136,12 @@ from resources.styles import (
 
 
 class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
-    def __init__(self):
+    def __init__(self, initial_settings=None):
         super().__init__()
 
+        self._init_runtime_state(initial_settings)
+        apply_application_theme(self.settings.get(KEY_THEME, DEFAULT_THEME))
         self._configure_window()
-        self._init_runtime_state()
         self._init_interaction_services()
         self._init_data_services()
         self._create_download_scheduler()
@@ -159,10 +160,9 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self.setWindowTitle(APP_TITLE)
         self.setGeometry(MAIN_WINDOW_X, MAIN_WINDOW_Y, MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
-        self.setStyleSheet(MAIN_WINDOW_STYLE)
-        self.setMinimumSize(805, 500)
+        self.setStyleSheet(styles.MAIN_WINDOW_STYLE)
 
-    def _init_runtime_state(self):
+    def _init_runtime_state(self, initial_settings=None):
         """Initialize mutable state owned directly by the main window."""
         self._is_maximized_state = False
         self.oldPos = None
@@ -172,7 +172,10 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         self.visible_task_order: list[int] = []
         self.total_tasks_in_queue = 0
         self.playlist_worker = None
-        self.settings = load_settings()
+        self._settings_dialog = None
+        self.settings = (
+            dict(initial_settings) if initial_settings is not None else load_settings()
+        )
         self.toggle_enabled = True
         self._restart_requested = False
         self._restart_launched = False
@@ -248,7 +251,7 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         self.menuBar().hide()
 
         controls = create_main_content_layout(
-            CENTRAL_WIDGET_STYLE,
+            styles.CENTRAL_WIDGET_STYLE,
             MAIN_LAYOUT_MARGINS,
             MAIN_LAYOUT_SPACING,
         )
@@ -268,8 +271,8 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         """Apply the central-widget style and title-bar icon."""
         chrome_state = build_window_chrome_state(
             is_maximized,
-            CENTRAL_WIDGET_STYLE,
-            CENTRAL_WIDGET_MAXIMIZED_STYLE,
+            styles.CENTRAL_WIDGET_STYLE,
+            styles.CENTRAL_WIDGET_MAXIMIZED_STYLE,
         )
         self._is_maximized_state = chrome_state.is_maximized
 
@@ -277,7 +280,11 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         if central:
             central.setStyleSheet(chrome_state.central_style)
         if hasattr(self, 'maximize_btn'):
-            set_button_icon(self.maximize_btn, chrome_state.maximize_icon_name)
+            set_button_icon(
+                self.maximize_btn,
+                chrome_state.maximize_icon_name,
+                hover_color=colors.COLOR_TITLE_BAR_HOVER_ICON,
+            )
 
     def apply_language_to_ui(self):
         """Apply current localized strings to existing UI controls."""
@@ -370,17 +377,19 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
     def create_custom_title_bar(self, layout):
         controls = create_title_bar(
             APP_TITLE,
-            TITLE_BAR_STYLE,
-            MINIMIZE_BUTTON_STYLE,
-            MAXIMIZE_BUTTON_STYLE,
-            CLOSE_BUTTON_STYLE,
+            styles.TITLE_BAR_STYLE,
+            styles.MINIMIZE_BUTTON_STYLE,
+            styles.MAXIMIZE_BUTTON_STYLE,
+            styles.CLOSE_BUTTON_STYLE,
             self.showMinimized,
             self._toggle_maximize,
             self.close,
         )
         self.title_bar_frame = controls.frame
         self.app_title_label = controls.title_label
+        self.minimize_btn = controls.minimize_button
         self.maximize_btn = controls.maximize_button
+        self.close_btn = controls.close_button
         layout.addWidget(controls.frame)
 
     # --- Window maximize toggle ---
@@ -492,6 +501,7 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
             self.open_download_options,
         )
         self.toggle_btn = controls.toggle_button
+        self.url_section_frame = controls.frame
         self.url_input = controls.url_input
         self.download_btn = controls.download_button
         self.settings_btn = controls.settings_button
@@ -517,6 +527,7 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         controls.frame.installEventFilter(self)
         self._click_deselect_targets.append(controls.frame)
         self.task_sort_button = controls.sort_button
+        self.status_bar_frame = controls.frame
         self.status_label = controls.status_label
         self.progress_slider = controls.progress_slider
         self.task_counter_label = controls.counter_label
@@ -942,31 +953,55 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
     # --- Settings management ---
 
     def open_download_options(self):
-        """Open the settings dialog and apply accepted changes."""
+        """Open the non-modal settings dialog without blocking the main window."""
+        if self._settings_dialog is not None:
+            self._settings_dialog.show()
+            self._settings_dialog.raise_()
+            self._settings_dialog.activateWindow()
+            return
+
         dialog = SettingsDialog(
             self.settings.copy(),
-            self,
+            parent=self,
             active_task_check=lambda: has_restart_sensitive_tasks(self.tasks),
         )
-        result = dialog.exec_()
-        if dialog.restart_requested:
-            self._request_restart()
+        dialog.setWindowModality(Qt.NonModal)
+        self._settings_dialog = dialog
+        dialog.finished.connect(self._handle_settings_dialog_finished)
+        dialog.show()
+
+    def _handle_settings_dialog_finished(self, result):
+        """Apply the result from the non-modal settings dialog."""
+        dialog = self._settings_dialog
+        self._settings_dialog = None
+        if dialog is None:
             return
-        if result != QDialog.Accepted:
-            return
 
-        new_settings = dialog.get_new_settings()
-        apply_plan = build_settings_apply_plan(self.settings, new_settings)
-        self.settings = new_settings
-        save_settings(self.settings)
+        try:
+            if dialog.restart_requested:
+                self._request_restart()
+                return
+            if result != QDialog.Accepted:
+                return
 
-        change_language(apply_plan.language)
-        self.apply_language_to_ui()
+            new_settings = dialog.get_new_settings()
+            apply_plan = build_settings_apply_plan(self.settings, new_settings)
+            self.settings = new_settings
+            save_settings(self.settings)
 
-        if apply_plan.adjust_worker_count:
-            self.scheduler.adjust_worker_count(apply_plan.worker_count)
+            if apply_plan.theme_changed:
+                apply_application_theme(apply_plan.theme)
+                apply_main_window_theme(self)
 
-        self._show_pending_settings_fallback_notice()
+            change_language(apply_plan.language)
+            self.apply_language_to_ui()
+
+            if apply_plan.adjust_worker_count:
+                self.scheduler.adjust_worker_count(apply_plan.worker_count)
+
+            self._show_pending_settings_fallback_notice()
+        finally:
+            dialog.deleteLater()
 
     def _request_restart(self):
         """Close through the normal shutdown path and relaunch the app."""
@@ -1122,6 +1157,10 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         cleanup_cancelled_paused_tasks(tasks, self.task_widgets)
 
     def closeEvent(self, event):
+        if self._settings_dialog is not None:
+            self._settings_dialog.close()
+            self._settings_dialog = None
+
         save_window_state("MainWindow", self)
         mark_downloading_tasks_paused(self.tasks)
         self.task_manager.save_tasks(self.tasks)

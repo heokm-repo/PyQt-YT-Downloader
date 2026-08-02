@@ -1,20 +1,32 @@
 """Application stylesheet constants."""
 
-# Color constants.
-COLOR_WAITING = "#D1D3D4"    # Waiting for download or metadata loading.
-COLOR_DOWNLOADING = "#DBC4F0" # Downloading.
-COLOR_FINISHED = "#B8E8FC"    # Finished.
-COLOR_ERROR = "#FF0000"       # Failed.
-COLOR_PAUSED = "#FFE0B2"      # Paused state, apricot.
-COLOR_PRIMARY = "#5F428B"     # Main purple.
-COLOR_DEEP_ORANGE = "#E65100" # Deep orange for stopped-state icons and borders.
+from string import Template
 
-# Text colors.
-COLOR_TEXT_PRIMARY = "#333333"
-COLOR_TEXT_SECONDARY = "#444444"
-COLOR_TEXT_GRAY = "#888888"
-COLOR_TEXT_LIGHT_GRAY = "#999999"
-COLOR_DIVIDER = "#E0E0E0"
+from resources import colors as _colors
+
+
+class _ThemedStyle(str):
+    """Rendered QSS that retains its semantic-token template for rebuilding."""
+
+    def __new__(cls, template: str):
+        rendered = Template(template).substitute(vars(_colors))
+        instance = super().__new__(cls, rendered)
+        instance.template = template
+        return instance
+
+
+def _style(template: str) -> str:
+    """Resolve semantic color tokens in a QSS template."""
+    return _ThemedStyle(template)
+
+
+def apply_theme(theme_name: str | None) -> str:
+    """Activate a palette and rebuild every themed stylesheet constant."""
+    active_theme = _colors.activate_theme(theme_name)
+    for name, value in tuple(globals().items()):
+        if isinstance(value, _ThemedStyle):
+            globals()[name] = _ThemedStyle(value.template)
+    return active_theme
 
 # ==========================================
 # Shared UI constants are managed here.
@@ -56,47 +68,47 @@ MESSAGE_BTN_HEIGHT = 32
 # Startup dialog style.
 STARTUP_DIALOG_WIDTH = 450
 STARTUP_DIALOG_HEIGHT = 200
-STARTUP_LABEL_STYLE = "color: #555555; font-size: 11pt;"
-STARTUP_PROGRESS_STYLE = """
+STARTUP_LABEL_STYLE = _style("color: $COLOR_TEXT_DEFAULT; font-size: 11pt;")
+STARTUP_PROGRESS_STYLE = _style("""
 QProgressBar {
     border: none;
-    background: #EAEAEA;
+    background: $COLOR_PROGRESS_TRACK;
     border-radius: 3px;
     height: 6px;
 }
 QProgressBar::chunk {
-    background-color: #5F428B;
+    background-color: $COLOR_ACCENT;
     border-radius: 3px;
 }
-"""
+""")
 
 # Main window style.
-MAIN_WINDOW_STYLE = """
+MAIN_WINDOW_STYLE = _style("""
 QMainWindow {
-    background-color: transparent;
+    background-color: $COLOR_TRANSPARENT;
 }
 QWidget {
-    color: #333333;
+    color: $COLOR_TEXT_PRIMARY;
     font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
 }
 /* QScrollArea 스타일링 */
 QScrollArea {
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     border: none;
 }
 /* 스크롤바 스타일링 */
 QScrollBar:vertical {
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     width: 6px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
-    background: #D1D1D1;
+    background: $COLOR_SCROLLBAR_THUMB;
     border-radius: 3px;
     min-height: 30px;
 }
-QScrollBar::handle:vertical:hover { 
-    background: #A8A8A8; 
+QScrollBar::handle:vertical:hover {
+    background: $COLOR_SCROLLBAR_THUMB_HOVER;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { 
     height: 0px; 
@@ -104,7 +116,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { 
     background: none; 
 }
-"""
+""")
 
 # ==========================================
 # Main-window UI settings moved from constants.py.
@@ -115,9 +127,6 @@ MAIN_WINDOW_X = 100
 MAIN_WINDOW_Y = 100
 MAIN_WINDOW_WIDTH = 1200
 MAIN_WINDOW_HEIGHT = 800
-
-# Main-window title and app info.
-APP_TITLE_COLOR = "#5F428B"
 
 # Main-window layout.
 MAIN_LAYOUT_MARGINS = (5, 5, 5, 5)
@@ -149,8 +158,9 @@ DOWNLOAD_BUTTON_FONT_FAMILY = "Segoe UI"
 DOWNLOAD_BUTTON_FONT_SIZE = 10
 
 # Task list section.
-TASK_LIST_MARGINS = (10, 0, 10, 0)
+TASK_LIST_MARGINS = (10, 0, 16, 0)
 TASK_LIST_SPACING = 10
+TASK_LIST_MIN_WIDTH = 791
 TASK_LIST_MIN_HEIGHT = 360
 EMPTY_STATE_FONT_FAMILY = "Segoe UI"
 EMPTY_STATE_FONT_SIZE = 11
@@ -176,13 +186,6 @@ THUMBNAIL_WIDTH = 160
 THUMBNAIL_HEIGHT = 90
 BUTTON_SIZE = 40
 
-# Button color constants.
-COLOR_BTN_RED = "#F44336"
-COLOR_BTN_GREEN = "#4CAF50"
-COLOR_BTN_BLUE = "#2196F3"
-COLOR_BTN_ORANGE = "#FF9800"
-COLOR_BTN_GRAY = "#999999"
-
 # ==========================================
 # Bottom-up minimum-size constants for individual parts.
 # Do not force a hard minimum on the whole window.
@@ -196,154 +199,154 @@ MIN_STATUS_LABEL_WIDTH = 100
 MIN_SETTINGS_TAB_WIDTH = 300
 
 # Central widget style.
-CENTRAL_WIDGET_STYLE = """
+CENTRAL_WIDGET_STYLE = _style("""
 QWidget#CentralWidget {
-    background-color: #FFFFFF;
+    background-color: $COLOR_SURFACE;
     border-radius: 0px;
 }
-"""
+""")
 
 # Central widget style for maximized state.
-CENTRAL_WIDGET_MAXIMIZED_STYLE = """
+CENTRAL_WIDGET_MAXIMIZED_STYLE = _style("""
 QWidget#CentralWidget {
-    background-color: #FFFFFF;
+    background-color: $COLOR_SURFACE;
     border: none;
     border-radius: 0px;
 }
-"""
+""")
 
 # Title-bar style.
-TITLE_BAR_STYLE = "background: transparent; border: none;"
+TITLE_BAR_STYLE = _style("background: $COLOR_TRANSPARENT; border: none;")
 
 # Minimize button style.
-MINIMIZE_BUTTON_STYLE = """
+MINIMIZE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: transparent;
-    color: #999999;
+    background-color: $COLOR_TRANSPARENT;
+    color: $COLOR_ICON_MUTED;
     border-radius: 14px;
     font-weight: bold;
 }
 QPushButton:hover {
-    background-color: #E8F4FD;
-    color: #2196F3;
+    background-color: $COLOR_TITLE_BAR_MINIMIZE_HOVER;
+    color: $COLOR_TITLE_BAR_HOVER_ICON;
 }
-"""
+""")
 
 # Close button style.
-CLOSE_BUTTON_STYLE = """
+CLOSE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: transparent;
-    color: #999999;
+    background-color: $COLOR_TRANSPARENT;
+    color: $COLOR_ICON_MUTED;
     border-radius: 14px;
     font-weight: bold;
 }
 QPushButton:hover {
-    background-color: #FFEEEE;
-    color: #FF5252;
+    background-color: $COLOR_TITLE_BAR_CLOSE_HOVER;
+    color: $COLOR_TITLE_BAR_HOVER_ICON;
 }
-"""
+""")
 
 # Maximize/restore button style.
-MAXIMIZE_BUTTON_STYLE = """
+MAXIMIZE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: transparent;
-    color: #999999;
+    background-color: $COLOR_TRANSPARENT;
+    color: $COLOR_ICON_MUTED;
     border-radius: 14px;
     font-weight: bold;
 }
 QPushButton:hover {
-    background-color: #E8FDE8;
-    color: #4CAF50;
+    background-color: $COLOR_TITLE_BAR_MAXIMIZE_HOVER;
+    color: $COLOR_TITLE_BAR_HOVER_ICON;
 }
-"""
+""")
 
 # URL input section style.
-URL_INPUT_CONTAINER_STYLE = """
+URL_INPUT_CONTAINER_STYLE = _style("""
 QFrame {
-    background-color: #F8F9FA;
+    background-color: $COLOR_SURFACE_MUTED;
     border-radius: 10px;
 }
-"""
+""")
 
-URL_INPUT_STYLE = """
+URL_INPUT_STYLE = _style("""
 QLineEdit {
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 8px;
     padding: 0 12px;
-    background-color: #FFFFFF;
-    color: #333333;
+    background-color: $COLOR_SURFACE;
+    color: $COLOR_TEXT_PRIMARY;
 }
 QLineEdit:focus {
-    border: 1px solid #5F428B;
-    background-color: #FFFFFF;
+    border: 1px solid $COLOR_ACCENT;
+    background-color: $COLOR_SURFACE;
 }
-"""
+""")
 
 # Download button style.
-DOWNLOAD_BUTTON_STYLE = """
+DOWNLOAD_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #5F428B;
-    color: #FFFFFF;
+    background-color: $COLOR_ACCENT;
+    color: $COLOR_ON_ACCENT;
     border: none;
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
 }
-QPushButton:hover { background-color: #70529E; }
-QPushButton:pressed { background-color: #4E3672; }
-QPushButton:disabled { background-color: #E0E0E0; color: #A0A0A0; }
-"""
+QPushButton:hover { background-color: $COLOR_ACCENT_HOVER; }
+QPushButton:pressed { background-color: $COLOR_ACCENT_PRESSED; }
+QPushButton:disabled { background-color: $COLOR_CONTROL_SURFACE_ACTIVE; color: $COLOR_TEXT_DISABLED; }
+""")
 
 # Settings button style.
-SETTINGS_BUTTON_STYLE = """
+SETTINGS_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #EDEDED;
-    color: #555555;
+    background-color: $COLOR_CONTROL_SURFACE_EMPHASIS;
+    color: $COLOR_TEXT_DEFAULT;
     border: none;
     border-top-right-radius: 8px;
     border-bottom-right-radius: 8px;
 }
-QPushButton:hover { background-color: #DCDCDC; }
-QPushButton:pressed { background-color: #CFCFCF; }
-"""
+QPushButton:hover { background-color: $COLOR_CONTROL_SURFACE_EMPHASIS_HOVER; }
+QPushButton:pressed { background-color: $COLOR_CONTROL_SURFACE_EMPHASIS_PRESSED; }
+""")
 
 # Status-bar style.
-STATUS_BAR_STYLE = "background: transparent;"
+STATUS_BAR_STYLE = _style("background: $COLOR_TRANSPARENT;")
 
-STATUS_LABEL_STYLE = "color: #666666;"
+STATUS_LABEL_STYLE = _style("color: $COLOR_TEXT_SUBDUED;")
 
-STATUS_COUNTER_STYLE = "color: #666666;"
+STATUS_COUNTER_STYLE = _style("color: $COLOR_TEXT_SUBDUED;")
 
-STATUS_SORT_BUTTON_STYLE = """
+STATUS_SORT_BUTTON_STYLE = _style("""
 QToolButton {
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 7px;
     padding: 0 5px;
-    background-color: #F5F5F5;
-    color: #555555;
+    background-color: $COLOR_CONTROL_SURFACE;
+    color: $COLOR_TEXT_DEFAULT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
 QToolButton:hover {
-    background-color: #E8E8E8;
-    border-color: #D6D6D6;
+    background-color: $COLOR_CONTROL_SURFACE_HOVER_STRONG;
+    border-color: $COLOR_BORDER_HOVER;
 }
 QToolButton:pressed {
-    background-color: #DDDDDD;
-    border-color: #CFCFCF;
+    background-color: $COLOR_CONTROL_SURFACE_PRESSED_STRONG;
+    border-color: $COLOR_BORDER_PRESSED;
 }
 QToolButton::menu-indicator {
     image: none;
     width: 0px;
 }
-"""
+""")
 
-STATUS_SORT_MENU_STYLE = """
+STATUS_SORT_MENU_STYLE = _style("""
 QMenu {
-    background-color: #FFFFFF;
-    border: 1px solid #E0E0E0;
+    background-color: $COLOR_SURFACE;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 6px;
     padding: 4px;
-    color: #444444;
+    color: $COLOR_TEXT_SECONDARY;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
@@ -352,24 +355,46 @@ QMenu::item {
     border-radius: 4px;
 }
 QMenu::item:selected {
-    background-color: #F3F3F3;
+    background-color: $COLOR_MENU_SELECTION_SURFACE;
 }
 QMenu::indicator {
     width: 14px;
     height: 14px;
 }
-"""
+""")
+
+# Task-card context menu style.
+TASK_CONTEXT_MENU_STYLE = _style("""
+QMenu {
+    background-color: $COLOR_SURFACE;
+    color: $COLOR_TEXT_PRIMARY;
+    border: 1px solid $COLOR_BORDER;
+    padding: 2px;
+}
+QMenu::item {
+    padding: 5px 12px 5px 8px;
+    border: none;
+}
+QMenu::item:selected {
+    background-color: $COLOR_MENU_SELECTION_SURFACE;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: $COLOR_DIVIDER;
+    margin: 2px 4px;
+}
+""")
 
 # Progress slider style.
-PROGRESS_SLIDER_STYLE = """
+PROGRESS_SLIDER_STYLE = _style("""
 QSlider::groove:horizontal {
     border: none;
-    background: #E0E0E0;
+    background: $COLOR_BORDER;
     height: 4px;
     border-radius: 2px;
 }
 QSlider::sub-page:horizontal {
-    background: #BDBDBD;
+    background: $COLOR_PROGRESS_SLIDER_FILL;
     height: 4px;
     border-radius: 2px;
 }
@@ -377,12 +402,9 @@ QSlider::handle:horizontal {
     width: 0px; 
     height: 0px; 
     margin: 0; 
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
 }
-"""
-
-# Selected-state color.
-COLOR_SELECTED = COLOR_PRIMARY.lstrip('#')  # Selected using the main theme color.
+""")
 
 # Task card style.
 def get_card_style(color_hex, selected=False):
@@ -390,7 +412,7 @@ def get_card_style(color_hex, selected=False):
     Build a card border style.
     
     Args:
-        color_hex: Color code, such as #D1D3D4 or D1D3D4.
+        color_hex: Color code with or without a leading hash.
         selected: Whether the card is selected.
     """
     # Add a # prefix if it is missing.
@@ -401,242 +423,256 @@ def get_card_style(color_hex, selected=False):
     if selected:
         # Selected state: changed background and emphasized border.
         return f"""
-background-color: #F3E8FF;
-border: 4px solid #{COLOR_SELECTED};
+background-color: {_colors.COLOR_SELECTION_SURFACE};
+border: 4px solid {_colors.COLOR_ACCENT};
 border-radius: 8px;
 """
     else:
         return f"""
-background-color: #FFFFFF;
+background-color: {_colors.COLOR_SURFACE};
 border: 4px solid {color_hex};
 border-radius: 8px;
 """
 
 # Thumbnail label style.
 # Thumbnail label style.
-THUMBNAIL_LABEL_STYLE = """
+THUMBNAIL_LABEL_STYLE = _style("""
 QLabel {
-    background: #F0F0F0;
+    background: $COLOR_CONTROL_SURFACE_ALT;
     border-radius: 4px;
     border: none;
-    color: #888;
+    color: $COLOR_TEXT_MUTED;
 }
-"""
+""")
 
 # Title label style.
-TITLE_LABEL_STYLE = """
+TITLE_LABEL_STYLE = _style("""
 QLabel {
-    color: #333333;
+    color: $COLOR_TEXT_PRIMARY;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 11pt;
     font-weight: bold;
 }
-"""
+""")
 
 # Uploader label style.
-UPLOADER_LABEL_STYLE = """
+UPLOADER_LABEL_STYLE = _style("""
 QLabel {
-    color: #888888;
+    color: $COLOR_TEXT_MUTED;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
 # Progress bar style.
-PROGRESS_BAR_STYLE = """
+PROGRESS_BAR_STYLE = _style("""
 QProgressBar {
     border: none;
-    background: #EAEAEA;
+    background: $COLOR_PROGRESS_TRACK;
     border-radius: 3px;
 }
 QProgressBar::chunk {
-    background-color: #5F428B;
+    background-color: $COLOR_ACCENT;
     border-radius: 3px;
 }
-"""
+""")
 
 # Progress bar style for finished state.
-PROGRESS_BAR_FINISHED_STYLE = """
-QProgressBar { border: none; background: #EAEAEA; border-radius: 3px; }
-QProgressBar::chunk { background-color: #4CAF50; border-radius: 3px; }
-"""
+PROGRESS_BAR_FINISHED_STYLE = _style("""
+QProgressBar { border: none; background: $COLOR_PROGRESS_TRACK; border-radius: 3px; }
+QProgressBar::chunk { background-color: $COLOR_SUCCESS; border-radius: 3px; }
+""")
 
 # Progress bar style for error state.
-PROGRESS_BAR_ERROR_STYLE = """
-QProgressBar { border: none; background: #EAEAEA; border-radius: 3px; }
-QProgressBar::chunk { background-color: #F44336; border-radius: 3px; }
-"""
+PROGRESS_BAR_ERROR_STYLE = _style("""
+QProgressBar { border: none; background: $COLOR_PROGRESS_TRACK; border-radius: 3px; }
+QProgressBar::chunk { background-color: $COLOR_ERROR; border-radius: 3px; }
+""")
 
 # Percent label style.
 # Percent label style.
-PERCENT_LABEL_STYLE = """
+PERCENT_LABEL_STYLE = _style("""
 QLabel {
-    color: #5F428B;
+    color: $COLOR_ACCENT;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
     font-weight: bold;
 }
-"""
+""")
 
 # Status label style, shared.
-STATUS_LABEL_NORMAL_STYLE = """
+STATUS_LABEL_NORMAL_STYLE = _style("""
 QLabel {
-    color: #666666;
+    color: $COLOR_TEXT_SUBDUED;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
-STATUS_LABEL_SUCCESS_STYLE = """
+STATUS_LABEL_SUCCESS_STYLE = _style("""
 QLabel {
-    color: #4CAF50;
+    color: $COLOR_SUCCESS;
     font-weight: bold;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
-STATUS_LABEL_ERROR_STYLE = """
+STATUS_LABEL_ERROR_STYLE = _style("""
 QLabel {
-    color: #F44336;
+    color: $COLOR_ERROR;
     font-weight: bold;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
-STATUS_LABEL_WARNING_STYLE = """
+STATUS_LABEL_WARNING_STYLE = _style("""
 QLabel {
-    color: #FF9800;
+    color: $COLOR_WARNING;
     font-weight: bold;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
 # Size label style.
-SIZE_LABEL_STYLE = """
+SIZE_LABEL_STYLE = _style("""
 QLabel {
-    color: #999999;
+    color: $COLOR_TEXT_FAINT;
     border: none;
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     font-family: 'Segoe UI';
     font-size: 9pt;
 }
-"""
+""")
 
 # Action button style.
-ACTION_BUTTON_STYLE = """
+ACTION_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #F5F5F5;
-    border: 1px solid #E0E0E0;
+    background-color: $COLOR_CONTROL_SURFACE;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 6px;
     padding: 0px;
     margin: 0px;
 }
-QPushButton:hover { background-color: #E0E0E0; }
-QPushButton:pressed { background-color: #D0D0D0; }
-"""
+QPushButton:hover { background-color: $COLOR_CONTROL_SURFACE_ACTIVE; }
+QPushButton:pressed { background-color: $COLOR_CONTROL_SURFACE_PRESSED; }
+""")
 
 # Empty-state label style.
-EMPTY_LABEL_STYLE = "color: #AAAAAA; padding: 20px;"
+EMPTY_LABEL_STYLE = _style("color: $COLOR_TEXT_PLACEHOLDER; padding: 20px;")
 
 # ===== Settings Dialog Style =====
 
 # Settings dialog container style.
-SETTINGS_CONTAINER_STYLE = """
+SETTINGS_CONTAINER_STYLE = _style("""
 QFrame#Container {
-    background-color: #FFFFFF;
-    border: 1px solid #E0E0E0;
+    background-color: $COLOR_SURFACE;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 15px;
 }
 QLabel {
     font-family: 'Segoe UI', sans-serif;
-    color: #333333;
+    color: $COLOR_TEXT_PRIMARY;
 }
-"""
+""")
+
+SETTINGS_CONTAINER_MAXIMIZED_STYLE = _style("""
+QFrame#Container {
+    background-color: $COLOR_SURFACE;
+    border: none;
+    border-radius: 0px;
+}
+QLabel {
+    font-family: 'Segoe UI', sans-serif;
+    color: $COLOR_TEXT_PRIMARY;
+}
+""")
 
 # Settings dialog title label style.
-SETTINGS_TITLE_LABEL_STYLE = "color: #333333;"
+SETTINGS_TITLE_LABEL_STYLE = _style("color: $COLOR_TEXT_PRIMARY;")
 
 # Settings dialog close button style.
-SETTINGS_CLOSE_BUTTON_STYLE = """
+SETTINGS_CLOSE_BUTTON_STYLE = _style("""
 QPushButton {
-    background: transparent;
+    background: $COLOR_TRANSPARENT;
     border: none;
-    color: #999999;
+    color: $COLOR_ICON_MUTED;
     border-radius: 12px;
     font-weight: bold;
 }
 QPushButton:hover {
-    background-color: #FFEEEE;
-    color: #FF5252;
+    background-color: $COLOR_DANGER_SURFACE;
+    color: $COLOR_DANGER;
 }
-"""
+""")
 
 # Settings dialog section label style.
-SETTINGS_SECTION_LABEL_STYLE = "color: #5F428B; margin-top: 10px; margin-bottom: 5px;"
+SETTINGS_SECTION_LABEL_STYLE = _style(
+    "color: $COLOR_ACCENT; margin-top: 10px; margin-bottom: 5px;"
+)
 
 # Settings dialog regular label style.
-SETTINGS_LABEL_STYLE = "color: #555555;"
+SETTINGS_LABEL_STYLE = _style("color: $COLOR_TEXT_DEFAULT;")
 
 # Settings dialog browse button style.
-SETTINGS_BROWSE_BUTTON_STYLE = """
+SETTINGS_BROWSE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #F0F0F0;
-    border: 1px solid #D0D0D0;
+    background-color: $COLOR_CONTROL_SURFACE_ALT;
+    border: 1px solid $COLOR_BORDER_STRONG;
     border-radius: 6px;
     padding: 0 10px;
-    color: #555555;
+    color: $COLOR_TEXT_DEFAULT;
     font-family: 'Segoe UI';
 }
-QPushButton:hover { background-color: #E0E0E0; }
-QPushButton:pressed { background-color: #D0D0D0; }
-"""
+QPushButton:hover { background-color: $COLOR_CONTROL_SURFACE_ACTIVE; }
+QPushButton:pressed { background-color: $COLOR_CONTROL_SURFACE_PRESSED; }
+""")
 
 # Settings dialog input field style.
-SETTINGS_INPUT_STYLE = """
+SETTINGS_INPUT_STYLE = _style("""
 QLineEdit, QSpinBox {
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 6px;
     padding: 0 10px;
-    background-color: #F9F9F9;
-    color: #333333;
+    background-color: $COLOR_SURFACE_SUBTLE;
+    color: $COLOR_TEXT_PRIMARY;
     font-family: 'Segoe UI';
 }
 QSpinBox::up-button, QSpinBox::down-button {
     width: 20px;
 }
-"""
+""")
 
 # Settings dialog combo-box style.
-SETTINGS_COMBO_STYLE = """
+SETTINGS_COMBO_STYLE = _style("""
 QComboBox {
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 6px;
     padding: 0 34px 0 10px;
-    background-color: #FFFFFF;
-    color: #333333;
+    background-color: $COLOR_SURFACE;
+    color: $COLOR_TEXT_PRIMARY;
     font-family: 'Segoe UI';
 }
 QComboBox::drop-down {
     border: none;
-    border-left: 1px solid #E0E0E0;
-    background-color: #F9F9F9;
+    border-left: 1px solid $COLOR_BORDER;
+    background-color: $COLOR_SURFACE_SUBTLE;
     width: 32px;
 }
 QComboBox::down-arrow {
@@ -644,148 +680,163 @@ QComboBox::down-arrow {
     width: 0px;
     height: 0px;
 }
-"""
+""")
 
 # Settings dialog numeric stepper style
-SETTINGS_STEPPER_STYLE = """
+SETTINGS_STEPPER_STYLE = _style("""
 QWidget#SettingsStepper {
-    background-color: #F9F9F9;
-    border: 1px solid #E0E0E0;
+    background-color: $COLOR_SURFACE_SUBTLE;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 6px;
 }
 QPushButton#SettingsStepperButton {
-    background-color: transparent;
+    background-color: $COLOR_TRANSPARENT;
     border: none;
     border-radius: 6px;
 }
 QPushButton#SettingsStepperButton:hover {
-    background-color: #EEEEEE;
+    background-color: $COLOR_CONTROL_SURFACE_HOVER;
 }
 QPushButton#SettingsStepperButton:pressed {
-    background-color: #E0E0E0;
+    background-color: $COLOR_CONTROL_SURFACE_ACTIVE;
 }
 QPushButton#SettingsStepperButton:disabled {
-    background-color: transparent;
+    background-color: $COLOR_TRANSPARENT;
 }
 QLineEdit#SettingsStepperValue {
-    color: #333333;
+    color: $COLOR_TEXT_PRIMARY;
     font-family: 'Segoe UI';
     font-weight: bold;
     border: none;
-    border-left: 1px solid #E0E0E0;
-    border-right: 1px solid #E0E0E0;
-    background-color: #FFFFFF;
+    border-left: 1px solid $COLOR_BORDER;
+    border-right: 1px solid $COLOR_BORDER;
+    background-color: $COLOR_SURFACE;
     padding: 0;
 }
 QLineEdit#SettingsStepperValue:focus {
-    border-left: 1px solid #D0D0D0;
-    border-right: 1px solid #D0D0D0;
-    background-color: #FFFFFF;
+    border-left: 1px solid $COLOR_BORDER_STRONG;
+    border-right: 1px solid $COLOR_BORDER_STRONG;
+    background-color: $COLOR_SURFACE;
 }
-"""
+""")
 
 # Settings dialog checkbox style
-SETTINGS_CHECKBOX_STYLE = """
+SETTINGS_CHECKBOX_STYLE = _style("""
 QCheckBox {
     font-family: 'Segoe UI';
     font-size: 10pt;
-    color: #333333;
+    color: $COLOR_TEXT_PRIMARY;
     spacing: 5px;
 }
 QCheckBox::indicator {
     width: 18px;
     height: 18px;
 }
-"""
+""")
 
 # Settings dialog cancel button style.
-SETTINGS_CANCEL_BUTTON_STYLE = """
+SETTINGS_CANCEL_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #F5F5F5;
-    color: #666666;
+    background-color: $COLOR_CONTROL_SURFACE;
+    color: $COLOR_TEXT_SUBDUED;
     border: none;
     border-radius: 8px;
     font-weight: bold;
     font-family: 'Segoe UI';
     padding: 0 8px;
 }
-QPushButton:hover { background-color: #EEEEEE; }
-"""
+QPushButton:hover { background-color: $COLOR_CONTROL_SURFACE_HOVER; }
+""")
 
 # Settings dialog save button style.
-SETTINGS_SAVE_BUTTON_STYLE = """
+SETTINGS_SAVE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #5F428B;
-    color: #FFFFFF;
+    background-color: $COLOR_ACCENT;
+    color: $COLOR_ON_ACCENT;
     border: none;
     border-radius: 8px;
     font-weight: bold;
     font-family: 'Segoe UI';
     padding: 0 8px;
 }
-QPushButton:hover { background-color: #70529E; }
-QPushButton:pressed { background-color: #4E3672; }
-"""
+QPushButton:hover { background-color: $COLOR_ACCENT_HOVER; }
+QPushButton:pressed { background-color: $COLOR_ACCENT_PRESSED; }
+""")
 
 # Settings dialog tab style.
-SETTINGS_TAB_STYLE = """
+SETTINGS_TAB_STYLE = _style("""
 QTabWidget::pane {
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-radius: 5px;
-    background: white;
+    background: $COLOR_SURFACE;
 }
 QTabBar::tab {
-    background: #F5F5F5;
-    color: #666;
+    background: $COLOR_CONTROL_SURFACE;
+    color: $COLOR_TEXT_SUBDUED;
     padding: 6px 10px;
-    border: 1px solid #E0E0E0;
+    border: 1px solid $COLOR_BORDER;
     border-bottom: none;
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
     margin-right: 2px;
 }
 QTabBar::tab:selected {
-    background: white;
-    color: #5F428B;
-    border-bottom: 1px solid white;
+    background: $COLOR_SURFACE;
+    color: $COLOR_ACCENT;
+    border-bottom: 1px solid $COLOR_SURFACE;
 }
 QTabBar::tab:hover:!selected {
-    background: #EEEEEE;
+    background: $COLOR_CONTROL_SURFACE_HOVER;
 }
-"""
+""")
 
 # Settings dialog update/delete button style.
-SETTINGS_UPDATE_BUTTON_STYLE = """
+SETTINGS_UPDATE_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #f0f0f0;
-    border: 1px solid #ccc;
+    background-color: $COLOR_CONTROL_SURFACE_ALT;
+    border: 1px solid $COLOR_BORDER_UPDATE;
     border-radius: 5px;
-    color: #333;
+    color: $COLOR_TEXT_PRIMARY;
     padding: 10px;
 }
 QPushButton:hover {
-    background-color: #e0e0e0;
+    background-color: $COLOR_CONTROL_SURFACE_ACTIVE;
 }
-"""
+""")
 
-SETTINGS_UNINSTALL_BUTTON_STYLE = """
+SETTINGS_UNINSTALL_BUTTON_STYLE = _style("""
 QPushButton {
-    background-color: #ffebee;
-    border: 1px solid #ffcdd2;
+    background-color: $COLOR_DESTRUCTIVE_SURFACE;
+    border: 1px solid $COLOR_DESTRUCTIVE_BORDER;
     border-radius: 5px;
-    color: #d32f2f;
+    color: $COLOR_DANGER_STRONG;
     padding: 10px;
 }
 QPushButton:hover {
-    background-color: #ffcdd2;
+    background-color: $COLOR_DESTRUCTIVE_BORDER;
 }
-"""
+""")
+
+# Login browser style.
+LOGIN_BUTTON_BAR_STYLE = _style(
+    "background-color: $COLOR_CONTROL_SURFACE; border-top: 1px solid $COLOR_BORDER;"
+)
+LOGIN_STATUS_NORMAL_STYLE = _style("color: $COLOR_TEXT_SUBDUED; border: none;")
+LOGIN_STATUS_WARNING_STYLE = _style(
+    "color: $COLOR_WARNING; font-weight: bold; border: none;"
+)
+LOGIN_STATUS_SUCCESS_STYLE = _style(
+    "color: $COLOR_SUCCESS; font-weight: bold; border: none;"
+)
+LOGIN_STATUS_ERROR_STYLE = _style(
+    "color: $COLOR_ERROR; font-weight: bold; border: none;"
+)
 
 # Download progress dialog style.
-DETAIL_LABEL_STYLE = f"color: {COLOR_TEXT_GRAY};"
-INFO_LABEL_STYLE = f"color: {COLOR_TEXT_LIGHT_GRAY};"
+DETAIL_LABEL_STYLE = _style("color: $COLOR_TEXT_MUTED;")
+INFO_LABEL_STYLE = _style("color: $COLOR_TEXT_FAINT;")
 
 # Message dialog style.
-MESSAGE_TITLE_STYLE = f"color: {COLOR_TEXT_PRIMARY};"
-MESSAGE_BODY_STYLE = f"color: {COLOR_TEXT_SECONDARY};"
-MESSAGE_DIVIDER_STYLE = f"background-color: {COLOR_DIVIDER};"
+MESSAGE_TITLE_STYLE = _style("color: $COLOR_TEXT_PRIMARY;")
+MESSAGE_BODY_STYLE = _style("color: $COLOR_TEXT_SECONDARY;")
+MESSAGE_DIVIDER_STYLE = _style("background-color: $COLOR_DIVIDER;")

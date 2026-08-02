@@ -11,6 +11,8 @@ from locales.strings import STR
 class StartupCheckResult:
     updates_available: dict
     app_update_info: tuple[bool, str | None, str | None, str | None]
+    check_failed: bool = False
+    error_message: str | None = None
 
 
 def load_startup_language(logger: Any) -> None:
@@ -46,6 +48,8 @@ def run_startup_checks(dialog_factory: Callable[[], Any] | None = None) -> Start
             "app_update_info",
             (False, None, None, None),
         ),
+        check_failed=getattr(startup_dialog, "check_failed", False),
+        error_message=getattr(startup_dialog, "check_error", None),
     )
 
 
@@ -193,7 +197,17 @@ def run_startup_binary_flow(
 
     presence = check_binary_presence()
     if all(presence.values()):
-        run_binary_update_prompt(startup_result.updates_available, accepted_result, logger)
+        if startup_result.check_failed:
+            message = "Startup update checks did not complete"
+            if startup_result.error_message:
+                message += f": {startup_result.error_message}"
+            logger.warning(message)
+        else:
+            run_binary_update_prompt(
+                startup_result.updates_available,
+                accepted_result,
+                logger,
+            )
     else:
         binary_names = missing_binary_downloads(presence)
         if any(presence.values()):

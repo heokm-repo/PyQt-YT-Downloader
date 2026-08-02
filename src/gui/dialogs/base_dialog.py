@@ -5,13 +5,13 @@ from PyQt5.QtCore import Qt, QPoint, QSize
 from PyQt5.QtGui import QFont, QColor
 import qtawesome as qta
 
+from resources import colors, styles
 from resources.styles import (
-    SETTINGS_CONTAINER_STYLE, SETTINGS_CLOSE_BUTTON_STYLE,
     SETTINGS_SHADOW_BLUR_RADIUS, SETTINGS_SHADOW_ALPHA,
-    MESSAGE_TITLE_STYLE, SETTINGS_FONT_FAMILY, MESSAGE_DIVIDER_STYLE,
+    SETTINGS_FONT_FAMILY,
     SETTINGS_CONTAINER_MARGIN, SETTINGS_CONTENT_MARGIN, SETTINGS_CONTENT_SPACING,
     SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE,
-    SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, MAXIMIZE_BUTTON_STYLE
+    SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE,
 )
 from gui.windowing.windows_custom_frame_mixin import WindowsCustomFrameMixin
 from gui.windowing.window_state_manager import save_window_state, restore_window_state
@@ -72,13 +72,15 @@ class BaseDialog(WindowsCustomFrameMixin, QDialog):
     def _create_container(self):
         container = QFrame()
         container.setObjectName("Container")
-        container.setStyleSheet(SETTINGS_CONTAINER_STYLE)
+        container.setStyleSheet(styles.SETTINGS_CONTAINER_STYLE)
         return container
 
     def _apply_container_shadow(self):
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(SETTINGS_SHADOW_BLUR_RADIUS)
-        shadow.setColor(QColor(0, 0, 0, SETTINGS_SHADOW_ALPHA))
+        shadow_color = QColor(colors.COLOR_SHADOW)
+        shadow_color.setAlpha(SETTINGS_SHADOW_ALPHA)
+        shadow.setColor(shadow_color)
         shadow.setOffset(0, 0)
         self.container.setGraphicsEffect(shadow)
 
@@ -114,7 +116,7 @@ class BaseDialog(WindowsCustomFrameMixin, QDialog):
 
     def _create_icon_label(self, icon_text):
         icon_label = QLabel()
-        icon_pixmap = qta.icon(icon_text, color='#5F428B').pixmap(QSize(SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_ICON_SIZE))
+        icon_pixmap = qta.icon(icon_text, color=colors.COLOR_ACCENT).pixmap(QSize(SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_ICON_SIZE))
         icon_label.setPixmap(icon_pixmap)
         icon_label.setFixedSize(SETTINGS_DIALOG_TITLE_ICON_SIZE, SETTINGS_DIALOG_TITLE_ICON_SIZE)
         return icon_label
@@ -122,7 +124,7 @@ class BaseDialog(WindowsCustomFrameMixin, QDialog):
     def _create_title_label(self, title_text):
         title_label = QLabel(title_text)
         title_label.setFont(QFont(SETTINGS_FONT_FAMILY, 11, QFont.Bold))
-        title_label.setStyleSheet(MESSAGE_TITLE_STYLE)
+        title_label.setStyleSheet(styles.MESSAGE_TITLE_STYLE)
         return title_label
 
     def _create_maximize_button(self):
@@ -130,29 +132,29 @@ class BaseDialog(WindowsCustomFrameMixin, QDialog):
             return None
 
         button = QPushButton()
-        button.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
+        button.setIcon(qta.icon('mdi.window-maximize', color=colors.COLOR_ICON_MUTED))
         button.setIconSize(QSize(SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE))
         button.setFixedSize(SETTINGS_DIALOG_TITLE_BUTTON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE)
         button.setCursor(Qt.PointingHandCursor)
         button.clicked.connect(self._toggle_maximize)
-        button.setStyleSheet(MAXIMIZE_BUTTON_STYLE)
+        button.setStyleSheet(styles.MAXIMIZE_BUTTON_STYLE)
         return button
 
     def _create_close_button(self):
         button = QPushButton()
-        button.setIcon(qta.icon('mdi.window-close', color='#999999'))
+        button.setIcon(qta.icon('mdi.window-close', color=colors.COLOR_ICON_MUTED))
         button.setIconSize(QSize(SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_ICON_SIZE))
         button.setFixedSize(SETTINGS_DIALOG_TITLE_BUTTON_SIZE, SETTINGS_DIALOG_TITLE_BUTTON_SIZE)
         button.setCursor(Qt.PointingHandCursor)
         button.clicked.connect(self.reject)
-        button.setStyleSheet(SETTINGS_CLOSE_BUTTON_STYLE)
+        button.setStyleSheet(styles.SETTINGS_CLOSE_BUTTON_STYLE)
         return button
 
     def _create_divider(self):
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
-        line.setStyleSheet(MESSAGE_DIVIDER_STYLE)
+        line.setStyleSheet(styles.MESSAGE_DIVIDER_STYLE)
         line.setFixedHeight(1)
         return line
 
@@ -218,28 +220,18 @@ class BaseDialog(WindowsCustomFrameMixin, QDialog):
             if self.isMaximized() and not self._is_maximized:
                 # Maximized by the OS: sync internal state and UI.
                 self._is_maximized = True
-                self.container.setStyleSheet("""
-                    QFrame#Container {
-                        background-color: #FFFFFF;
-                        border: none;
-                        border-radius: 0px;
-                    }
-                    QLabel {
-                        font-family: 'Segoe UI', sans-serif;
-                        color: #333333;
-                    }
-                """)
+                self.container.setStyleSheet(styles.SETTINGS_CONTAINER_MAXIMIZED_STYLE)
                 self.container.setGraphicsEffect(None)
                 if self.maximize_btn:
-                    self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color='#999999'))
+                    self.maximize_btn.setIcon(qta.icon('mdi.window-restore', color=colors.COLOR_ICON_MUTED))
                 log.info(f"창 최대화 됨 ({name})")
             elif not self.isMaximized() and not self.isMinimized() and self._is_maximized:
                 # Restored by the OS: sync internal state and UI.
                 self._is_maximized = False
-                self.container.setStyleSheet(SETTINGS_CONTAINER_STYLE)
+                self.container.setStyleSheet(styles.SETTINGS_CONTAINER_STYLE)
                 self._apply_container_shadow()
                 if self.maximize_btn:
-                    self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color='#999999'))
+                    self.maximize_btn.setIcon(qta.icon('mdi.window-maximize', color=colors.COLOR_ICON_MUTED))
                 log.info(f"창 기본 크기로 복구 됨 ({name})")
         super().changeEvent(event)
 

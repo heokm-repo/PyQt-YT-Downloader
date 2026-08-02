@@ -13,9 +13,9 @@ from PyQt5.QtGui import QDesktopServices, QFont
 from constants import (
     KEY_DOWNLOAD_FOLDER, KEY_VIDEO_QUALITY, KEY_AUDIO_QUALITY, KEY_FORMAT,
     KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
-    KEY_UNIVERSAL_COMPATIBILITY,
+    KEY_THEME, KEY_UNIVERSAL_COMPATIBILITY,
     DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
-    DEFAULT_UNIVERSAL_COMPATIBILITY,
+    DEFAULT_THEME, DEFAULT_UNIVERSAL_COMPATIBILITY,
     VIDEO_QUALITY_OPTIONS, AUDIO_QUALITY_OPTIONS,
     APP_VERSION, SPONSOR_URL
 )
@@ -39,6 +39,7 @@ from gui.settings.settings_controls import (
     create_settings_checkbox,
     create_settings_combo,
     create_settings_label,
+    create_theme_combo,
     set_compatibility_format_mode,
     create_version_row,
 )
@@ -60,12 +61,8 @@ from gui.settings.settings_app_management import (
 from gui.settings.settings_update_check import (
     format_update_check_message,
 )
+from resources import styles
 from resources.styles import (
-    SETTINGS_TITLE_LABEL_STYLE,
-    SETTINGS_CANCEL_BUTTON_STYLE, SETTINGS_SAVE_BUTTON_STYLE,
-    SETTINGS_TAB_STYLE,
-    SETTINGS_UPDATE_BUTTON_STYLE, SETTINGS_UNINSTALL_BUTTON_STYLE,
-    # Moved Constants
     SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT,
     SETTINGS_BUTTON_HEIGHT, SETTINGS_BUTTON_WIDTH_PADDING,
     SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE,
@@ -99,27 +96,34 @@ class SettingsDialog(BaseDialog):
             show_close_btn=True,
             show_divider=False,
             resizable=False,
-            window_name="SettingsDialog"
+            window_name=None,
         )
 
-        # Restore saved state, or center at the default size.
-        self.restore_state(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
         self.setFixedSize(SETTINGS_DIALOG_WIDTH, SETTINGS_DIALOG_HEIGHT)
+        self._center_on_primary_screen()
 
         # Apply the settings-dialog title style.
         self.title_label.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_TITLE_FONT_SIZE, QFont.Bold))
-        self.title_label.setStyleSheet(SETTINGS_TITLE_LABEL_STYLE)
+        self.title_label.setStyleSheet(styles.SETTINGS_TITLE_LABEL_STYLE)
 
         # Set container spacing differently if needed, wait, BaseDialog handles it roughly the same
 
         self._setup_content()
+        self.container_layout.setStretchFactor(self.content_layout, 1)
         self._create_button_section()
+
+    def _center_on_primary_screen(self):
+        """Center the fixed settings window on the primary screen."""
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        self.move(screen.availableGeometry().center() - self.rect().center())
 
     def _setup_content(self):
         """Create and add the settings tabs."""
         # Create tab widget.
         self.tab_widget = QTabWidget()
-        self.tab_widget.setStyleSheet(SETTINGS_TAB_STYLE)
+        self.tab_widget.setStyleSheet(styles.SETTINGS_TAB_STYLE)
         self.tab_widget.setMinimumWidth(MIN_SETTINGS_TAB_WIDTH)
 
         # Tab 1: General settings.
@@ -162,6 +166,16 @@ class SettingsDialog(BaseDialog):
             self.settings.get(KEY_LANGUAGE)
         )
         lang_form_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_LANGUAGE), self.language_combo)
+
+        self.theme_combo = create_theme_combo(
+            self.settings.get(KEY_THEME, DEFAULT_THEME),
+            STR.SETTINGS_THEME_LIGHT,
+            STR.SETTINGS_THEME_DARK,
+        )
+        lang_form_layout.addRow(
+            create_settings_label(STR.SETTINGS_LABEL_THEME),
+            self.theme_combo,
+        )
         layout.addLayout(lang_form_layout)
 
         cookie_layout = create_login_row(
@@ -273,8 +287,8 @@ class SettingsDialog(BaseDialog):
         )
 
         button_styles = {
-            "update": SETTINGS_UPDATE_BUTTON_STYLE,
-            "uninstall": SETTINGS_UNINSTALL_BUTTON_STYLE,
+            "update": styles.SETTINGS_UPDATE_BUTTON_STYLE,
+            "uninstall": styles.SETTINGS_UNINSTALL_BUTTON_STYLE,
         }
         button_callbacks = {
             "check_update": self._on_check_update_clicked,
@@ -305,8 +319,8 @@ class SettingsDialog(BaseDialog):
         # Use BaseDialog button_layout.
 
         button_styles = {
-            "cancel": SETTINGS_CANCEL_BUTTON_STYLE,
-            "save": SETTINGS_SAVE_BUTTON_STYLE,
+            "cancel": styles.SETTINGS_CANCEL_BUTTON_STYLE,
+            "save": styles.SETTINGS_SAVE_BUTTON_STYLE,
         }
         button_callbacks = {
             "cancel": self.reject,
@@ -411,6 +425,7 @@ class SettingsDialog(BaseDialog):
             self.max_downloads_spin.value(),
             self.language_combo.currentIndex(),
             self.compatibility_check.isChecked(),
+            self.theme_combo.currentIndex(),
         )
 
         self._detach_update_check_worker()

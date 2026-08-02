@@ -5,13 +5,7 @@ from typing import Any
 
 from constants import MSG_0_PERCENT, TaskStatus
 from locales.strings import STR
-from resources.styles import (
-    PROGRESS_BAR_ERROR_STYLE,
-    PROGRESS_BAR_FINISHED_STYLE,
-    STATUS_LABEL_ERROR_STYLE,
-    STATUS_LABEL_SUCCESS_STYLE,
-    STATUS_LABEL_WARNING_STYLE,
-)
+from resources import styles
 from utils.utils import format_bytes
 
 
@@ -32,8 +26,8 @@ def build_finished_display(file_size: Any = None) -> TaskTerminalDisplay:
     return TaskTerminalDisplay(
         status=TaskStatus.FINISHED,
         status_text=STR.STATUS_COMPLETED,
-        status_style=STATUS_LABEL_SUCCESS_STYLE,
-        progress_style=PROGRESS_BAR_FINISHED_STYLE,
+        status_style=styles.STATUS_LABEL_SUCCESS_STYLE,
+        progress_style=styles.PROGRESS_BAR_FINISHED_STYLE,
         progress_value=100,
         percent_text=MSG_0_PERCENT.replace("0", "100"),
         size_text=size_text,
@@ -45,8 +39,8 @@ def build_failed_display(message: str) -> TaskTerminalDisplay:
     return TaskTerminalDisplay(
         status=TaskStatus.FAILED,
         status_text=STR.STATUS_FAILED_FMT.format(message=message),
-        status_style=STATUS_LABEL_ERROR_STYLE,
-        progress_style=PROGRESS_BAR_ERROR_STYLE,
+        status_style=styles.STATUS_LABEL_ERROR_STYLE,
+        progress_style=styles.PROGRESS_BAR_ERROR_STYLE,
     )
 
 
@@ -55,7 +49,7 @@ def build_paused_display() -> TaskTerminalDisplay:
     return TaskTerminalDisplay(
         status=TaskStatus.PAUSED,
         status_text=STR.STATUS_PAUSED,
-        status_style=STATUS_LABEL_WARNING_STYLE,
+        status_style=styles.STATUS_LABEL_WARNING_STYLE,
     )
 
 

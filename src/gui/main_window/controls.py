@@ -22,13 +22,11 @@ from PyQt5.QtWidgets import (
 )
 
 from gui.widgets.toggle_button import ToggleButton
+from resources import colors, styles
 from resources.styles import (
-    APP_TITLE_COLOR,
     DOWNLOAD_BUTTON_FONT_FAMILY,
     DOWNLOAD_BUTTON_FONT_SIZE,
     DOWNLOAD_BUTTON_HEIGHT,
-    DOWNLOAD_BUTTON_STYLE,
-    EMPTY_LABEL_STYLE,
     EMPTY_STATE_FONT_FAMILY,
     EMPTY_STATE_FONT_SIZE,
     MIN_DOWNLOAD_BUTTON_WIDTH,
@@ -38,9 +36,7 @@ from resources.styles import (
     PROGRESS_SLIDER_DEFAULT,
     PROGRESS_SLIDER_MAX,
     PROGRESS_SLIDER_MIN,
-    PROGRESS_SLIDER_STYLE,
     SETTINGS_BUTTON_SIZE,
-    SETTINGS_BUTTON_STYLE,
     STATUS_BAR_FONT_FAMILY,
     STATUS_BAR_FONT_SIZE,
     STATUS_CONTROL_HEIGHT,
@@ -51,13 +47,9 @@ from resources.styles import (
     STATUS_BAR_HEIGHT,
     STATUS_BAR_MARGINS,
     STATUS_BAR_SPACING,
-    STATUS_BAR_STYLE,
-    STATUS_COUNTER_STYLE,
-    STATUS_LABEL_STYLE,
-    STATUS_SORT_BUTTON_STYLE,
-    STATUS_SORT_MENU_STYLE,
     TASK_LIST_MARGINS,
     TASK_LIST_MIN_HEIGHT,
+    TASK_LIST_MIN_WIDTH,
     TASK_LIST_SPACING,
     TITLE_BAR_BUTTON_SIZE,
     TITLE_BAR_BUTTON_ICON_SIZE,
@@ -69,12 +61,10 @@ from resources.styles import (
     TOGGLE_BUTTON_SIZE,
     URL_INPUT_CONTAINER_MARGINS,
     URL_INPUT_CONTAINER_SPACING,
-    URL_INPUT_CONTAINER_STYLE,
     URL_INPUT_FONT_FAMILY,
     URL_INPUT_FONT_SIZE,
     URL_INPUT_HEIGHT,
     URL_INPUT_SECTION_HEIGHT,
-    URL_INPUT_STYLE,
 )
 
 
@@ -141,18 +131,24 @@ class StatusSortButton(QToolButton):
         self._sort_options: list[tuple[str, str]] = []
         self._sort_actions: dict[str, QAction] = {}
         self._menu = QMenu(self)
-        self._menu.setStyleSheet(STATUS_SORT_MENU_STYLE)
+        self._menu.setStyleSheet(styles.STATUS_SORT_MENU_STYLE)
 
         self.setMenu(self._menu)
         self.setPopupMode(QToolButton.InstantPopup)
         self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.setIcon(qta.icon("mdi.sort-variant", color="#666666"))
+        self.setIcon(qta.icon("mdi.sort-variant", color=colors.COLOR_ICON_SUBDUED))
         self.setIconSize(QSize(self._icon_size, self._icon_size))
         self.setFixedHeight(STATUS_CONTROL_HEIGHT)
         self.setMinimumWidth(STATUS_SORT_BUTTON_MIN_WIDTH)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(STATUS_SORT_BUTTON_STYLE)
+        self.setStyleSheet(styles.STATUS_SORT_BUTTON_STYLE)
         self.setSortOptions(sort_options)
+
+    def apply_theme(self) -> None:
+        """Refresh menu, icon, and control styling for the active theme."""
+        self._menu.setStyleSheet(styles.STATUS_SORT_MENU_STYLE)
+        self.setIcon(qta.icon("mdi.sort-variant", color=colors.COLOR_ICON_SUBDUED))
+        self.setStyleSheet(styles.STATUS_SORT_BUTTON_STYLE)
 
     def setSortOptions(self, sort_options: Sequence[tuple[str, str]]) -> None:
         """Replace menu options while keeping the current key when possible."""
@@ -215,7 +211,7 @@ class StatusCounterLabel(QLabel):
         super().__init__()
         self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
-        self.setStyleSheet(STATUS_COUNTER_STYLE)
+        self.setStyleSheet(styles.STATUS_COUNTER_STYLE)
         self.setText(text)
 
     def setText(self, text: str) -> None:
@@ -227,14 +223,56 @@ class StatusCounterLabel(QLabel):
         self.setFixedWidth(text_width + STATUS_COUNTER_HORIZONTAL_PADDING)
 
 
+class TitleBarButton(QPushButton):
+    """Title-bar button whose icon color follows its hover state."""
+
+    def __init__(self):
+        super().__init__()
+        self._icon_name = ""
+        self._normal_icon_color = colors.COLOR_ICON_MUTED
+        self._hover_icon_color = colors.COLOR_TITLE_BAR_HOVER_ICON
+
+    def set_themed_icon(
+        self,
+        icon_name: str,
+        normal_color: str,
+        hover_color: str,
+    ) -> None:
+        self._icon_name = icon_name
+        self._normal_icon_color = normal_color
+        self._hover_icon_color = hover_color
+        self._refresh_icon(self.underMouse())
+
+    def _refresh_icon(self, hovered: bool) -> None:
+        color = self._hover_icon_color if hovered else self._normal_icon_color
+        self.setIcon(qta.icon(self._icon_name, color=color))
+
+    def enterEvent(self, event):
+        self._refresh_icon(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._refresh_icon(False)
+        super().leaveEvent(event)
+
+
 def set_button_icon(
     button: QPushButton,
     icon_name: str,
-    color: str = "#999999",
+    color: str | None = None,
+    hover_color: str | None = None,
     icon_size: tuple[int, int] = (TITLE_BAR_BUTTON_ICON_SIZE, TITLE_BAR_BUTTON_ICON_SIZE),
 ) -> None:
     """Apply a qtawesome icon to a button."""
-    button.setIcon(qta.icon(icon_name, color=color))
+    icon_color = color or colors.COLOR_ICON_MUTED
+    if isinstance(button, TitleBarButton):
+        button.set_themed_icon(
+            icon_name,
+            icon_color,
+            hover_color or icon_color,
+        )
+    else:
+        button.setIcon(qta.icon(icon_name, color=icon_color))
     button.setIconSize(QSize(*icon_size))
 
 
@@ -259,7 +297,7 @@ def create_title_label(text: str) -> QLabel:
     """Create the main-window title label."""
     label = QLabel(text)
     label.setFont(QFont(TITLE_BAR_FONT_FAMILY, TITLE_BAR_FONT_SIZE, QFont.Bold))
-    label.setStyleSheet(f"color: {APP_TITLE_COLOR};")
+    label.setStyleSheet(f"color: {colors.COLOR_ACCENT};")
     label.setMinimumWidth(MIN_TITLE_LABEL_WIDTH)
     return label
 
@@ -268,11 +306,16 @@ def create_title_bar_button(
     icon_name: str,
     style: str,
     callback: Callable,
-    color: str = "#999999",
+    color: str | None = None,
 ) -> QPushButton:
     """Create a fixed-size icon button for the custom title bar."""
-    button = QPushButton()
-    set_button_icon(button, icon_name, color=color)
+    button = TitleBarButton()
+    set_button_icon(
+        button,
+        icon_name,
+        color=color,
+        hover_color=colors.COLOR_TITLE_BAR_HOVER_ICON,
+    )
     button.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
     button.setCursor(Qt.PointingHandCursor)
     button.clicked.connect(callback)
@@ -345,7 +388,7 @@ def create_url_input(placeholder: str, on_return_pressed: Callable) -> QLineEdit
     line_edit.setFixedHeight(URL_INPUT_HEIGHT)
     line_edit.setMinimumWidth(MIN_URL_INPUT_WIDTH)
     line_edit.setFont(QFont(URL_INPUT_FONT_FAMILY, URL_INPUT_FONT_SIZE))
-    line_edit.setStyleSheet(URL_INPUT_STYLE)
+    line_edit.setStyleSheet(styles.URL_INPUT_STYLE)
     line_edit.returnPressed.connect(on_return_pressed)
     return line_edit
 
@@ -360,18 +403,23 @@ def create_download_button(text: str, on_clicked: Callable) -> QPushButton:
     )
     button.setCursor(Qt.PointingHandCursor)
     button.clicked.connect(on_clicked)
-    button.setStyleSheet(DOWNLOAD_BUTTON_STYLE)
+    button.setStyleSheet(styles.DOWNLOAD_BUTTON_STYLE)
     return button
 
 
 def create_settings_button(on_clicked: Callable) -> QPushButton:
     """Create the settings icon button."""
     button = QPushButton()
-    set_button_icon(button, "mdi.cog", color="#555555", icon_size=(26, 26))
+    set_button_icon(
+        button,
+        "mdi.cog",
+        color=colors.COLOR_ICON_DEFAULT,
+        icon_size=(26, 26),
+    )
     button.setFixedSize(SETTINGS_BUTTON_SIZE, SETTINGS_BUTTON_SIZE)
     button.setCursor(Qt.PointingHandCursor)
     button.clicked.connect(on_clicked)
-    button.setStyleSheet(SETTINGS_BUTTON_STYLE)
+    button.setStyleSheet(styles.SETTINGS_BUTTON_STYLE)
     return button
 
 
@@ -385,7 +433,7 @@ def create_url_input_section(
     """Create the URL input section and return controls the window updates later."""
     frame = QFrame()
     frame.setFixedHeight(URL_INPUT_SECTION_HEIGHT)
-    frame.setStyleSheet(URL_INPUT_CONTAINER_STYLE)
+    frame.setStyleSheet(styles.URL_INPUT_CONTAINER_STYLE)
 
     layout = QHBoxLayout(frame)
     layout.setContentsMargins(*URL_INPUT_CONTAINER_MARGINS)
@@ -424,7 +472,7 @@ def create_empty_state_label(text: str) -> QLabel:
     label = QLabel(text)
     label.setAlignment(Qt.AlignCenter)
     label.setFont(QFont(EMPTY_STATE_FONT_FAMILY, EMPTY_STATE_FONT_SIZE))
-    label.setStyleSheet(EMPTY_LABEL_STYLE)
+    label.setStyleSheet(styles.EMPTY_LABEL_STYLE)
     return label
 
 
@@ -432,12 +480,15 @@ def create_task_list_section(empty_text: str) -> TaskListSectionControls:
     """Create the task-list scroll area, content layout, and empty-state label."""
     scroll_area = QScrollArea()
     scroll_area.setWidgetResizable(True)
+    scroll_area.setMinimumWidth(TASK_LIST_MIN_WIDTH)
     scroll_area.setMinimumHeight(TASK_LIST_MIN_HEIGHT)
     scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-    scroll_area.setStyleSheet("background: transparent; border: none;")
+    scroll_area.setStyleSheet(
+        f"background: {colors.COLOR_TRANSPARENT}; border: none;"
+    )
 
     scroll_content = QWidget()
-    scroll_content.setStyleSheet("background: transparent;")
+    scroll_content.setStyleSheet(f"background: {colors.COLOR_TRANSPARENT};")
 
     task_layout = QVBoxLayout(scroll_content)
     task_layout.setContentsMargins(*TASK_LIST_MARGINS)
@@ -448,6 +499,7 @@ def create_task_list_section(empty_text: str) -> TaskListSectionControls:
     scroll_area.hide()
 
     empty_label = create_empty_state_label(empty_text)
+    empty_label.setMinimumWidth(TASK_LIST_MIN_WIDTH)
     empty_label.setMinimumHeight(TASK_LIST_MIN_HEIGHT)
 
     return TaskListSectionControls(
@@ -462,7 +514,7 @@ def create_status_label(text: str) -> QLabel:
     """Create the status bar text label."""
     label = QLabel(text)
     label.setFont(QFont(STATUS_BAR_FONT_FAMILY, STATUS_BAR_FONT_SIZE))
-    label.setStyleSheet(STATUS_LABEL_STYLE)
+    label.setStyleSheet(styles.STATUS_LABEL_STYLE)
     label.setMinimumWidth(MIN_STATUS_LABEL_WIDTH)
     return label
 
@@ -472,7 +524,7 @@ def create_progress_slider() -> QSlider:
     slider = QSlider(Qt.Horizontal)
     slider.setRange(PROGRESS_SLIDER_MIN, PROGRESS_SLIDER_MAX)
     slider.setValue(PROGRESS_SLIDER_DEFAULT)
-    slider.setStyleSheet(PROGRESS_SLIDER_STYLE)
+    slider.setStyleSheet(styles.PROGRESS_SLIDER_STYLE)
     slider.setEnabled(False)
     return slider
 
@@ -497,7 +549,7 @@ def create_status_bar(
     """Create the main-window status bar and return controls the window updates later."""
     frame = QFrame()
     frame.setFixedHeight(STATUS_BAR_HEIGHT)
-    frame.setStyleSheet(STATUS_BAR_STYLE)
+    frame.setStyleSheet(styles.STATUS_BAR_STYLE)
 
     layout = QHBoxLayout(frame)
     layout.setContentsMargins(*STATUS_BAR_MARGINS)

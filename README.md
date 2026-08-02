@@ -1,7 +1,7 @@
 # PyQt-YT-Downloader
 
 A Windows-only YouTube video and playlist downloader with a PyQt5 GUI. It
-manages yt-dlp, FFmpeg, and QuickJS automatically, while providing video
+manages yt-dlp, FFmpeg, FFprobe, and QuickJS automatically, while providing video
 downloads, audio conversion, and queue-based task management in one app.
 
 ## Screenshots
@@ -10,7 +10,11 @@ downloads, audio conversion, and queue-based task management in one app.
 
 ![YT Downloader task list](docs/images/task-list.png)
 
-![YT Downloader settings dialog](docs/images/settings-dialog.png)
+![YT Downloader general settings](docs/images/settings-general.png)
+
+![YT Downloader quality and format settings](docs/images/settings-quality-format.png)
+
+![YT Downloader app management settings](docs/images/settings-app-management.png)
 
 ## Supported Platform
 
@@ -38,9 +42,14 @@ downloads, audio conversion, and queue-based task management in one app.
 - Duplicate download checks based on download history
 - Exclude duplicate items from playlists
 - Save the task list on exit and restore paused tasks on the next launch
-- Additional UI languages: Korean(한국어), Japanese(日本語)
+- Light and dark UI themes with immediate switching and automatic preference restoration
+- UI languages: English, Korean (한국어), Japanese (日本語), Simplified Chinese
+  (简体中文), Traditional Chinese (中文（繁體）), Spanish (Español), Brazilian
+  Portuguese (Português (Brasil)), German (Deutsch), French (Français),
+  Indonesian (Bahasa Indonesia), Vietnamese (Tiếng Việt), Russian (Русский),
+  Thai (ไทย), Turkish (Türkçe), Italian (Italiano), and Polish (Polski)
 - In-app YouTube login cookie storage
-- Automatic install/update flow for yt-dlp, FFmpeg, and QuickJS
+- Automatic install/update flow for yt-dlp, FFmpeg, FFprobe, and QuickJS
 - App update check, license information, GitHub Sponsors link, and installed-app uninstall support
 - No in-app advertisements, tracking ad SDKs, or bundled adware
 
@@ -66,7 +75,8 @@ If you find it useful, you can support ongoing development through
 ## Settings
 
 - Download folder selection
-- Language: English, Korean(한국어), Japanese(日本語)
+- Language selection for all 16 supported UI languages
+- Light/dark theme selection; changes apply immediately and persist across app restarts
 - YouTube login through the in-app browser for cookie storage
 - Video quality and audio quality
 - Output formats: MP4, MKV, WebM, MP3, M4A, WAV
@@ -128,6 +138,7 @@ python -m pytest
 - [requests](https://requests.readthedocs.io/)
 - [qtawesome](https://github.com/spyder-ide/qtawesome)
 - [FFmpeg](https://ffmpeg.org/)
+- [FFprobe](https://ffmpeg.org/ffprobe.html)
 - [QuickJS](https://github.com/quickjs-ng/quickjs)
 
 ## License

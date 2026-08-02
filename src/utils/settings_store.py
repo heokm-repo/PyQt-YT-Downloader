@@ -12,6 +12,7 @@ from constants import (
     DEFAULT_FORMAT,
     DEFAULT_MAX_DOWNLOADS,
     DEFAULT_NORMALIZE,
+    DEFAULT_THEME,
     DEFAULT_UNIVERSAL_COMPATIBILITY,
     DEFAULT_VIDEO_QUALITY,
     DOWNLOAD_FOLDER_NAME,
@@ -33,9 +34,11 @@ from constants import (
     KEY_LANGUAGE,
     KEY_MAX_DOWNLOADS,
     KEY_NORMALIZE_AUDIO,
+    KEY_THEME,
     KEY_USE_ACCELERATION,
     KEY_UNIVERSAL_COMPATIBILITY,
     KEY_VIDEO_QUALITY,
+    THEME_OPTIONS,
 )
 from locales import DEFAULT_LANGUAGE
 from utils.logger import log
@@ -71,6 +74,7 @@ def default_settings() -> dict[str, Any]:
         KEY_USE_ACCELERATION: DEFAULT_ACCELERATION,
         KEY_UNIVERSAL_COMPATIBILITY: DEFAULT_UNIVERSAL_COMPATIBILITY,
         KEY_LANGUAGE: DEFAULT_LANGUAGE,
+        KEY_THEME: DEFAULT_THEME,
     }
 
 
@@ -115,9 +119,10 @@ def load_settings() -> dict[str, Any]:
         log.error(f"Settings load failed: {e}", exc_info=True)
 
     changed = _normalize_download_folder(settings)
+    theme_changed = _normalize_theme(settings)
     had_legacy_path = LEGACY_SAVE_PATH_KEY in settings
     settings.pop(LEGACY_SAVE_PATH_KEY, None)
-    if changed or migrated_legacy_path or had_legacy_path:
+    if changed or theme_changed or migrated_legacy_path or had_legacy_path:
         _write_settings_file(settings)
 
     return settings
@@ -125,9 +130,18 @@ def load_settings() -> dict[str, Any]:
 
 def save_settings(settings: dict[str, Any]) -> dict[str, Any]:
     _normalize_download_folder(settings)
+    _normalize_theme(settings)
     settings.pop(LEGACY_SAVE_PATH_KEY, None)
     _write_settings_file(settings)
     return settings
+
+
+def _normalize_theme(settings: dict[str, Any]) -> bool:
+    theme = settings.get(KEY_THEME)
+    if theme in THEME_OPTIONS:
+        return False
+    settings[KEY_THEME] = DEFAULT_THEME
+    return True
 
 
 def _write_settings_file(settings: dict[str, Any]) -> None:

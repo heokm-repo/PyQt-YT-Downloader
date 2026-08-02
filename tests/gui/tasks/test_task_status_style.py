@@ -12,25 +12,25 @@ if SRC not in sys.path:
 
 from constants import TaskStatus
 from gui.tasks.task_status_style import status_border_color
-from resources.styles import (
-    COLOR_DOWNLOADING,
-    COLOR_ERROR,
-    COLOR_FINISHED,
-    COLOR_PAUSED,
-    COLOR_WAITING,
+from resources.colors import (
+    COLOR_TASK_DOWNLOADING_BORDER,
+    COLOR_TASK_FAILED_BORDER,
+    COLOR_TASK_FINISHED_BORDER,
+    COLOR_TASK_PAUSED_BORDER,
+    COLOR_TASK_WAITING_BORDER,
 )
 
 
 class TaskStatusStyleTests(unittest.TestCase):
     def test_status_border_color_maps_known_statuses(self):
-        self.assertEqual(status_border_color(TaskStatus.DOWNLOADING), COLOR_DOWNLOADING)
-        self.assertEqual(status_border_color(TaskStatus.FINISHED), COLOR_FINISHED)
-        self.assertEqual(status_border_color(TaskStatus.FAILED), COLOR_ERROR)
-        self.assertEqual(status_border_color(TaskStatus.PAUSED), COLOR_PAUSED)
-        self.assertEqual(status_border_color(TaskStatus.WAITING), COLOR_WAITING)
+        self.assertEqual(status_border_color(TaskStatus.DOWNLOADING), COLOR_TASK_DOWNLOADING_BORDER)
+        self.assertEqual(status_border_color(TaskStatus.FINISHED), COLOR_TASK_FINISHED_BORDER)
+        self.assertEqual(status_border_color(TaskStatus.FAILED), COLOR_TASK_FAILED_BORDER)
+        self.assertEqual(status_border_color(TaskStatus.PAUSED), COLOR_TASK_PAUSED_BORDER)
+        self.assertEqual(status_border_color(TaskStatus.WAITING), COLOR_TASK_WAITING_BORDER)
 
     def test_status_border_color_defaults_to_waiting(self):
-        self.assertEqual(status_border_color("unknown"), COLOR_WAITING)
+        self.assertEqual(status_border_color("unknown"), COLOR_TASK_WAITING_BORDER)
 
 
 if __name__ == "__main__":

@@ -173,7 +173,7 @@ def run_startup_flow():
         sys.exit(1)
 
 
-def create_main_window():
+def create_main_window(initial_settings=None):
     """Import and construct the main window after startup has completed."""
     try:
         from gui.windows.main_window import YTDownloaderPyQt5
@@ -187,7 +187,7 @@ def create_main_window():
         sys.exit(1)
 
     try:
-        return YTDownloaderPyQt5()
+        return YTDownloaderPyQt5(initial_settings=initial_settings)
     except Exception as exc:
         show_error_message(
             STR.TITLE_ERROR,
@@ -218,9 +218,17 @@ def main():
         import_optional_qt_webengine(log)
         app = create_application(sys.argv)
 
+        from constants import DEFAULT_THEME, KEY_THEME
+        from gui.theme import apply_application_theme
+        from utils.settings_store import load_settings
+
+        settings = load_settings()
+        apply_application_theme(settings.get(KEY_THEME, DEFAULT_THEME))
         run_startup_flow()
 
-        window = create_main_window()
+        settings = load_settings()
+        apply_application_theme(settings.get(KEY_THEME, DEFAULT_THEME))
+        window = create_main_window(settings)
         window.show()
         sys.exit(app.exec_())
     except Exception as exc:

@@ -9,9 +9,12 @@ from constants import (
     KEY_LANGUAGE,
     KEY_MAX_DOWNLOADS,
     KEY_NORMALIZE_AUDIO,
+    KEY_THEME,
     KEY_USE_ACCELERATION,
     KEY_UNIVERSAL_COMPATIBILITY,
     KEY_VIDEO_QUALITY,
+    DEFAULT_THEME,
+    THEME_OPTIONS,
 )
 from locales import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 
@@ -58,6 +61,27 @@ def language_code_at_index(
     return default_language
 
 
+def theme_index_for_value(
+    theme: str | None,
+    theme_options: tuple[str, ...] = THEME_OPTIONS,
+) -> int:
+    """Return the index of a saved theme, or the default theme index."""
+    try:
+        return theme_options.index(theme)
+    except ValueError:
+        return theme_options.index(DEFAULT_THEME)
+
+
+def theme_value_at_index(
+    index: int,
+    theme_options: tuple[str, ...] = THEME_OPTIONS,
+) -> str:
+    """Return the theme represented by a combo-box index."""
+    if 0 <= index < len(theme_options):
+        return theme_options[index]
+    return DEFAULT_THEME
+
+
 def build_settings_from_form_values(
     current_settings: Mapping[str, Any],
     folder_path: str,
@@ -69,6 +93,7 @@ def build_settings_from_form_values(
     max_downloads: int,
     language_index: int,
     universal_compatibility: bool = False,
+    theme_index: int = 0,
 ) -> dict[str, Any]:
     """Return updated settings from the current dialog form values."""
     settings = dict(current_settings)
@@ -81,4 +106,5 @@ def build_settings_from_form_values(
     settings[KEY_UNIVERSAL_COMPATIBILITY] = universal_compatibility
     settings[KEY_MAX_DOWNLOADS] = max_downloads
     settings[KEY_LANGUAGE] = language_code_at_index(language_index)
+    settings[KEY_THEME] = theme_value_at_index(theme_index)
     return settings

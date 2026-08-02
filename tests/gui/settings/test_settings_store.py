@@ -14,7 +14,7 @@ import sys
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from constants import KEY_DOWNLOAD_FOLDER
+from constants import DEFAULT_THEME, KEY_DOWNLOAD_FOLDER, KEY_THEME, THEME_DARK
 from utils import settings_store
 
 
@@ -49,6 +49,33 @@ class SettingsStoreTests(unittest.TestCase):
         self.assertEqual(settings[KEY_DOWNLOAD_FOLDER], expected)
         self.assertTrue(os.path.isdir(expected))
         self.assertIsNone(settings_store.consume_download_folder_fallback_notice())
+        self.assertEqual(settings[KEY_THEME], DEFAULT_THEME)
+
+    def test_load_settings_normalizes_and_persists_invalid_theme(self):
+        download_path = os.path.join(self.tmp.name, "downloads")
+        os.makedirs(download_path, exist_ok=True)
+        with open(self._settings_file(), "w", encoding="utf-8") as f:
+            json.dump(
+                {KEY_DOWNLOAD_FOLDER: download_path, KEY_THEME: "invalid"},
+                f,
+            )
+
+        settings = settings_store.load_settings()
+
+        self.assertEqual(settings[KEY_THEME], DEFAULT_THEME)
+        with open(self._settings_file(), "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        self.assertEqual(saved[KEY_THEME], DEFAULT_THEME)
+
+    def test_save_settings_preserves_supported_theme(self):
+        settings = {
+            KEY_DOWNLOAD_FOLDER: os.path.join(self.tmp.name, "downloads"),
+            KEY_THEME: THEME_DARK,
+        }
+
+        settings_store.save_settings(settings)
+
+        self.assertEqual(settings[KEY_THEME], THEME_DARK)
 
     def test_load_settings_migrates_legacy_save_path_to_download_folder(self):
         legacy_path = os.path.join(self.tmp.name, "legacy")

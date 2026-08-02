@@ -39,7 +39,9 @@ from resources.styles import (
     STATUS_COUNTER_HORIZONTAL_PADDING,
     STATUS_SORT_BUTTON_HORIZONTAL_PADDING,
     STATUS_SORT_BUTTON_MIN_WIDTH,
+    TASK_LIST_MARGINS,
     TASK_LIST_MIN_HEIGHT,
+    TASK_LIST_MIN_WIDTH,
     TITLE_BAR_BUTTON_SIZE,
     TITLE_BAR_HEIGHT,
     URL_INPUT_SECTION_HEIGHT,
@@ -121,8 +123,15 @@ class MainWindowControlsTests(unittest.TestCase):
         self.assertTrue(controls.scroll_area.widgetResizable())
         self.assertEqual(controls.scroll_area.widget(), controls.scroll_content)
         self.assertEqual(controls.empty_label.text(), "No tasks")
+        self.assertEqual(controls.scroll_area.minimumWidth(), TASK_LIST_MIN_WIDTH)
         self.assertEqual(controls.scroll_area.minimumHeight(), TASK_LIST_MIN_HEIGHT)
+        self.assertEqual(controls.empty_label.minimumWidth(), TASK_LIST_MIN_WIDTH)
         self.assertEqual(controls.empty_label.minimumHeight(), TASK_LIST_MIN_HEIGHT)
+        margins = controls.task_layout.contentsMargins()
+        self.assertEqual(
+            (margins.left(), margins.top(), margins.right(), margins.bottom()),
+            TASK_LIST_MARGINS,
+        )
         self.assertGreaterEqual(controls.task_layout.count(), 1)
 
     def test_create_status_bar_returns_frame_and_controls(self):

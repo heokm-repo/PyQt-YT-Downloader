@@ -17,9 +17,11 @@ from constants import (
     KEY_LANGUAGE,
     KEY_MAX_DOWNLOADS,
     KEY_NORMALIZE_AUDIO,
+    KEY_THEME,
     KEY_USE_ACCELERATION,
     KEY_UNIVERSAL_COMPATIBILITY,
     KEY_VIDEO_QUALITY,
+    THEME_DARK,
 )
 from gui.settings.settings_form_data import (
     build_settings_from_form_values,
@@ -28,6 +30,8 @@ from gui.settings.settings_form_data import (
     language_index_for_code,
     normalize_download_folder_input,
     is_download_folder_input_valid,
+    theme_index_for_value,
+    theme_value_at_index,
 )
 
 
@@ -61,6 +65,12 @@ class SettingsFormDataTests(unittest.TestCase):
         self.assertFalse(is_download_folder_input_valid("   "))
         self.assertFalse(is_download_folder_input_valid(None))
 
+    def test_theme_helpers_map_supported_values_and_indexes(self):
+        self.assertEqual(theme_index_for_value(THEME_DARK), 1)
+        self.assertEqual(theme_value_at_index(1), THEME_DARK)
+        self.assertEqual(theme_index_for_value("unknown"), 0)
+        self.assertEqual(theme_value_at_index(99), "light")
+
     def test_build_settings_from_form_values_updates_known_keys_and_preserves_extra(self):
         settings = build_settings_from_form_values(
             {"extra": "keep"},
@@ -73,6 +83,7 @@ class SettingsFormDataTests(unittest.TestCase):
             4,
             0,
             True,
+            1,
         )
 
         self.assertEqual(settings["extra"], "keep")
@@ -85,6 +96,7 @@ class SettingsFormDataTests(unittest.TestCase):
         self.assertTrue(settings[KEY_UNIVERSAL_COMPATIBILITY])
         self.assertEqual(settings[KEY_MAX_DOWNLOADS], 4)
         self.assertIn(KEY_LANGUAGE, settings)
+        self.assertEqual(settings[KEY_THEME], THEME_DARK)
 
 
 if __name__ == "__main__":

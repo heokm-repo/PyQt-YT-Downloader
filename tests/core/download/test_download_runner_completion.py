@@ -282,7 +282,7 @@ class DownloadRunnerTests(unittest.TestCase):
         )
         self.assertEqual(events[-1]["status"], "finished")
 
-    def test_compatibility_mode_does_not_finalize_mp3(self):
+    def test_compatibility_mode_uses_shared_pipeline_for_mp3(self):
         settings = {
             "format": "mp3",
             "universal_compatibility": True,

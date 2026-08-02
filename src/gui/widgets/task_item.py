@@ -9,11 +9,8 @@ from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply
 import qtawesome as qta
 
 from utils.logger import log
+from resources import colors, styles
 from resources.styles import (
-    get_card_style, THUMBNAIL_LABEL_STYLE, TITLE_LABEL_STYLE, UPLOADER_LABEL_STYLE,
-    PROGRESS_BAR_STYLE,
-    PERCENT_LABEL_STYLE, STATUS_LABEL_NORMAL_STYLE,
-    SIZE_LABEL_STYLE, ACTION_BUTTON_STYLE,
     # Moved Constants
     CARD_HEIGHT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,
     BUTTON_SIZE,
@@ -135,7 +132,7 @@ class TaskWidget(QFrame):
     def _create_thumbnail_label(self):
         self.thumb_label = QLabel(STR.MSG_LOADING)
         self.thumb_label.setFixedSize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
-        self.thumb_label.setStyleSheet(THUMBNAIL_LABEL_STYLE)
+        self.thumb_label.setStyleSheet(styles.THUMBNAIL_LABEL_STYLE)
         self.thumb_label.setAlignment(Qt.AlignCenter)
         self.thumb_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         return self.thumb_label
@@ -158,19 +155,21 @@ class TaskWidget(QFrame):
         text_group.setSpacing(0)
 
         self.title_label = ElidedLabel(self._get_formatted_title(self.url))
-        self.title_label.setStyleSheet(TITLE_LABEL_STYLE)
+        self.title_label.setStyleSheet(styles.TITLE_LABEL_STYLE)
         self.title_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         text_group.addWidget(self.title_label)
 
         self.uploader_label = ElidedLabel(STR.MSG_CHECKING_INFO)
-        self.uploader_label.setStyleSheet(UPLOADER_LABEL_STYLE)
+        self.uploader_label.setStyleSheet(styles.UPLOADER_LABEL_STYLE)
         self.uploader_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         text_group.addWidget(self.uploader_label)
         return text_group
 
     def _create_button_container(self):
         self.btn_container = QWidget()
-        self.btn_container.setStyleSheet("background: transparent; border: none;")
+        self.btn_container.setStyleSheet(
+            f"background: {colors.COLOR_TRANSPARENT}; border: none;"
+        )
         self.btn_layout = QHBoxLayout(self.btn_container)
         self.btn_layout.setContentsMargins(0, 0, 0, 0)
         self.btn_layout.setSpacing(5)
@@ -184,12 +183,12 @@ class TaskWidget(QFrame):
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(6)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setStyleSheet(PROGRESS_BAR_STYLE)
+        self.progress_bar.setStyleSheet(styles.PROGRESS_BAR_STYLE)
         self.progress_bar.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         progress_row.addWidget(self.progress_bar, 1)
 
         self.percent_label = QLabel(MSG_0_PERCENT)
-        self.percent_label.setStyleSheet(PERCENT_LABEL_STYLE)
+        self.percent_label.setStyleSheet(styles.PERCENT_LABEL_STYLE)
         self.percent_label.setMinimumWidth(60)
         self.percent_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.percent_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
@@ -199,11 +198,11 @@ class TaskWidget(QFrame):
     def _create_status_row(self):
         status_row = QHBoxLayout()
         self.status_label = ElidedLabel(STR.MSG_FETCHING_INFO)
-        self.status_label.setStyleSheet(STATUS_LABEL_NORMAL_STYLE)
+        self.status_label.setStyleSheet(styles.STATUS_LABEL_NORMAL_STYLE)
         self.status_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
         self.size_label = QLabel("")
-        self.size_label.setStyleSheet(SIZE_LABEL_STYLE)
+        self.size_label.setStyleSheet(styles.SIZE_LABEL_STYLE)
         self.size_label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
         status_row.addWidget(self.status_label, 1)
@@ -212,7 +211,7 @@ class TaskWidget(QFrame):
     def _update_border(self, color_hex):
         """Change the card border color."""
         self._base_border_color = color_hex
-        style = get_card_style(color_hex, self._selected)
+        style = styles.get_card_style(color_hex, self._selected)
         self.setStyleSheet(style)
     
     @property
@@ -227,7 +226,7 @@ class TaskWidget(QFrame):
             self._selected = value
             # Update style with the current border color.
             if self._base_border_color:
-                style = get_card_style(self._base_border_color, self._selected)
+                style = styles.get_card_style(self._base_border_color, self._selected)
                 self.setStyleSheet(style)
     
     def mousePressEvent(self, event):
@@ -243,17 +242,46 @@ class TaskWidget(QFrame):
             self.right_clicked.emit(self.task_id, event.globalPos())
         super().mousePressEvent(event)
     
-    def create_action_button(self, icon_name, tooltip, callback, color="#555555"):
+    def create_action_button(self, icon_name, tooltip, callback, color=None):
         """Create an action button with a QtAwesome icon."""
         btn = QPushButton()
         btn.setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
-        btn.setIcon(qta.icon(icon_name, color=color))
+        btn.setIcon(qta.icon(icon_name, color=color or colors.COLOR_ICON_DEFAULT))
         btn.setIconSize(QSize(int(BUTTON_SIZE * 1), int(BUTTON_SIZE * 1)))
         btn.setCursor(Qt.PointingHandCursor)
         btn.setToolTip(tooltip)
         btn.clicked.connect(callback)
-        btn.setStyleSheet(ACTION_BUTTON_STYLE)
+        btn.setStyleSheet(styles.ACTION_BUTTON_STYLE)
         return btn
+
+    def apply_theme(self) -> None:
+        """Refresh card, label, progress, and action styles for the active theme."""
+        self.thumb_label.setStyleSheet(styles.THUMBNAIL_LABEL_STYLE)
+        self.title_label.setStyleSheet(styles.TITLE_LABEL_STYLE)
+        self.uploader_label.setStyleSheet(styles.UPLOADER_LABEL_STYLE)
+        self.btn_container.setStyleSheet(
+            f"background: {colors.COLOR_TRANSPARENT}; border: none;"
+        )
+        self.percent_label.setStyleSheet(styles.PERCENT_LABEL_STYLE)
+        self.size_label.setStyleSheet(styles.SIZE_LABEL_STYLE)
+
+        status_styles = {
+            TaskStatus.FINISHED: styles.STATUS_LABEL_SUCCESS_STYLE,
+            TaskStatus.FAILED: styles.STATUS_LABEL_ERROR_STYLE,
+            TaskStatus.PAUSED: styles.STATUS_LABEL_WARNING_STYLE,
+        }
+        progress_styles = {
+            TaskStatus.FINISHED: styles.PROGRESS_BAR_FINISHED_STYLE,
+            TaskStatus.FAILED: styles.PROGRESS_BAR_ERROR_STYLE,
+        }
+        self.status_label.setStyleSheet(
+            status_styles.get(self.current_status, styles.STATUS_LABEL_NORMAL_STYLE)
+        )
+        self.progress_bar.setStyleSheet(
+            progress_styles.get(self.current_status, styles.PROGRESS_BAR_STYLE)
+        )
+        self._update_border(status_border_color(self.current_status))
+        self.update_buttons(self.current_status)
     
     def _signal_for_button_action(self, action):
         """Return the signal used by a task action button."""

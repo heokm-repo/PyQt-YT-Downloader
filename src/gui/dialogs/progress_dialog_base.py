@@ -6,15 +6,11 @@ from PyQt5.QtWidgets import QLabel, QProgressBar, QPushButton
 from gui.dialogs.base_dialog import BaseDialog
 from gui.widgets.button_sizing import set_text_button_minimum_width
 from locales.strings import STR
+from resources import styles
 from resources.styles import (
-    DETAIL_LABEL_STYLE,
     DOWNLOAD_DIALOG_HEIGHT,
     DOWNLOAD_DIALOG_WIDTH,
-    INFO_LABEL_STYLE,
-    PROGRESS_BAR_STYLE,
-    SETTINGS_CANCEL_BUTTON_STYLE,
     SETTINGS_FONT_FAMILY,
-    SETTINGS_LABEL_STYLE,
 )
 
 
@@ -50,7 +46,7 @@ class ProgressDialogBase(BaseDialog):
         """Set up the shared progress dialog content."""
         self.status_label = QLabel(status_text)
         self.status_label.setFont(QFont(SETTINGS_FONT_FAMILY, 10))
-        self.status_label.setStyleSheet(SETTINGS_LABEL_STYLE)
+        self.status_label.setStyleSheet(styles.SETTINGS_LABEL_STYLE)
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
         self.content_layout.addWidget(self.status_label)
@@ -62,18 +58,18 @@ class ProgressDialogBase(BaseDialog):
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setAlignment(Qt.AlignCenter)
         self.progress_bar.setFixedHeight(25)
-        self.progress_bar.setStyleSheet(PROGRESS_BAR_STYLE)
+        self.progress_bar.setStyleSheet(styles.PROGRESS_BAR_STYLE)
         self.content_layout.addWidget(self.progress_bar)
 
         self.detail_label = QLabel(detail_text)
         self.detail_label.setFont(QFont(SETTINGS_FONT_FAMILY, 9))
-        self.detail_label.setStyleSheet(DETAIL_LABEL_STYLE)
+        self.detail_label.setStyleSheet(styles.DETAIL_LABEL_STYLE)
         self.detail_label.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(self.detail_label)
 
         self.info_label = QLabel(info_text)
         self.info_label.setFont(QFont(SETTINGS_FONT_FAMILY, 8))
-        self.info_label.setStyleSheet(INFO_LABEL_STYLE)
+        self.info_label.setStyleSheet(styles.INFO_LABEL_STYLE)
         self.info_label.setAlignment(Qt.AlignCenter)
         self.info_label.setWordWrap(True)
         self.content_layout.addWidget(self.info_label)
@@ -86,7 +82,7 @@ class ProgressDialogBase(BaseDialog):
         self.cancel_btn.setCursor(Qt.PointingHandCursor)
         self.cancel_btn.setFixedHeight(30)
         set_text_button_minimum_width(self.cancel_btn)
-        self.cancel_btn.setStyleSheet(SETTINGS_CANCEL_BUTTON_STYLE)
+        self.cancel_btn.setStyleSheet(styles.SETTINGS_CANCEL_BUTTON_STYLE)
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.button_layout.addWidget(self.cancel_btn)
 
