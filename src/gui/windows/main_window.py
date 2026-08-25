@@ -1082,13 +1082,27 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         self.status_label.setText(STR.MSG_ADDED_PLAYLIST.format(count=len(video_ids)))
         self.update_progress_ui()
 
-    @pyqtSlot(str, list, bool, str)
-    def on_playlist_analysis_finished(self, url, video_ids, success, error_msg):
+    @pyqtSlot(str, list, bool, str, int)
+    def on_playlist_analysis_finished(self, url, video_ids, success, error_msg, entry_count):
         """Handle completed playlist analysis."""
         self._enable_url_input()
 
-        if not success or not video_ids:
+        if not success:
             self._handle_playlist_error(error_msg)
+            return
+
+        if not video_ids:
+            message = (
+                STR.MSG_PLAYLIST_EMPTY
+                if entry_count == 0
+                else STR.MSG_PLAYLIST_NO_AVAILABLE_VIDEOS
+            )
+            show_no_new_videos_dialog(
+                self,
+                STR.TITLE_NO_NEW_VIDEOS,
+                message,
+            )
+            self.status_label.setText(STR.MSG_READY)
             return
 
         filtered_ids, duplicate_count = self._filter_duplicate_videos(video_ids)

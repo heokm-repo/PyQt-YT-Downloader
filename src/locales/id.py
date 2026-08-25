@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Terlama",
     'SORT_STATUS': "Status",
     'MSG_NO_NEW_ITEMS': "Tidak ada video baru untuk ditambahkan.",
+    'MSG_PLAYLIST_EMPTY': "Playlist ini tidak berisi video.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Tidak ada video yang dapat diambil dari playlist ini.",
     'ERR_PLAYLIST_FETCH': "Tidak dapat mengambil video dari playlist.",
     'ERR_NOT_PLAYLIST': "Bukan URL playlist.",
     'ERR_CANNOT_FETCH_INFO': "Tidak dapat mengambil informasi.",

@@ -211,6 +211,8 @@ STRINGS = {
     'SORT_OLDEST': "古い順",
     'SORT_STATUS': "状態順",
     'MSG_NO_NEW_ITEMS': "新しい動画はありません。",
+    'MSG_PLAYLIST_EMPTY': "このプレイリストには動画がありません。",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "このプレイリストから取得できる動画はありません。",
     'ERR_PLAYLIST_FETCH': "プレイリストから動画を取得できませんでした。",
     'ERR_NOT_PLAYLIST': "プレイリストURLではありません。",
     'ERR_CANNOT_FETCH_INFO': "情報を取得できませんでした。",

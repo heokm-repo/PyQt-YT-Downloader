@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Сначала старые",
     'SORT_STATUS': "Статус",
     'MSG_NO_NEW_ITEMS': "Нет новых видео для добавления.",
+    'MSG_PLAYLIST_EMPTY': "В этом плейлисте нет видео.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Из этого плейлиста невозможно получить видео.",
     'ERR_PLAYLIST_FETCH': "Не удалось получить видео из плейлиста.",
     'ERR_NOT_PLAYLIST': "Это не URL плейлиста.",
     'ERR_CANNOT_FETCH_INFO': "Не удалось получить сведения.",

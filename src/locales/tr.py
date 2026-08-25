@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "En eski",
     'SORT_STATUS': "Durum",
     'MSG_NO_NEW_ITEMS': "Eklenecek yeni video yok.",
+    'MSG_PLAYLIST_EMPTY': "Bu oynatma listesinde video yok.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Bu oynatma listesinden alınabilecek video yok.",
     'ERR_PLAYLIST_FETCH': "Oynatma listesindeki videolar alınamadı.",
     'ERR_NOT_PLAYLIST': "Oynatma listesi URL'si değil.",
     'ERR_CANNOT_FETCH_INFO': "Bilgiler alınamadı.",

@@ -363,6 +363,10 @@ class Strings:
     @property
     def MSG_NO_NEW_ITEMS(self):        return get_string('MSG_NO_NEW_ITEMS', "No new videos to add.")
     @property
+    def MSG_PLAYLIST_EMPTY(self):       return get_string('MSG_PLAYLIST_EMPTY', "This playlist contains no videos.")
+    @property
+    def MSG_PLAYLIST_NO_AVAILABLE_VIDEOS(self): return get_string('MSG_PLAYLIST_NO_AVAILABLE_VIDEOS', "No videos can be retrieved from this playlist.")
+    @property
     def ERR_PLAYLIST_FETCH(self):      return get_string('ERR_PLAYLIST_FETCH', "Could not fetch videos from playlist.")
     @property
     def ERR_NOT_PLAYLIST(self):        return get_string('ERR_NOT_PLAYLIST', "Not a playlist URL.")

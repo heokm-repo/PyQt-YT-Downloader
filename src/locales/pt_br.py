@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Mais antigos",
     'SORT_STATUS': "Status",
     'MSG_NO_NEW_ITEMS': "Não há novos vídeos para adicionar.",
+    'MSG_PLAYLIST_EMPTY': "Esta playlist não contém vídeos.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Não é possível obter nenhum vídeo desta playlist.",
     'ERR_PLAYLIST_FETCH': "Não foi possível obter os vídeos da playlist.",
     'ERR_NOT_PLAYLIST': "Não é uma URL de playlist.",
     'ERR_CANNOT_FETCH_INFO': "Não foi possível obter as informações.",

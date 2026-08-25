@@ -209,6 +209,8 @@ STRINGS = {
     'SORT_OLDEST': "오래된 순",
     'SORT_STATUS': "상태순",
     'MSG_NO_NEW_ITEMS': "추가할 새 영상이 없습니다.",
+    'MSG_PLAYLIST_EMPTY': "해당 플레이리스트에는 영상이 없습니다.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "해당 플레이리스트에서 가져올 수 있는 영상이 없습니다.",
     'ERR_PLAYLIST_FETCH': "플레이리스트에서 영상을 가져올 수 없습니다.",
     'ERR_NOT_PLAYLIST': "플레이리스트 URL이 아닙니다.",
     'ERR_CANNOT_FETCH_INFO': "정보를 가져올 수 없습니다.",

@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Cũ nhất",
     'SORT_STATUS': "Trạng thái",
     'MSG_NO_NEW_ITEMS': "Không có video mới để thêm.",
+    'MSG_PLAYLIST_EMPTY': "Danh sách phát này không có video.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Không thể lấy video nào từ danh sách phát này.",
     'ERR_PLAYLIST_FETCH': "Không thể lấy video từ danh sách phát.",
     'ERR_NOT_PLAYLIST': "Không phải URL danh sách phát.",
     'ERR_CANNOT_FETCH_INFO': "Không thể lấy thông tin.",

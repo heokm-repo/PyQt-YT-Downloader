@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Älteste",
     'SORT_STATUS': "Status",
     'MSG_NO_NEW_ITEMS': "Keine neuen Videos zum Hinzufügen.",
+    'MSG_PLAYLIST_EMPTY': "Diese Playlist enthält keine Videos.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Aus dieser Playlist können keine Videos abgerufen werden.",
     'ERR_PLAYLIST_FETCH': "Videos konnten nicht aus der Wiedergabeliste abgerufen werden.",
     'ERR_NOT_PLAYLIST': "Keine Wiedergabelisten-URL.",
     'ERR_CANNOT_FETCH_INFO': "Informationen konnten nicht abgerufen werden.",

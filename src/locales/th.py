@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "เก่าสุด",
     'SORT_STATUS': "สถานะ",
     'MSG_NO_NEW_ITEMS': "ไม่มีวิดีโอใหม่ให้เพิ่ม",
+    'MSG_PLAYLIST_EMPTY': "เพลย์ลิสต์นี้ไม่มีวิดีโอ",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "ไม่มีวิดีโอที่สามารถดึงจากเพลย์ลิสต์นี้ได้",
     'ERR_PLAYLIST_FETCH': "ไม่สามารถรับวิดีโอจากเพลย์ลิสต์ได้",
     'ERR_NOT_PLAYLIST': "ไม่ใช่ URL เพลย์ลิสต์",
     'ERR_CANNOT_FETCH_INFO': "ไม่สามารถรับข้อมูลได้",

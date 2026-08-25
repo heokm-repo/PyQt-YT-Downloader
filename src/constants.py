@@ -15,7 +15,7 @@ KEY_LANGUAGE = 'language'
 KEY_THEME = 'theme'
 
 # Defaults
-APP_VERSION = 'v2.3.1'  # App version
+APP_VERSION = 'v2.3.2'  # App version
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'

@@ -198,7 +198,10 @@ def _build_playlist_extract_options(
     settings: dict | None = None,
     url: str | None = None,
 ) -> dict:
-    opts = {"extract_flat": True}
+    # Preserve the playlist container even when it has zero or one entry.
+    # Per-entry JSON output cannot distinguish those cases from a failed or
+    # single-video extraction.
+    opts = {"extract_flat": True, "dump_single_json": True}
     return _add_runtime_extract_options(opts, settings, url)
 
 

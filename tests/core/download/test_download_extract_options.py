@@ -31,6 +31,7 @@ class DownloadExtractOptionTests(unittest.TestCase):
 
         self.assertEqual(opts, {
             "extract_flat": True,
+            "dump_single_json": True,
             "cookiefile": "cookies.txt",
             "js_runtimes": "quickjs:qjs.exe",
         })

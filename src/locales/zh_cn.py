@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "最旧",
     'SORT_STATUS': "状态",
     'MSG_NO_NEW_ITEMS': "没有可添加的新视频。",
+    'MSG_PLAYLIST_EMPTY': "此播放列表中没有视频。",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "无法从此播放列表获取任何视频。",
     'ERR_PLAYLIST_FETCH': "无法从播放列表获取视频。",
     'ERR_NOT_PLAYLIST': "不是播放列表网址。",
     'ERR_CANNOT_FETCH_INFO': "无法获取信息。",

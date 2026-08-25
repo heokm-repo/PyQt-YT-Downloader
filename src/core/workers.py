@@ -25,7 +25,7 @@ class DownloadInterruptedError(RuntimeError):
 
 class PlaylistAnalysisWorker(QThread):
     """Worker thread for playlist analysis without freezing the UI."""
-    analysis_finished = pyqtSignal(str, list, bool, str)
+    analysis_finished = pyqtSignal(str, list, bool, str, int)
     
     def __init__(self, url: str, parent: Optional[QThread] = None):
         super().__init__(parent)
@@ -33,8 +33,8 @@ class PlaylistAnalysisWorker(QThread):
     
     def run(self) -> None:
         """Extract video IDs from a playlist."""
-        video_ids, success, error_msg = download_handler.extract_playlist_video_ids(self.url)
-        self.analysis_finished.emit(self.url, video_ids, success, error_msg)
+        video_ids, success, error_msg, entry_count = download_handler.extract_playlist_video_ids(self.url)
+        self.analysis_finished.emit(self.url, video_ids, success, error_msg, entry_count)
 
 
 class DownloadWorker(QThread):

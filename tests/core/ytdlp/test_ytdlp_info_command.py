@@ -39,6 +39,16 @@ class YtDlpInfoCommandTests(unittest.TestCase):
 
         self.assertIn("--flat-playlist", cmd)
 
+    def test_dump_single_json_replaces_per_entry_dump(self):
+        cmd = build_extract_info_command(
+            "yt-dlp.exe",
+            "https://example.invalid/playlist",
+            {"extract_flat": True, "dump_single_json": True},
+        )
+
+        self.assertIn("--dump-single-json", cmd)
+        self.assertNotIn("--dump-json", cmd)
+
     def test_extract_flat_in_playlist_does_not_add_flat_playlist(self):
         cmd = build_extract_info_command(
             "yt-dlp.exe",

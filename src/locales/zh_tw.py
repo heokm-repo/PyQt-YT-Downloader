@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "最舊",
     'SORT_STATUS': "狀態",
     'MSG_NO_NEW_ITEMS': "沒有可新增的影片。",
+    'MSG_PLAYLIST_EMPTY': "此播放清單中沒有影片。",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "無法從此播放清單取得任何影片。",
     'ERR_PLAYLIST_FETCH': "無法從播放清單取得影片。",
     'ERR_NOT_PLAYLIST': "不是播放清單網址。",
     'ERR_CANNOT_FETCH_INFO': "無法取得資訊。",

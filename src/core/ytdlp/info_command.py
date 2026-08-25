@@ -11,6 +11,11 @@ def build_extract_info_command(
     options: Optional[Dict[str, Any]] = None,
 ) -> List[str]:
     """Convert extract_info options into yt-dlp CLI arguments."""
+    dump_option = (
+        "--dump-single-json"
+        if options and options.get("dump_single_json")
+        else "--dump-json"
+    )
     args = [
         ytdlp_path,
         "--ignore-config",
@@ -18,7 +23,7 @@ def build_extract_info_command(
         "--no-remote-components",
         "--encoding",
         DEFAULT_ENCODING,
-        "--dump-json",
+        dump_option,
         "--no-warnings",
     ]
 

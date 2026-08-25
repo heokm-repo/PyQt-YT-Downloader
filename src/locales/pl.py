@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Najstarsze",
     'SORT_STATUS': "Stan",
     'MSG_NO_NEW_ITEMS': "Brak nowych filmów do dodania.",
+    'MSG_PLAYLIST_EMPTY': "Ta playlista nie zawiera filmów.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "Nie można pobrać żadnych filmów z tej playlisty.",
     'ERR_PLAYLIST_FETCH': "Nie udało się pobrać filmów z playlisty.",
     'ERR_NOT_PLAYLIST': "To nie jest adres URL playlisty.",
     'ERR_CANNOT_FETCH_INFO': "Nie udało się pobrać informacji.",

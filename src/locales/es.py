@@ -146,6 +146,8 @@ STRINGS = {
     'SORT_OLDEST': "Más antiguos",
     'SORT_STATUS': "Estado",
     'MSG_NO_NEW_ITEMS': "No hay vídeos nuevos que añadir.",
+    'MSG_PLAYLIST_EMPTY': "Esta lista de reproducción no contiene vídeos.",
+    'MSG_PLAYLIST_NO_AVAILABLE_VIDEOS': "No se puede obtener ningún vídeo de esta lista de reproducción.",
     'ERR_PLAYLIST_FETCH': "No se pudieron obtener los vídeos de la lista de reproducción.",
     'ERR_NOT_PLAYLIST': "La URL no pertenece a una lista de reproducción.",
     'ERR_CANNOT_FETCH_INFO': "No se pudo obtener la información.",
