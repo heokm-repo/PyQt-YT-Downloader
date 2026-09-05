@@ -206,25 +206,3 @@ def download_video_with_result(
 
         log.error(f"Download Error: {error_msg}", exc_info=True)
         return DownloadResult(False, error_msg)
-
-
-def download_video(
-    url,
-    settings,
-    progress_hook,
-    is_resume=False,
-    stop_check=None,
-    metadata_hook=None,
-    temp_identity=None,
-):
-    """Download a single URL using the historical two-value return API."""
-    result = download_video_with_result(
-        url,
-        settings,
-        progress_hook,
-        is_resume=is_resume,
-        stop_check=stop_check,
-        metadata_hook=metadata_hook,
-        temp_identity=temp_identity,
-    )
-    return result.as_legacy_tuple()

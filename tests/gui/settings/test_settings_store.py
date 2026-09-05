@@ -51,6 +51,22 @@ class SettingsStoreTests(unittest.TestCase):
         self.assertIsNone(settings_store.consume_download_folder_fallback_notice())
         self.assertEqual(settings[KEY_THEME], DEFAULT_THEME)
 
+    def test_invalid_encoding_uses_defaults(self):
+        with open(self._settings_file(), "wb") as stream:
+            stream.write(b"\xff\xfe{}")
+        settings = settings_store.load_settings()
+        self.assertEqual(settings[KEY_THEME], DEFAULT_THEME)
+        self.assertTrue(os.path.isdir(settings[KEY_DOWNLOAD_FOLDER]))
+
+    def test_non_path_folder_recovers_to_writable_fallback(self):
+        for value in (123, ["folder"], {"path": "folder"}, "bad\x00path"):
+            with self.subTest(value=value):
+                with open(self._settings_file(), "w", encoding="utf-8") as stream:
+                    json.dump({KEY_DOWNLOAD_FOLDER: value}, stream)
+                settings = settings_store.load_settings()
+                self.assertTrue(os.path.isdir(settings[KEY_DOWNLOAD_FOLDER]))
+                self.assertIsNotNone(settings_store.consume_download_folder_fallback_notice())
+
     def test_load_settings_normalizes_and_persists_invalid_theme(self):
         download_path = os.path.join(self.tmp.name, "downloads")
         os.makedirs(download_path, exist_ok=True)

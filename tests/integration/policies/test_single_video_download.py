@@ -14,7 +14,6 @@ from gui.tasks.duplicate_check_target import DuplicateCheckTarget
 from gui.tasks.single_video_download import (
     build_single_video_download_plan,
     review_single_video_duplicate,
-    single_video_duplicate_cancelled,
 )
 
 
@@ -83,7 +82,7 @@ class SingleVideoDownloadTests(unittest.TestCase):
     def test_single_video_duplicate_cancelled_skips_without_target(self):
         checker = FakeDuplicateChecker(is_duplicate=True)
 
-        self.assertFalse(single_video_duplicate_cancelled(checker, None, ["task"]))
+        self.assertFalse(review_single_video_duplicate(checker, None, ["task"]).cancelled)
         self.assertEqual(checker.calls, [])
 
     def test_single_video_duplicate_cancelled_returns_true_when_user_rejects_duplicate(self):
@@ -92,12 +91,12 @@ class SingleVideoDownloadTests(unittest.TestCase):
         confirmations = []
 
         self.assertTrue(
-            single_video_duplicate_cancelled(
+            review_single_video_duplicate(
                 checker,
                 target,
                 ["task"],
                 lambda message: confirmations.append(message) or False,
-            )
+            ).cancelled
         )
 
         self.assertEqual(confirmations, ["Duplicate message"])
@@ -119,12 +118,12 @@ class SingleVideoDownloadTests(unittest.TestCase):
         target = DuplicateCheckTarget("youtube", "abc123", "mkv")
 
         self.assertFalse(
-            single_video_duplicate_cancelled(
+            review_single_video_duplicate(
                 checker,
                 target,
                 [],
                 lambda _message: True,
-            )
+            ).cancelled
         )
         self.assertEqual(checker.calls[0]["target_format"], "mkv")
 
@@ -134,12 +133,12 @@ class SingleVideoDownloadTests(unittest.TestCase):
         confirmations = []
 
         self.assertFalse(
-            single_video_duplicate_cancelled(
+            review_single_video_duplicate(
                 checker,
                 target,
                 [],
                 lambda message: confirmations.append(message) or False,
-            )
+            ).cancelled
         )
         self.assertEqual(confirmations, [])
         self.assertEqual(checker.calls[0]["target_format"], "mkv")

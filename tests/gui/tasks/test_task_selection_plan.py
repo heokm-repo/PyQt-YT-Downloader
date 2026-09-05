@@ -15,7 +15,6 @@ from constants import TaskStatus
 from gui.tasks.task_selection_plan import (
     selected_tasks_for_ids,
     selected_task_ids_matching,
-    selected_task_ids_with_status,
     should_confirm_multiple_items,
     task_ids_with_status,
     tasks_except_id,
@@ -69,7 +68,7 @@ class TaskSelectionPlanTests(unittest.TestCase):
         ]
 
         self.assertEqual(
-            selected_task_ids_with_status([3, 2, 1], tasks, TaskStatus.FINISHED),
+            selected_task_ids_matching([3, 2, 1], tasks, lambda task: task.status == TaskStatus.FINISHED),
             [3, 1],
         )
 
@@ -77,7 +76,7 @@ class TaskSelectionPlanTests(unittest.TestCase):
         tasks = [FakeTask(1, TaskStatus.FINISHED)]
 
         self.assertEqual(
-            selected_task_ids_with_status([99, 1], tasks, TaskStatus.FINISHED),
+            selected_task_ids_matching([99, 1], tasks, lambda task: task.status == TaskStatus.FINISHED),
             [1],
         )
 

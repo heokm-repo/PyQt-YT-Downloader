@@ -1183,7 +1183,11 @@ class YTDownloaderPyQt5(WindowsCustomFrameMixin, QMainWindow):
         if worker_stop.timed_out:
             log.warning("Playlist worker did not stop before timeout.")
 
-        self.scheduler.shutdown()
+        if not self.scheduler.shutdown():
+            log.warning("Download workers are still stopping; deferring window close.")
+            event.ignore()
+            QTimer.singleShot(100, self.close)
+            return
 
         if self._restart_requested and not self._restart_launched:
             from utils.app_restart import launch_restart

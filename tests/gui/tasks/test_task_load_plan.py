@@ -45,6 +45,19 @@ class TaskLoadPlanTests(unittest.TestCase):
         self.assertEqual(tasks, [])
         self.assertEqual(max_id, 0)
 
+    def test_invalid_records_do_not_prevent_valid_task_restore(self):
+        records = [None, {"id": "2"}, {"id": 1}, {"id": 1},
+                   {"id": 3, "meta": None}, {"id": 4, "settings": []}, {"id": 5}]
+        tasks, max_id = build_loaded_tasks(records)
+        self.assertEqual([task.id for task in tasks], [1, 5])
+        self.assertEqual(max_id, 5)
+        self.assertTrue(loaded_tasks_need_workspace_persistence(records))
+
+    def test_invalid_root_does_not_crash_restore(self):
+        for value in (None, {"id": 1}, "invalid"):
+            self.assertEqual(build_loaded_tasks(value), ([], 0))
+            self.assertFalse(loaded_tasks_need_workspace_persistence(value))
+
     def test_legacy_loaded_tasks_require_immediate_workspace_persistence(self):
         tasks, _ = build_loaded_tasks(
             [{"id": 1, "url": "https://example.test/1", "status": "paused"}]

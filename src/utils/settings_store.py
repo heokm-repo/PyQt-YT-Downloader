@@ -115,7 +115,7 @@ def load_settings() -> dict[str, Any]:
                     loaded_settings[KEY_DOWNLOAD_FOLDER] = loaded_settings[LEGACY_SAVE_PATH_KEY]
                     migrated_legacy_path = True
                 settings.update(loaded_settings)
-    except (OSError, json.JSONDecodeError, TypeError) as e:
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as e:
         log.error(f"Settings load failed: {e}", exc_info=True)
 
     changed = _normalize_download_folder(settings)
@@ -216,6 +216,8 @@ def _windows_protected_roots() -> set[str]:
 
 
 def _ensure_writable_folder(path: str) -> tuple[bool, str]:
+    if not isinstance(path, str) or "\x00" in path:
+        return False, ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
     if not path:
         return False, ERR_DOWNLOAD_FOLDER_EMPTY
 

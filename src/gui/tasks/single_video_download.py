@@ -73,18 +73,3 @@ def review_single_video_duplicate(
         not confirm_duplicate(message),
         duplicate_task,
     )
-
-
-def single_video_duplicate_cancelled(
-    duplicate_checker: Any,
-    duplicate_target: Optional[DuplicateCheckTarget],
-    tasks: Sequence[Any],
-    confirm_duplicate: Callable[[str], bool] | None = None,
-) -> bool:
-    """Compatibility wrapper returning only the cancellation decision."""
-    return review_single_video_duplicate(
-        duplicate_checker,
-        duplicate_target,
-        tasks,
-        confirm_duplicate,
-    ).cancelled

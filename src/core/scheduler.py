@@ -40,6 +40,7 @@ class DownloadScheduler(QObject):
         # Keep only the latest queued run valid for each task_id.
         self.task_generations = {}
         self._active_task_generations = {}
+        self._pending_task_entries = {}
         self._generations_lock = threading.Lock()
 
     def initialize(self, max_workers: int):
@@ -56,7 +57,11 @@ class DownloadScheduler(QObject):
         with self._generations_lock:
             generation = self.task_generations.get(task_id, 0) + 1
             self.task_generations[task_id] = generation
-        self.download_queue.put((priority, generation, task_id, url, settings, metadata, is_resume))
+            entry = (priority, generation, task_id, url, settings, metadata, is_resume)
+            if task_id in self._active_task_generations:
+                self._pending_task_entries[task_id] = entry
+            else:
+                self.download_queue.put(entry)
         return generation
 
     def is_current_generation(self, task_id: int, generation: int) -> bool:
@@ -85,6 +90,9 @@ class DownloadScheduler(QObject):
         with self._generations_lock:
             if self._active_task_generations.get(task_id) == generation:
                 del self._active_task_generations[task_id]
+                entry = self._pending_task_entries.pop(task_id, None)
+                if entry and not self.stop_event.is_set():
+                    self.download_queue.put(entry)
 
     def is_task_running(self, task_id: int) -> bool:
         """Return whether a worker still owns a generation for this task."""
@@ -117,6 +125,7 @@ class DownloadScheduler(QObject):
             self.task_cancelled_flags.add(task_id)
         with self._generations_lock:
             self.task_generations[task_id] = self.task_generations.get(task_id, 0) + 1
+            self._pending_task_entries.pop(task_id, None)
 
     def is_task_cancelled(self, task_id: int) -> bool:
         """Return whether a task was cancelled by the UI."""
@@ -137,7 +146,8 @@ class DownloadScheduler(QObject):
         # Remove workers that already stopped.
         self.workers = [w for w in self.workers if w.isRunning()]
 
-        current_count = len(self.workers)
+        available_workers = [w for w in self.workers if not w.retire_flag]
+        current_count = len(available_workers)
 
         if target_count > current_count:
             # Add missing workers when scaling up.
@@ -164,10 +174,8 @@ class DownloadScheduler(QObject):
             to_retire = current_count - target_count
             log.info(f"워커 {to_retire}명 감원 예약 (현재 {current_count} -> 목표 {target_count})")
 
-            for _ in range(to_retire):
-                if self.workers:
-                    worker = self.workers.pop()
-                    worker.retire_flag = True
+            for worker in available_workers[-to_retire:]:
+                worker.retire_flag = True
 
     def _on_download_finished(self, success: bool, message: str, task_id: int, final_path: str):
         """Relay a completed download signal after removing dead workers."""
@@ -180,6 +188,7 @@ class DownloadScheduler(QObject):
         """Shut down the scheduler and clean up all workers."""
         # Send the global shutdown signal.
         self.stop_event.set()
+        self.pause_event.set()
 
         # Send shutdown markers through the queue.
         for _ in self.workers:
@@ -190,4 +199,5 @@ class DownloadScheduler(QObject):
             if worker.isRunning():
                 worker.wait(WORKER_CLEANUP_WAIT_MS)
 
-        self.workers.clear()
+        self.workers = [worker for worker in self.workers if worker.isRunning()]
+        return not self.workers

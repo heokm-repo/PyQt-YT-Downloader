@@ -115,28 +115,6 @@ def estimate_media_sizes(info: Mapping[str, Any]) -> tuple[int, int]:
     return video_size, audio_size
 
 
-def selected_audio_sample_rate(info: Mapping[str, Any]) -> int | None:
-    """Return the selected source audio sample rate when yt-dlp reports it."""
-    candidates = []
-    for key in ("requested_formats", "requested_downloads"):
-        values = info.get(key)
-        if isinstance(values, list):
-            candidates.extend(value for value in values if isinstance(value, Mapping))
-    candidates.append(info)
-
-    for candidate in candidates:
-        if candidate.get("acodec") == "none":
-            continue
-        sample_rate = candidate.get("asr") or candidate.get("audio_sample_rate")
-        try:
-            normalized_rate = int(float(sample_rate))
-        except (TypeError, ValueError):
-            continue
-        if normalized_rate > 0:
-            return normalized_rate
-    return None
-
-
 def selected_audio_bitrate(info: Mapping[str, Any]) -> int | None:
     """Return the selected audio bitrate in bits per second when reported."""
     candidates = []

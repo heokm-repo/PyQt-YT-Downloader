@@ -253,6 +253,7 @@ class TaskActions:
             log.warning(
                 f"File delete failed due to permission (task_id={task_id}): {error_text}"
             )
+            return
         elif result.status == DeleteFileStatus.ERROR:
             error_text = str(result.error) if result.error else result.file_path
             self._show_warning(
@@ -263,6 +264,9 @@ class TaskActions:
                 f"File delete failed (task_id={task_id}): {error_text}",
                 exc_info=result.exc_info,
             )
+            return
+        elif result.status == DeleteFileStatus.NOT_FILE:
+            return
         elif result.status == DeleteFileStatus.MISSING:
             log.debug(f"File already missing: {result.output_path}")
 

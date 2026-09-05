@@ -59,7 +59,6 @@ class DownloadWorker(QThread):
         self.current_generation: Optional[int] = None
         self.download_progress: Dict[int, Dict[str, Any]] = {}
         self.last_update_times: Dict[int, float] = {}
-        self.current_output_path: str = ""
         self.retire_flag: bool = False
 
     # ============================================================
@@ -187,9 +186,10 @@ class DownloadWorker(QThread):
             if self.retire_flag:
                 break
 
-            self.pause_event.wait()
+            if not self.pause_event.wait(timeout=QUEUE_TIMEOUT_SEC):
+                continue
             
-            if self.stop_event.is_set():
+            if self.stop_event.is_set() or self.retire_flag:
                 break
 
             task_wrapper = None
@@ -216,7 +216,6 @@ class DownloadWorker(QThread):
                 
                 self.current_task_id = task_id
                 self.current_generation = generation
-                self.current_output_path = ""
 
                 self._init_progress_tracking(task_id, metadata)
 
@@ -334,9 +333,6 @@ class DownloadWorker(QThread):
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
                 raise DownloadInterruptedError(MSG_PAUSED_BY_USER)
-
-        if d.get('filename'):
-            self.current_output_path = d.get('filename')
 
         try:
             status = d.get('status', '')

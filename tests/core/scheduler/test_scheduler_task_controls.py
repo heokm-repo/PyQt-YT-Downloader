@@ -37,14 +37,10 @@ class SchedulerWorkerControlTests(unittest.TestCase):
     def _run_single_task(self, task_id, url, settings, metadata, fake_download):
         self.scheduler.add_task(1, task_id, url, settings, metadata)
         with patch(
-            "core.workers.download_handler.fetch_metadata",
-            side_effect=AssertionError("metadata preflight must not run"),
-        ) as fetch_metadata, patch(
             "core.workers.download_handler.download_video_with_result",
             side_effect=fake_download,
         ):
             self.worker.run()
-        fetch_metadata.assert_not_called()
 
     def test_newer_resume_generation_makes_older_queue_entry_stale(self):
         first_generation = self.scheduler.add_task(1, 10, "url", {"format": "mp4"}, {}, is_resume=True)

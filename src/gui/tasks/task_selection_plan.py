@@ -29,15 +29,6 @@ def selected_task_ids_matching(
     return matching_ids
 
 
-def selected_task_ids_with_status(
-    selected_ids: Sequence[int], tasks: Iterable[Any], status: Any
-) -> list[int]:
-    """Return selected task IDs whose task has the requested status."""
-    return selected_task_ids_matching(
-        selected_ids,
-        tasks,
-        lambda task: task.status == status,
-    )
 
 
 def task_ids_with_status(tasks: Iterable[Any], status: Any) -> list[int]:

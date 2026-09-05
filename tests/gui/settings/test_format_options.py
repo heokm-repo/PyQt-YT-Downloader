@@ -15,10 +15,6 @@ from core.download.options import (
     _build_all_options,
     _build_format_options,
 )
-from core.download.quality_policy import (
-    requires_video_quality_finalization,
-    video_audio_finalization_bitrate,
-)
 from core.ytdlp.wrapper import YtDlpWrapper
 from constants import AUDIO_QUALITY_OPTIONS
 
@@ -180,34 +176,6 @@ class VideoContainerAudioQualityTests(unittest.TestCase):
         self.assertIn("--format-sort", cmd)
         self.assertEqual(cmd[cmd.index("--format-sort") + 1], "res:1080")
 
-    def test_mp4_and_mkv_numeric_quality_use_app_audio_finalization(self):
-        for fmt in ("mp4", "mkv"):
-            with self.subTest(fmt=fmt):
-                self.assertEqual(
-                    video_audio_finalization_bitrate(fmt, "128k", False),
-                    "128k",
-                )
-                self.assertEqual(
-                    video_audio_finalization_bitrate(fmt, "worst", False),
-                    "48k",
-                )
-                self.assertIsNone(
-                    video_audio_finalization_bitrate(fmt, "best", False)
-                )
-                self.assertIsNone(
-                    video_audio_finalization_bitrate(fmt, "128k", True)
-                )
-
-        self.assertTrue(
-            requires_video_quality_finalization("webm", "best", False)
-        )
-        self.assertIsNone(
-            video_audio_finalization_bitrate("webm", "best", False)
-        )
-        self.assertEqual(
-            video_audio_finalization_bitrate("webm", "128k", False),
-            "128k",
-        )
 
     def test_video_container_outputs_still_use_expected_output_mode(self):
         mp4_opts = _build_format_options({"format": "mp4", "audio_quality": "worst"})

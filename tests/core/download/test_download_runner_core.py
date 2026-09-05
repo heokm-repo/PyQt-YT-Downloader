@@ -103,11 +103,12 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
              patch.object(download_runner, "_build_all_options", return_value={"built": True}) as build_options, \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            success, message = download_runner.download_video(
+            result = download_runner.download_video_with_result(
                 "https://www.youtube.com/watch?v=abc123&list=playlist456",
                 {"format": "mp4"},
                 lambda *_: None,
             )
+            success, message = result.success, result.message
 
         self.assertTrue(success)
         self.assertEqual(message, MSG_DOWNLOAD_COMPLETE)
@@ -143,6 +144,7 @@ class DownloadRunnerTests(unittest.TestCase):
                 {"format": "webm"},
                 lambda *_: None,
             )
+            success, message = result.success, result.message
 
         self.assertTrue(result.success)
         self.assertEqual(result.message, MSG_DOWNLOAD_COMPLETE)
@@ -169,6 +171,7 @@ class DownloadRunnerTests(unittest.TestCase):
                 {"format": "webm"},
                 lambda *_: None,
             )
+            success, message = result.success, result.message
 
         self.assertFalse(result.success)
         self.assertEqual(
@@ -204,12 +207,13 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
              patch.object(download_runner, "_build_all_options", return_value={}), \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            success, message = download_runner.download_video(
+            result = download_runner.download_video_with_result(
                 "https://www.youtube.com/watch?v=abc123&list=playlist456",
                 {"format": "mp4"},
                 lambda *_: None,
                 metadata_hook=metadata_events.append,
             )
+            success, message = result.success, result.message
 
         self.assertTrue(success)
         self.assertEqual(message, MSG_DOWNLOAD_COMPLETE)

@@ -260,20 +260,6 @@ def needs_update(binary_name: str) -> bool:
     return needs_update_flag
 
 
-def check_updates_available() -> Dict[str, Dict[str, str]]:
-    """Check which managed binaries have available updates."""
-    versions = load_versions()
-    latest_ytdlp, _, _ = check_ytdlp_latest_version()
-    latest_ffmpeg, _, _ = check_ffmpeg_latest_version()
-    latest_quickjs, _, _ = check_quickjs_latest_version()
-    return collect_available_updates(
-        versions,
-        {
-            'yt-dlp': latest_ytdlp,
-            'ffmpeg': latest_ffmpeg,
-            'quickjs': latest_quickjs,
-        },
-    )
 
 
 def check_updates_available_strict() -> Dict[str, Dict[str, str]]:

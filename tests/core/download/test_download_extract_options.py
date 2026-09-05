@@ -56,7 +56,8 @@ class DownloadExtractOptionTests(unittest.TestCase):
 
     def test_advanced_options_add_cookies_only_for_youtube_urls(self):
         with patch("utils.cookie_store.cookie_file_exists", return_value=True), \
-             patch("utils.cookie_store.get_cookie_file_path", return_value="cookies.txt"):
+             patch("utils.cookie_store.get_cookie_file_path", return_value="cookies.txt"), \
+             patch("utils.cookie_validation.is_usable_cookie_file", return_value=True):
             youtube_opts = download_options._build_advanced_options(
                 {},
                 "https://www.youtube.com/watch?v=video123",

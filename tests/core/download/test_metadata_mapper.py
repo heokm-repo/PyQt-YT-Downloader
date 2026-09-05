@@ -10,13 +10,7 @@ os.environ["APPDATA"] = TEST_APPDATA
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from core.download.metadata_mapper import (
-    build_metadata_result,
-    estimate_media_sizes,
-    selected_download_streams,
-    selected_audio_bitrate,
-    selected_audio_sample_rate,
-)
+from core.download.metadata_mapper import build_metadata_result, estimate_media_sizes, selected_download_streams, selected_audio_bitrate
 
 
 class MetadataMapperTests(unittest.TestCase):
@@ -30,21 +24,7 @@ class MetadataMapperTests(unittest.TestCase):
 
         self.assertEqual(selected_audio_bitrate(info), 136_515)
 
-    def test_selected_audio_sample_rate_uses_requested_audio_format(self):
-        info = {
-            "requested_formats": [
-                {"vcodec": "avc1", "acodec": "none", "asr": None},
-                {"vcodec": "none", "acodec": "opus", "asr": 48000},
-            ],
-        }
 
-        self.assertEqual(selected_audio_sample_rate(info), 48000)
-
-    def test_selected_audio_sample_rate_uses_audio_only_top_level_value(self):
-        self.assertEqual(
-            selected_audio_sample_rate({"acodec": "opus", "asr": 44100}),
-            44100,
-        )
 
     def test_playlist_metadata_uses_playlist_defaults_and_count(self):
         metadata = build_metadata_result(

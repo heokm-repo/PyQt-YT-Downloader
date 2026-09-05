@@ -4,6 +4,7 @@ import os
 
 from constants import (
     AUDIO_FORMATS,
+    FORMAT_BESTAUDIO,
     CONCURRENT_FRAGMENT_DOWNLOADS,
     DEFAULT_AUDIO_QUALITY,
     DEFAULT_FORMAT,
@@ -11,7 +12,6 @@ from constants import (
     OUTPUT_TEMPLATE,
 )
 from core.download.quality_policy import (
-    build_audio_quality_profile,
     build_video_source_selector,
 )
 from core.download.audio_source_policy import build_audio_source_policy
@@ -103,18 +103,16 @@ def _build_format_options(settings):
     fmt = str(settings.get('format', DEFAULT_FORMAT)).strip().lower()
     if settings.get(KEY_UNIVERSAL_COMPATIBILITY) and fmt not in {"mp4", "mp3"}:
         fmt = "mp4"
-    normalize_audio = bool(settings.get('normalize_audio'))
     requested_audio_quality = (
         DEFAULT_AUDIO_QUALITY
         if fmt == 'wav'
         else settings.get('audio_quality', DEFAULT_AUDIO_QUALITY)
     )
-    audio_profile = build_audio_quality_profile(requested_audio_quality)
     audio_policy = build_audio_source_policy(fmt, requested_audio_quality)
 
     if fmt in AUDIO_FORMATS:
         if fmt in {"mp3", "wav"}:
-            opts['format'] = audio_profile.source_format
+            opts['format'] = FORMAT_BESTAUDIO
         else:
             opts['format'] = audio_policy.audio_only_selector
     else:
@@ -162,9 +160,13 @@ def _build_advanced_options(settings, url: str | None = None):
     try:
         from utils.cookie_store import get_cookie_file_path, cookie_file_exists
         if is_youtube_url(url) and cookie_file_exists():
+            from utils.cookie_validation import is_usable_cookie_file
             cookie_path = get_cookie_file_path()
-            opts['cookiefile'] = cookie_path
-            log.info(f"Using cookie file: {cookie_path}")
+            if is_usable_cookie_file(cookie_path, delete_invalid=True):
+                opts['cookiefile'] = cookie_path
+                log.info(f"Using cookie file: {cookie_path}")
+            else:
+                log.warning("Saved cookies are empty, unreadable, or invalid; continuing without cookies.")
     except ImportError:
         log.debug("cookie_store module not available, skipping cookie support")
     
@@ -185,7 +187,6 @@ def _add_runtime_extract_options(
     opts: dict,
     settings: dict | None = None,
     url: str | None = None,
-    temp_identity: dict | None = None,
 ) -> dict:
     advanced_opts = _build_advanced_options(settings or {}, url)
     for key in ("cookiefile", "js_runtimes"):

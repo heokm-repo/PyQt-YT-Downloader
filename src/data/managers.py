@@ -12,6 +12,7 @@ from constants import (
 )
 from locales.strings import STR
 from data.models import DownloadTask
+from data.task_validation import valid_task_records
 
 
 class HistoryManager:
@@ -174,7 +175,7 @@ class TaskManager:
             
         try:
             with open(self.tasks_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                return valid_task_records(json.load(f))
         except Exception as e:
             log.error(f"작업 목록 불러오기 실패: {e}", exc_info=True)
             return []

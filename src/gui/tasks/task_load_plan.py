@@ -6,6 +6,7 @@ from typing import Callable, Iterable, List, Sequence, Tuple
 from constants import TaskStatus
 from core.download.workspace_identity import is_workspace_id
 from data.models import DownloadTask
+from data.task_validation import valid_task_records
 
 
 @dataclass(frozen=True)
@@ -19,7 +20,7 @@ class PausedTaskRestoreResult:
 
 def build_loaded_tasks(task_data_items: Iterable[dict]) -> Tuple[List[DownloadTask], int]:
     """Convert persisted task dictionaries to task objects and return max task id."""
-    tasks = [DownloadTask.from_dict(task_data) for task_data in task_data_items]
+    tasks = [DownloadTask.from_dict(task_data) for task_data in valid_task_records(task_data_items)]
     max_id = max((task.id for task in tasks), default=0)
     return tasks, max_id
 
@@ -30,7 +31,7 @@ def loaded_tasks_need_workspace_persistence(
     """Return whether legacy task data needs its assigned UUID saved now."""
     return any(
         not is_workspace_id(task_data.get("workspace_id"))
-        for task_data in task_data_items
+        for task_data in valid_task_records(task_data_items)
     )
 
 
