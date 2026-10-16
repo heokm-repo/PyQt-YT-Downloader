@@ -10,12 +10,15 @@ def build_task_status_message(
     ready_message: str,
     error_template: str,
     completed_template: str,
+    *,
+    summary=None,
 ) -> str:
     """Return the status bar text for the current task collection."""
     if not tasks:
         return ready_message
 
-    summary = summarize_task_progress(tasks)
+    if summary is None:
+        summary = summarize_task_progress(tasks)
     if summary.has_failures:
         return error_template.format(count=summary.failed)
 

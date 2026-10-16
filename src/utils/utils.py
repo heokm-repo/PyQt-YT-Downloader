@@ -1,35 +1,7 @@
-import sys
-import os
 from typing import Optional
 from urllib.parse import urlparse
 
-from constants import (
-    APPDATA_DIR_NAME,
-    APPDATA_ENV_VAR,
-)
-
-
-def get_base_path() -> str:
-    """Return the base path of the executable, compatible with PyInstaller."""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def get_user_data_path() -> str:
-    """Return the Windows app data directory used by this application."""
-    base_path = os.getenv(APPDATA_ENV_VAR)
-    if not base_path:
-        return get_base_path()
-
-    data_path = os.path.join(base_path, APPDATA_DIR_NAME)
-
-    if not os.path.exists(data_path):
-        try:
-            os.makedirs(data_path, exist_ok=True)
-        except OSError:
-            return get_base_path()
-
-    return data_path
+from utils.app_paths import get_base_path, get_user_data_path
 
 def get_ffmpeg_path() -> Optional[str]:
     """Return the managed external FFmpeg executable path."""

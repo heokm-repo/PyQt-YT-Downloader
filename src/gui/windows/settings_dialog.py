@@ -1,24 +1,9 @@
 import sys
-from PyQt5.QtWidgets import (
-    QApplication,
-    QFileDialog,
-    QFormLayout,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtWidgets import QApplication, QFileDialog, QTabWidget, QWidget
+from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices, QFont
 
-from constants import (
-    KEY_DOWNLOAD_FOLDER, KEY_VIDEO_QUALITY, KEY_AUDIO_QUALITY, KEY_FORMAT,
-    KEY_MAX_DOWNLOADS, KEY_NORMALIZE_AUDIO, KEY_USE_ACCELERATION, KEY_LANGUAGE,
-    KEY_THEME, KEY_UNIVERSAL_COMPATIBILITY,
-    DEFAULT_MAX_DOWNLOADS, DEFAULT_ACCELERATION, DEFAULT_NORMALIZE,
-    DEFAULT_THEME, DEFAULT_UNIVERSAL_COMPATIBILITY,
-    VIDEO_QUALITY_OPTIONS, AUDIO_QUALITY_OPTIONS,
-    APP_VERSION, SPONSOR_URL
-)
+from constants import APP_VERSION, SPONSOR_URL
 from locales.strings import STR
 from gui.dialogs.base_dialog import BaseDialog
 from gui.dialogs.messages import (
@@ -28,21 +13,8 @@ from gui.dialogs.messages import (
     show_info,
     show_warning,
 )
-from gui.settings.settings_general_rows import create_folder_picker_row, create_login_row
-from gui.settings.settings_option_row import add_option_row
-from gui.settings.settings_controls import (
-    add_section_label,
-    create_format_combo,
-    create_language_combo,
-    create_max_downloads_spin,
-    create_settings_button,
-    create_settings_checkbox,
-    create_settings_combo,
-    create_settings_label,
-    create_theme_combo,
-    set_compatibility_format_mode,
-    create_version_row,
-)
+from gui.settings.settings_controls import create_settings_button, set_compatibility_format_mode
+from gui.settings.settings_tabs import create_general_tab, create_download_tab, create_app_manage_tab
 from gui.settings.settings_form_data import (
     build_settings_from_form_values,
     is_download_folder_input_valid,
@@ -50,10 +22,7 @@ from gui.settings.settings_form_data import (
 )
 from gui.settings.settings_format_options import quality_control_state_for_format
 from gui.settings.settings_acceleration import max_downloads_state_for_acceleration
-from gui.settings.settings_button_specs import (
-    build_app_management_button_specs,
-    build_dialog_action_button_specs,
-)
+from gui.settings.settings_button_specs import build_dialog_action_button_specs
 from gui.settings.settings_app_management import (
     build_error_message,
     run_uninstall_flow,
@@ -144,175 +113,13 @@ class SettingsDialog(BaseDialog):
         self.content_layout.addWidget(self.tab_widget)
 
     def _create_general_tab(self, parent):
-        """Create the general settings tab."""
-        layout = QVBoxLayout(parent)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
-
-        add_section_label(STR.SETTINGS_SEC_LOCATION, layout)
-        folder_layout, self.folder_line, _ = create_folder_picker_row(
-            self.settings[KEY_DOWNLOAD_FOLDER],
-            STR.SETTINGS_BTN_BROWSE,
-            self._browse_folder,
-        )
-        layout.addLayout(folder_layout)
-
-        add_section_label(STR.SETTINGS_SEC_GENERAL, layout)
-        lang_form_layout = QFormLayout()
-        lang_form_layout.setSpacing(10)
-        lang_form_layout.setLabelAlignment(Qt.AlignLeft)
-
-        self.language_combo = create_language_combo(
-            self.settings.get(KEY_LANGUAGE)
-        )
-        lang_form_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_LANGUAGE), self.language_combo)
-
-        self.theme_combo = create_theme_combo(
-            self.settings.get(KEY_THEME, DEFAULT_THEME),
-            STR.SETTINGS_THEME_LIGHT,
-            STR.SETTINGS_THEME_DARK,
-        )
-        lang_form_layout.addRow(
-            create_settings_label(STR.SETTINGS_LABEL_THEME),
-            self.theme_combo,
-        )
-        layout.addLayout(lang_form_layout)
-
-        cookie_layout = create_login_row(
-            STR.SETTINGS_LABEL_COOKIES,
-            STR.BTN_LOGIN,
-            self._on_login_clicked,
-            STR.BTN_LOGOUT,
-            self._on_logout_clicked,
-        )
-        layout.addLayout(cookie_layout)
-        layout.addStretch()
+        return create_general_tab(self, parent)
 
     def _create_download_tab(self, parent):
-        """Create the download settings tab."""
-        layout = QVBoxLayout(parent)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
-
-        # Quality and format.
-        add_section_label(STR.SETTINGS_SEC_QUALITY, layout)
-
-        grid_layout = QFormLayout()
-        grid_layout.setSpacing(10)
-        grid_layout.setLabelAlignment(Qt.AlignLeft)
-
-        # Video quality.
-        self.quality_combo = create_settings_combo(
-            VIDEO_QUALITY_OPTIONS,
-            self.settings[KEY_VIDEO_QUALITY]
-        )
-        grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_VIDEO), self.quality_combo)
-
-        # Audio quality.
-        self.audio_quality_combo = create_settings_combo(
-            AUDIO_QUALITY_OPTIONS,
-            self.settings[KEY_AUDIO_QUALITY]
-        )
-        grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_AUDIO), self.audio_quality_combo)
-
-        # Format.
-        self.format_combo = create_format_combo(
-            self.settings.get(KEY_FORMAT),
-            STR.SETTINGS_HEADER_VIDEO,
-            STR.SETTINGS_HEADER_AUDIO,
-        )
-        self.format_combo.currentTextChanged.connect(self._on_format_changed)
-        grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_FORMAT), self.format_combo)
-
-        # Maximum concurrent downloads.
-        self.max_downloads_spin = create_max_downloads_spin(
-            int(self.settings.get(KEY_MAX_DOWNLOADS, DEFAULT_MAX_DOWNLOADS))
-        )
-        grid_layout.addRow(create_settings_label(STR.SETTINGS_LABEL_MAX_DL), self.max_downloads_spin)
-
-        layout.addLayout(grid_layout)
-
-        # Advanced features.
-        add_section_label(STR.SETTINGS_SEC_ADVANCED, layout)
-
-        # Audio normalization.
-        self.norm_check = create_settings_checkbox(
-            self.settings.get(KEY_NORMALIZE_AUDIO, DEFAULT_NORMALIZE)
-        )
-        add_option_row(
-            layout, STR.SETTINGS_CHK_NORMALIZE, STR.TOOLTIP_NORMALIZE, self.norm_check
-        )
-
-        # Universal compatibility.
-        self.compatibility_check = create_settings_checkbox(
-            self.settings.get(
-                KEY_UNIVERSAL_COMPATIBILITY,
-                DEFAULT_UNIVERSAL_COMPATIBILITY,
-            ),
-            lambda state: self._on_compatibility_changed(state == 2),
-        )
-        add_option_row(
-            layout,
-            STR.SETTINGS_CHK_COMPATIBILITY,
-            STR.TOOLTIP_COMPATIBILITY,
-            self.compatibility_check,
-        )
-
-        # Download acceleration.
-        self.accel_check = create_settings_checkbox(
-            self.settings.get(KEY_USE_ACCELERATION, DEFAULT_ACCELERATION),
-            lambda state: self._on_acceleration_changed(state == 2),
-        )
-        add_option_row(
-            layout, STR.SETTINGS_CHK_ACCEL, STR.TOOLTIP_ACCEL, self.accel_check
-        )
-
-        # Apply initial state.
-        self._on_format_changed(self.format_combo.currentText())
-        self._on_compatibility_changed(self.compatibility_check.isChecked())
-        self._on_acceleration_changed(self.accel_check.isChecked())
-
-        layout.addStretch()
+        return create_download_tab(self, parent)
 
     def _create_app_manage_tab(self, parent):
-        """Create the app-management tab."""
-        layout = QVBoxLayout(parent)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
-
-        add_section_label(STR.SETTINGS_SEC_APP_MANAGE, layout)
-
-        layout.addLayout(
-            create_version_row(STR.SETTINGS_LABEL_VERSION, APP_VERSION)
-        )
-
-        button_styles = {
-            "update": styles.SETTINGS_UPDATE_BUTTON_STYLE,
-            "uninstall": styles.SETTINGS_UNINSTALL_BUTTON_STYLE,
-        }
-        button_callbacks = {
-            "check_update": self._on_check_update_clicked,
-            "license": self._show_license_info,
-            "sponsor": self._open_sponsor_page,
-            "uninstall": self._on_uninstall_clicked,
-        }
-        for spec in build_app_management_button_specs(
-            STR.SETTINGS_BTN_CHECK_UPDATE,
-            STR.SETTINGS_BTN_LICENSE,
-            STR.SETTINGS_BTN_SPONSOR,
-            STR.SETTINGS_BTN_UNINSTALL,
-        ):
-            button = create_settings_button(
-                spec,
-                button_styles,
-                button_callbacks,
-                fixed_height=45,
-            )
-            if spec.action == "check_update":
-                self.update_check_button = button
-            layout.addWidget(button)
-
-        layout.addStretch()
+        return create_app_manage_tab(self, parent)
 
     def _create_button_section(self):
         """Create the bottom button section."""

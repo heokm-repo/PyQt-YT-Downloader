@@ -4,6 +4,7 @@ from string import Template
 
 from resources import colors as _colors
 
+_rendered_theme = _colors.active_theme()
 
 class _ThemedStyle(str):
     """Rendered QSS that retains its semantic-token template for rebuilding."""
@@ -21,11 +22,15 @@ def _style(template: str) -> str:
 
 
 def apply_theme(theme_name: str | None) -> str:
-    """Activate a palette and rebuild every themed stylesheet constant."""
+    """Activate colors; rebuild QSS only when its rendered theme changes."""
+    global _rendered_theme
     active_theme = _colors.activate_theme(theme_name)
+    if active_theme == _rendered_theme:
+        return active_theme
     for name, value in tuple(globals().items()):
         if isinstance(value, _ThemedStyle):
             globals()[name] = _ThemedStyle(value.template)
+    _rendered_theme = active_theme
     return active_theme
 
 # ==========================================

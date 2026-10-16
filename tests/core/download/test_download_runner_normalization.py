@@ -94,7 +94,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "_build_all_options", return_value={}), \
              patch.object(download_runner, "finalize_and_commit_download", return_value=normalized) as normalize, \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://example.invalid/audio",
                 settings,
                 events.append,
@@ -103,7 +103,7 @@ class DownloadRunnerTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(
             result.message,
-            download_runner.OUTPUT_PATH_VERIFICATION_ERROR,
+            download_runner.STR.ERR_OUTPUT_PATH_VERIFY,
         )
         self.assertEqual(result.final_path, "")
         normalize.assert_not_called()
@@ -125,7 +125,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "_build_all_options", return_value={}), \
              patch.object(download_runner, "finalize_and_commit_download", return_value=normalized) as normalize, \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://example.invalid/audio",
                 settings,
                 events.append,
@@ -134,7 +134,7 @@ class DownloadRunnerTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(
             result.message,
-            download_runner.OUTPUT_PATH_VERIFICATION_ERROR,
+            download_runner.STR.ERR_OUTPUT_PATH_VERIFY,
         )
         self.assertEqual(result.final_path, "")
         normalize.assert_not_called()
@@ -155,7 +155,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "write_ready_source"), \
              patch.object(download_runner, "finalize_and_commit_download", return_value=normalized), \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://example.invalid/audio",
                 settings,
                 lambda *_: None,

@@ -8,7 +8,7 @@ from utils.bin.manager import get_ytdlp_path
 from utils.logger import log
 
 
-def extract_playlist_video_ids(url):
+def extract_playlist_video_ids(url, stop_check=None):
     """Return video IDs, success, error text, and the raw playlist entry count."""
     clean_url, is_playlist = _sanitize_url(url, prefer_playlist=True)
 
@@ -24,6 +24,7 @@ def extract_playlist_video_ids(url):
         info, success = wrapper.extract_info(
             clean_url,
             options=_build_playlist_extract_options(url=clean_url),
+            **({'stop_check': stop_check} if stop_check is not None else {}),
         )
 
         if not success or not info:

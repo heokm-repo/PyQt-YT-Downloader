@@ -18,6 +18,9 @@ class FakeReleaseResponse:
     def __init__(self, data):
         self.data = data
 
+    def close(self):
+        self.closed = True
+
     def raise_for_status(self):
         return None
 

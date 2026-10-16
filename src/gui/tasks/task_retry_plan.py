@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from locales.strings import STR
 from gui.dialogs.messages import ask_question
+from gui.dialogs.main_window_messages import duplicate_overwrite_message
 from gui.tasks.duplicate_check_target import DuplicateCheckTarget, build_duplicate_check_target
 
 
@@ -43,12 +44,12 @@ def should_continue_retry_after_duplicate_check(
         return True
 
     if duplicate_checker_factory is None:
-        from data.managers import DuplicateChecker
+        from data.duplicate_checker import DuplicateChecker
 
         duplicate_checker_factory = DuplicateChecker
 
     duplicate_checker = duplicate_checker_factory(history_manager)
-    is_duplicate, message, _duplicate_task = duplicate_checker.is_duplicate(
+    result = duplicate_checker.check(
         duplicate_target.extractor,
         duplicate_target.video_id,
         task_id,
@@ -56,11 +57,11 @@ def should_continue_retry_after_duplicate_check(
         duplicate_target.target_format,
     )
 
-    if is_duplicate:
+    if result.is_duplicate:
         confirm = confirm_duplicate or (
             lambda duplicate_message: ask_question(parent_widget, STR.MSG_DUPLICATE_CHECK, duplicate_message)
         )
-        if not confirm(message):
+        if not confirm(duplicate_overwrite_message(result)):
             return False
 
     history_manager.remove_from_history(

@@ -4,10 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from utils.utils import format_bytes
-
-
-DEFAULT_TITLE = "(제목 없음)"
-DEFAULT_UPLOADER = "Unknown"
+from locales.strings import STR
 
 
 @dataclass(frozen=True)
@@ -32,9 +29,10 @@ def build_task_metadata_display(
     if "file_size" in metadata:
         file_size_text = format_bytes(metadata["file_size"])
 
+    title = metadata.get("title", STR.DEFAULT_VIDEO_TITLE)
     return TaskMetadataDisplay(
-        title_text=format_task_title(metadata.get("title", DEFAULT_TITLE), settings),
-        uploader_text=metadata.get("uploader", DEFAULT_UPLOADER),
+        title_text=format_task_title(title, settings),
+        uploader_text=metadata.get("uploader", STR.DEFAULT_UPLOADER),
         file_size_text=file_size_text,
         thumbnail_url=metadata.get("thumbnail"),
     )

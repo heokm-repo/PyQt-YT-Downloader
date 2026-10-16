@@ -5,7 +5,7 @@ import os
 from typing import Any, Mapping
 
 from utils.logger import log
-from utils.utils import get_user_data_path
+from utils.app_paths import get_user_data_path
 
 
 def get_bin_path() -> str:

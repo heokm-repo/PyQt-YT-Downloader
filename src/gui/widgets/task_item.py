@@ -3,10 +3,8 @@
 from PyQt5.QtWidgets import (
     QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QProgressBar, QPushButton,
 )
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSize
-from PyQt5.QtGui import QPixmap, QFontMetrics
-from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkReply
-import qtawesome as qta
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
+from PyQt5.QtGui import QFontMetrics
 
 from utils.logger import log
 from resources import colors, styles
@@ -17,11 +15,12 @@ from resources.styles import (
 )
 from constants import TaskStatus, MSG_0_PERCENT
 from gui.tasks.task_button_config import get_task_button_specs
+from gui.tasks.task_action_bar import TaskActionBar
+from gui.widgets.buttons import create_button
 from gui.tasks.task_click_target import is_click_on_child_type
 from gui.tasks.task_metadata_display import build_task_metadata_display, format_task_title
 from gui.tasks.task_progress_display import build_task_progress_display
 from gui.tasks.task_status_style import status_border_color
-from gui.tasks.task_thumbnail_request import build_thumbnail_request
 from gui.tasks.task_terminal_display import (
     build_failed_display,
     build_finished_display,
@@ -88,14 +87,15 @@ class TaskWidget(QFrame):
     clicked = pyqtSignal(int, int)  # Click signal (task_id, keyboard_modifiers).
     right_clicked = pyqtSignal(int, object)  # Context-menu signal (task_id, global QPoint).
     
-    def __init__(self, task_id, url, settings, parent=None):
+    def __init__(self, task_id, url, settings, parent=None, *, thumbnail_loader):
         super().__init__(parent)
         self.task_id = task_id
         self.url = url
         self.settings = settings
-        self.network_manager = QNetworkAccessManager(self)  # Used for asynchronous image downloads.
-        self.network_manager.finished.connect(self.on_thumbnail_downloaded)
-        self.pending_reply = None  # Active network request.
+        self.thumbnail_loader = thumbnail_loader
+        self._thumbnail_token = None
+        self._thumbnail_url = None
+        self._thumbnail_delivered = False
         self._selected = False  # Selection state.
         self._base_border_color = None  # Default border color for the current state.
         self.setup_ui()
@@ -166,14 +166,9 @@ class TaskWidget(QFrame):
         return text_group
 
     def _create_button_container(self):
-        self.btn_container = QWidget()
-        self.btn_container.setStyleSheet(
-            f"background: {colors.COLOR_TRANSPARENT}; border: none;"
-        )
-        self.btn_layout = QHBoxLayout(self.btn_container)
-        self.btn_layout.setContentsMargins(0, 0, 0, 0)
-        self.btn_layout.setSpacing(5)
-        self.btn_layout.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        self.btn_container = TaskActionBar(
+            self.task_id, self._signal_for_button_action, self.create_action_button)
+        self.btn_layout = self.btn_container.button_layout
         return self.btn_container
 
     def _create_progress_row(self):
@@ -244,15 +239,11 @@ class TaskWidget(QFrame):
     
     def create_action_button(self, icon_name, tooltip, callback, color=None):
         """Create an action button with a QtAwesome icon."""
-        btn = QPushButton()
-        btn.setFixedSize(BUTTON_SIZE, BUTTON_SIZE)
-        btn.setIcon(qta.icon(icon_name, color=color or colors.COLOR_ICON_DEFAULT))
-        btn.setIconSize(QSize(int(BUTTON_SIZE * 1), int(BUTTON_SIZE * 1)))
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.setToolTip(tooltip)
-        btn.clicked.connect(callback)
-        btn.setStyleSheet(styles.ACTION_BUTTON_STYLE)
-        return btn
+        return create_button(
+            callback, fixed_size=(BUTTON_SIZE, BUTTON_SIZE),
+            icon_name=icon_name, icon_color=color or colors.COLOR_ICON_DEFAULT,
+            icon_size=(BUTTON_SIZE, BUTTON_SIZE), tooltip=tooltip,
+            style=styles.ACTION_BUTTON_STYLE)
 
     def apply_theme(self) -> None:
         """Refresh card, label, progress, and action styles for the active theme."""
@@ -298,25 +289,8 @@ class TaskWidget(QFrame):
     
     def update_buttons(self, state):
         """Refresh action buttons for the current task status."""
-        while self.btn_layout.count():
-            item = self.btn_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        self.btn_container.apply_specs(get_task_button_specs(state))
 
-        for spec in get_task_button_specs(state):
-            def make_callback(sig):
-                return lambda: sig.emit(self.task_id)
-
-            signal = self._signal_for_button_action(spec.action)
-            btn = self.create_action_button(
-                spec.icon_name,
-                spec.tooltip,
-                make_callback(signal),
-                spec.color,
-            )
-            self.btn_layout.addWidget(btn)
-    
     def set_status(self, status):
         """Set status and refresh the UI."""
         self.current_status = status
@@ -362,44 +336,29 @@ class TaskWidget(QFrame):
             if self.current_status == TaskStatus.FINISHED:
                 self.status_label.setText(STR.STATUS_COMPLETED)
 
-        if self.pending_reply:
-            self.pending_reply.abort()
-            self.pending_reply = None
-
+        if display.thumbnail_url == self._thumbnail_url and (self._thumbnail_token is not None or self._thumbnail_delivered):
+            return  # Reuse an in-flight request or an already displayed thumbnail.
+        self.thumbnail_loader.cancel(self._thumbnail_token)
+        self._thumbnail_token = None
+        self._thumbnail_url = display.thumbnail_url
+        self._thumbnail_delivered = False
         if display.thumbnail_url:
             self.thumb_label.setText(STR.STATUS_WAITING_DOTS)
-            request = build_thumbnail_request(display.thumbnail_url)
-            self.pending_reply = self.network_manager.get(request)
+            self._thumbnail_token = self.thumbnail_loader.subscribe(display.thumbnail_url, self)
         else:
             self.thumb_label.setText(STR.STATUS_NO_IMAGE)
-    
-    @pyqtSlot(QNetworkReply)
-    def on_thumbnail_downloaded(self, reply):
-        """Handle completed thumbnail downloads."""
-        if reply != self.pending_reply:
-            # Ignore responses for older requests.
-            reply.deleteLater()
+
+    def on_thumbnail_loaded(self, token, pixmap):
+        """Apply only the current subscription; the loader owns network resources."""
+        if token != self._thumbnail_token:
             return
-        
-        self.pending_reply = None
-        
-        if reply.error() == QNetworkReply.NoError:
-            try:
-                data = reply.readAll()
-                pix = QPixmap()
-                if pix.loadFromData(data):
-                    pix = pix.scaled(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                    self.thumb_label.setPixmap(pix)
-                else:
-                    self.thumb_label.setText(STR.STATUS_NO_IMAGE)
-            except Exception as e:
-                log.warning(f"썸네일 로드 실패 (task_id={self.task_id}): {e}", exc_info=True)
-                self.thumb_label.setText(STR.STATUS_NO_IMAGE)
-        else:
+        self._thumbnail_token = None
+        if pixmap is None:
             self.thumb_label.setText(STR.STATUS_NO_IMAGE)
-        
-        reply.deleteLater()
-    
+        else:
+            self.thumb_label.setPixmap(pixmap)
+            self._thumbnail_delivered = True
+
     def _apply_terminal_display(self, display):
         """Apply a terminal task-state display plan to the widget."""
         self.set_status(display.status)

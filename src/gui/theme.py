@@ -46,7 +46,11 @@ def build_qt_palette() -> QPalette:
 
 
 def apply_application_theme(theme_name: str | None) -> str:
-    """Activate theme colors, rebuild QSS, and update the QApplication palette."""
+    """Reuse matching QSS while always applying the current application's palette.
+
+    Styles may already be active before a QApplication exists. Palette setup
+    must therefore remain independent of the stylesheet cache.
+    """
     active_theme = styles.apply_theme(theme_name)
     app = QApplication.instance()
     if app is not None:

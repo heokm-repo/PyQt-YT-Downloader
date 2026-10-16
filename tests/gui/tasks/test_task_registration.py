@@ -15,6 +15,7 @@ from gui.tasks.task_registration import (
     build_task_registration_plan,
     register_download_task,
 )
+from data.task_collection import TaskCollection
 
 
 class FakeLabel:
@@ -82,7 +83,7 @@ class TaskRegistrationTests(unittest.TestCase):
         layout = FakeLayout()
         task_widgets = {}
         connected = []
-        tasks = []
+        tasks = TaskCollection()
         scheduler = FakeScheduler()
         parent = object()
         settings = {"format": "mp4"}
@@ -111,7 +112,8 @@ class TaskRegistrationTests(unittest.TestCase):
         self.assertEqual(task.id, 12)
         self.assertEqual(task.video_id, "12")
         self.assertEqual(task.extractor, "youtube")
-        self.assertEqual(tasks, [task])
+        self.assertEqual(list(tasks), [task])
+        self.assertIs(tasks.get(12), task)
         self.assertIsNot(task.settings, scheduler.added[0][3])
         self.assertIsNot(task.settings, settings)
         self.assertEqual(

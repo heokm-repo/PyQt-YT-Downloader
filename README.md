@@ -115,13 +115,28 @@ pip install -r requirements-dev.txt
 .\build.bat
 ```
 
-The built executable is created in `dist/`.
+The finished installer is saved as `output/Setup_YTDownloader_v<version>.exe`.
+A successful build replaces the installer for the same version; failed builds
+preserve the previous installer and other files in `output/`.
+Each build uses a **new** workspace under `build/releases/` for the application,
+logs, an input snapshot, and a SHA-256 manifest. `--output` selects this workspace,
+not the final installer directory. The build stops on any failure.
+Build stages and tool output are shown live in the console and saved to log files.
+Workspaces are retained until explicitly cleaned up.
+The build implementation lives in `build_scripts/`; `build.bat` and `build.sh`
+remain the entry points.
+The verified dependency versions are pinned in `constraints-build.txt`.
+
+Inno Setup 6 is required for installer creation; use `ISCC_PATH` to select its
+compiler. To explicitly build only the application, run `build.bat --skip-installer`.
+`build.sh` provides the same workflow for Git Bash on Windows, not a Linux/macOS build.
 
 ## Test
 
 ```powershell
 pip install -r requirements-dev.txt
 python -m pytest
+python -B -m tests.check_locales
 ```
 
 ## Disclaimer

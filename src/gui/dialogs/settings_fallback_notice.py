@@ -3,6 +3,7 @@
 from typing import Any
 
 from gui.dialogs.messages import show_warning
+from locales.strings import STR
 
 
 def build_download_folder_fallback_message(template: str, notice: Any) -> str:
@@ -10,7 +11,7 @@ def build_download_folder_fallback_message(template: str, notice: Any) -> str:
     return template.format(
         old_path=notice.original_path,
         new_path=notice.fallback_path,
-        reason=notice.reason,
+        reason=getattr(STR, getattr(notice, 'reason_key', None) or '', notice.reason),
     )
 
 

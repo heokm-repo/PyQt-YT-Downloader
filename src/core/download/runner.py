@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 from constants import (
-    ERROR_INVALID_URL,
     MSG_DOWNLOAD_COMPLETE,
     MSG_PAUSED_BY_USER,
     STATUS_FINISHED,
@@ -35,10 +34,7 @@ from utils.settings_store import get_download_folder
 from utils.utils import get_ffmpeg_path, is_youtube_url
 
 
-OUTPUT_PATH_VERIFICATION_ERROR = "Downloaded output path could not be verified"
-
-
-def download_video_with_result(
+def download_single_video_with_result(
     url,
     settings,
     progress_hook,
@@ -49,7 +45,7 @@ def download_video_with_result(
 ) -> DownloadResult:
     """Download a single URL and return its exact final output path."""
     if not url:
-        return DownloadResult(False, ERROR_INVALID_URL)
+        return DownloadResult(False, STR.ERR_INVALID_URL)
 
     if is_youtube_url(url):
         clean_url, is_playlist = _sanitize_url(url)
@@ -77,6 +73,9 @@ def download_video_with_result(
     try:
         wrapper = YtDlpWrapper(ytdlp_path, ffmpeg_path)
 
+        if settings.get('_media_info_filename'):
+            ydl_opts['load_info_filename'] = settings['_media_info_filename']
+
         def handle_raw_metadata(info):
             mapped = build_metadata_result(info, clean_url, is_playlist)
             selected_audio_bitrate = mapped.get("audio_bitrate")
@@ -93,7 +92,8 @@ def download_video_with_result(
             save_path,
         )
         if resume_output:
-            remove_task_workspace(workspace)
+            if not settings.get('_media_info_filename'):
+                remove_task_workspace(workspace)
             progress_hook({"status": STATUS_FINISHED, "filename": resume_output})
             return DownloadResult(True, MSG_DOWNLOAD_COMPLETE, resume_output)
 
@@ -107,7 +107,8 @@ def download_video_with_result(
                 ready_source,
                 ready_destination,
             ):
-                remove_task_workspace(workspace)
+                if not settings.get('_media_info_filename'):
+                    remove_task_workspace(workspace)
                 progress_hook(
                     {"status": STATUS_FINISHED, "filename": ready_destination}
                 )
@@ -140,13 +141,15 @@ def download_video_with_result(
             workspace_output = ""
 
         if success:
+            if len(getattr(wrapper, 'final_output_paths', ())) > 1:
+                return DownloadResult(False, STR.ERR_UNEXPECTED_OUTPUTS)
             if not workspace_output:
                 workspace_output = verified_workspace_output_path(
                     str(wrapper.final_output_path or ""),
                     workspace,
                 )
             if not workspace_output:
-                return DownloadResult(False, OUTPUT_PATH_VERIFICATION_ERROR)
+                return DownloadResult(False, STR.ERR_OUTPUT_PATH_VERIFY)
             if not ready_source:
                 final_name = (
                     f"{Path(workspace_output).stem}."
@@ -183,7 +186,7 @@ def download_video_with_result(
             if not finalization.success:
                 return DownloadResult(
                     False,
-                    f"Media finalization failed: {finalization.error}",
+                    STR.ERR_MEDIA_FINALIZATION_FMT.format(error=finalization.error),
                     workspace_output,
                 )
             final_path = verified_download_output_path(
@@ -191,8 +194,9 @@ def download_video_with_result(
                 save_path,
             )
             if not final_path:
-                return DownloadResult(False, OUTPUT_PATH_VERIFICATION_ERROR)
-            remove_task_workspace(workspace)
+                return DownloadResult(False, STR.ERR_OUTPUT_PATH_VERIFY)
+            if not settings.get('_media_info_filename'):
+                remove_task_workspace(workspace)
             progress_hook({"status": STATUS_FINISHED, "filename": final_path})
             return DownloadResult(True, MSG_DOWNLOAD_COMPLETE, final_path)
 
@@ -201,8 +205,40 @@ def download_video_with_result(
         return DownloadResult(False, message)
     except Exception as exc:
         error_msg = str(exc)
-        if MSG_PAUSED_BY_USER in error_msg:
+        if isinstance(exc, InterruptedError) or MSG_PAUSED_BY_USER in error_msg:
             return DownloadResult(False, MSG_PAUSED_BY_USER)
 
         log.error(f"Download Error: {error_msg}", exc_info=True)
         return DownloadResult(False, error_msg)
+
+
+def download_video_with_result(
+    url, settings, progress_hook, is_resume=False, stop_check=None,
+    metadata_hook=None, temp_identity=None,
+) -> DownloadResult:
+    """Execute one task, discovering non-YouTube posts before saving each video."""
+    if not url or is_youtube_url(url):
+        return download_single_video_with_result(
+            url, settings, progress_hook, is_resume, stop_check, metadata_hook, temp_identity,
+        )
+    from core.download.media_batch import run_media_batch
+    try:
+        ytdlp_path = get_ytdlp_path()
+        if not ytdlp_path:
+            return DownloadResult(False, STR.ERR_YTDLP_RESTART)
+        save_path = get_download_folder(settings)
+        ffmpeg_path = get_ffmpeg_path()
+        opts = _build_all_options(
+            settings, save_path, ffmpeg_path, False, is_resume=is_resume, url=url,
+            temp_identity=temp_identity or settings.get('_temp_identity'),
+        )
+        return run_media_batch(
+            YtDlpWrapper(ytdlp_path, ffmpeg_path), url, settings, opts['temp_path'],
+            save_path, progress_hook, metadata_hook, stop_check, is_resume,
+            download_single_video_with_result,
+        )
+    except InterruptedError:
+        return DownloadResult(False, MSG_PAUSED_BY_USER)
+    except Exception as exc:
+        log.error('Media task failed: %s', exc, exc_info=True)
+        return DownloadResult(False, str(exc))

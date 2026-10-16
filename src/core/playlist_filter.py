@@ -1,48 +1,32 @@
 """Playlist filtering helpers."""
 
-from typing import Protocol, Sequence
+from typing import Iterable, Protocol, Sequence
+
+from data.duplicate_checker import active_duplicate_keys
 
 
 class HistoryLookup(Protocol):
-    def is_downloaded(self, extractor: str, video_id: str, target_format: str) -> bool:
+    def find_downloaded_ids(self, extractor: str, video_ids: Sequence[str], target_format: str) -> set[str]:
         ...
 
 
 def filter_duplicate_videos(
     video_ids: Sequence[str],
     history_manager: HistoryLookup,
-    tasks: Sequence[object],
+    tasks: Iterable[object],
     target_format: str,
     extractor: str = "youtube",
 ) -> tuple[list[str], int]:
     """Filter playlist videos already downloaded or queued for the same format."""
-    duplicate_count = 0
-    filtered_ids: list[str] = []
-
-    for video_id in video_ids:
-        if history_manager.is_downloaded(extractor, video_id, target_format):
-            duplicate_count += 1
-            continue
-
-        if _is_queued_duplicate(tasks, extractor, video_id, target_format):
-            duplicate_count += 1
-            continue
-
-        filtered_ids.append(video_id)
-
-    return filtered_ids, duplicate_count
-
-
-def _is_queued_duplicate(
-    tasks: Sequence[object],
-    extractor: str,
-    video_id: str,
-    target_format: str,
-) -> bool:
-    return any(
-        getattr(task, "extractor", None) == extractor
-        and getattr(task, "video_id", None) == video_id
-        and (getattr(task, "settings", {}) or {}).get("format", "mp4") == target_format
-        and task.is_active()
-        for task in tasks
-    )
+    if not video_ids:
+        return [], 0
+    downloaded = history_manager.find_downloaded_ids(extractor, video_ids, target_format)
+    candidates = [video_id for video_id in video_ids if video_id not in downloaded]
+    if not candidates:
+        return [], len(video_ids)
+    active = active_duplicate_keys(tasks)
+    # Do not add accepted IDs to active: repeated new inputs retain their order
+    # and multiplicity, exactly as in the per-video implementation.
+    filtered_ids = [video_id for video_id in candidates
+                    if (extractor, video_id, target_format) not in active]
+    return filtered_ids, len(video_ids) - len(filtered_ids)

@@ -6,6 +6,7 @@ from typing import Any
 
 from constants import TaskStatus
 from utils.logger import log
+from locales.strings import STR
 
 
 class FailedDownloadAction(Enum):
@@ -13,6 +14,40 @@ class FailedDownloadAction(Enum):
     IGNORE_RESUMING = "ignore_resuming"
     PAUSE = "pause"
     FAIL = "fail"
+
+
+def completed_media_items(task):
+    return [item for item in (getattr(task, 'meta', {}) or {}).get('media_items', [])
+            if isinstance(item, dict) and item.get('state') == 'completed' and item.get('output_path')]
+
+
+def task_output_paths(task):
+    items = completed_media_items(task)
+    if items:
+        return list(dict.fromkeys(item['output_path'] for item in items))
+    return [task.output_path] if getattr(task, 'output_path', '') else []
+
+
+def media_completion_summary(task):
+    items = (getattr(task, 'meta', {}) or {}).get('media_items')
+    if items is None:
+        return ''
+    total = sum(item.get('kind') != 'image' for item in items)
+    return (STR.STATUS_COMPLETED_COUNT.format(done=len(completed_media_items(task)), total=total)
+            if total > 1 else STR.STATUS_COMPLETED)
+
+
+def media_failure_summary(task, message):
+    items = (getattr(task, 'meta', {}) or {}).get('media_items') or []
+    total = sum(item.get('kind') != 'image' for item in items)
+    return (STR.STATUS_FAILED_COUNT_FMT.format(done=len(completed_media_items(task)), total=total, message=message)
+            if total > 1 else STR.STATUS_FAILED_FMT.format(message=message))
+
+
+def record_completed_media(task, history_manager, default_format='mp4'):
+    for item in completed_media_items(task):
+        history_manager.add_to_history(item['extractor'], item['id'], item,
+                                       task.settings.get('format', default_format))
 
 
 def persist_download_output(task: Any, final_path: str, success: bool) -> str:
@@ -27,7 +62,8 @@ def persist_download_output(task: Any, final_path: str, success: bool) -> str:
 
     if success and os.path.exists(resolved_path):
         try:
-            task.meta["file_size"] = os.path.getsize(resolved_path)
+            task.meta["file_size"] = sum(os.path.getsize(path) for path in task_output_paths(task)
+                                         if os.path.isfile(path))
         except Exception as exc:
             log.warning(f"Failed to store file size: {exc}")
 
@@ -58,8 +94,12 @@ def record_successful_download(
         return None
 
     task.status = TaskStatus.FINISHED
+    task.meta.pop('download_error', None)
     task_format = task.settings.get("format", default_format)
-    history_manager.add_to_history(task.extractor, task.video_id, task.meta, task_format)
+    if task.meta.get('media_items'):
+        record_completed_media(task, history_manager, default_format)
+    else:
+        history_manager.add_to_history(task.extractor, task.video_id, task.meta, task_format)
     return task.meta.get("file_size")
 
 
@@ -86,5 +126,8 @@ def apply_failed_download_result(
 
     if task:
         task.status = TaskStatus.FAILED
+        task.meta['download_error'] = message
     widget.set_failed(message)
+    if task and task.meta.get('media_items'):
+        widget.status_label.setText(media_failure_summary(task, message))
     return action

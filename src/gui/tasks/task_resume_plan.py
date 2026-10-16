@@ -28,6 +28,6 @@ def build_resume_task_plan(
         resume=True,
     )
     output_path = getattr(task, "output_path", "")
-    if output_path:
+    if output_path and not meta.get('media_items'):
         settings["_resume_output_path"] = output_path
     return ResumeTaskPlan(url=url, settings=settings, meta=meta)

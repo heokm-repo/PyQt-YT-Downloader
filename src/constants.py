@@ -15,7 +15,7 @@ KEY_LANGUAGE = 'language'
 KEY_THEME = 'theme'
 
 # Defaults
-APP_VERSION = 'v2.3.3'  # App version
+APP_VERSION = 'v2.4.0'  # App version
 DEFAULT_VIDEO_QUALITY = 'best'
 DEFAULT_AUDIO_QUALITY = 'best'
 DEFAULT_FORMAT = 'mp4'
@@ -96,7 +96,6 @@ BYTES_PER_KB = 1024  # Kilobytes
 BYTES_PER_MB = 1024 * 1024  # Megabytes
 
 # Download-related logic messages
-ERROR_INVALID_URL = "Invalid URL"
 MSG_PAUSED_BY_USER = "PAUSED_BY_USER"
 MSG_DOWNLOAD_COMPLETE = "완료" # Logic key used in download_handler.py
 
@@ -108,11 +107,6 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'  # SQLite date format
 
 # Playlist constants
 PLAYLIST_VIDEO_URL_TEMPLATE = "https://www.youtube.com/watch?v={video_id}"
-
-# Metadata defaults
-DEFAULT_PLAYLIST_TITLE = "PlayList"
-DEFAULT_UPLOADER = "Unknown"
-DEFAULT_VIDEO_TITLE = "No Title"
 
 # Temporary file directory
 YTDL_TEMP_DIR = '.ytdl_temp'
@@ -204,9 +198,6 @@ WINDOWS_SYSTEM_DRIVE_ENV_VAR = 'SystemDrive'
 WINDOWS_SYSTEM_DRIVE_FALLBACK = 'C:'
 WINDOWS_PROTECTED_DEFAULT_FOLDERS = ('Program Files', 'Program Files (x86)', 'Windows')
 DOWNLOAD_FOLDER_WRITE_TEST_PREFIX = '.write_test_'
-ERR_DOWNLOAD_FOLDER_PROTECTED = 'Protected Windows system folder cannot be used as a download folder.'
-ERR_DOWNLOAD_FOLDER_EMPTY = 'Download folder path is empty.'
-ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY = 'Path is not a directory.'
 
 # Bin Manager Constants
 YTDLP_BINARY = 'yt-dlp.exe'

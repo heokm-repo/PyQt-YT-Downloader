@@ -5,6 +5,7 @@ import os
 
 from constants import YTDL_TEMP_DIR
 from core.download.workspace_identity import is_workspace_id
+from locales.strings import STR
 
 
 TEMP_WORKSPACE_ID_LENGTH = 16
@@ -45,5 +46,5 @@ def task_temp_path(
 def task_workspace_path(save_path: str, workspace_id: object) -> str:
     """Return the unique workspace path for a current task UUID."""
     if not is_workspace_id(workspace_id):
-        raise ValueError("Invalid task workspace ID")
+        raise ValueError(STR.ERR_WORKSPACE_ID)
     return os.path.join(save_path, YTDL_TEMP_DIR, str(workspace_id))

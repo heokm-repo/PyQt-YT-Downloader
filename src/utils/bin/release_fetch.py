@@ -9,6 +9,7 @@ from constants import HTTP_API_TIMEOUT_SEC
 from utils.integrity import normalize_sha256_digest
 from utils.logger import log
 from utils.url_security import redact_url_for_log, redact_urls_in_text
+from locales.strings import STR
 
 
 ReleaseInfoParser = Callable[
@@ -34,16 +35,18 @@ def _fetch_latest_github_release(
     )
     try:
         response = requests.get(api_url, timeout=HTTP_API_TIMEOUT_SEC)
-        response.raise_for_status()
-        version, download_url, digest = release_info(response.json())
+        try:
+            response.raise_for_status()
+            version, download_url, digest = release_info(response.json())
+        finally:
+            response.close()
     except requests.RequestException as exc:
         raise ReleaseCheckError(
-            f"Failed to check {display_name} version: "
-            f"{redact_urls_in_text(exc)}"
+            STR.ERR_RELEASE_CHECK_FMT.format(name=display_name, error=redact_urls_in_text(exc))
         ) from exc
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         raise ReleaseCheckError(
-            f"Invalid {display_name} release response: {exc}"
+            f"{STR.ERR_RELEASE_INVALID_FMT.format(name=display_name)}: {redact_urls_in_text(exc)}"
         ) from exc
 
     if not version or not download_url:
@@ -87,6 +90,6 @@ def check_latest_github_release_strict(
     )
     if not normalize_sha256_digest(digest):
         raise ReleaseCheckError(
-            f"{display_name} release asset is missing a trusted SHA-256 digest"
+            STR.ERR_RELEASE_TRUST_FMT.format(name=display_name)
         )
     return version, download_url, digest

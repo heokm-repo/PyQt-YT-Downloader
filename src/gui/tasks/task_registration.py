@@ -1,9 +1,10 @@
 """Build and execute task registration for the main window."""
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, MutableMapping, MutableSequence, Optional
+from typing import Any, Callable, Mapping, MutableMapping, Optional
 
 from data.models import DownloadTask
+from data.task_collection import TaskCollection
 from gui.tasks.task_widget_registry import create_registered_task_widget
 from gui.tasks.task_workspace_payload import build_workspace_execution_settings
 
@@ -51,14 +52,19 @@ def register_download_task(
     task_layout: Any,
     task_widgets: MutableMapping[int, Any],
     connect_signals: Callable[[Any], None],
-    tasks: MutableSequence[DownloadTask],
+    tasks: TaskCollection,
     scheduler: Any,
     video_id: Optional[str] = None,
     extractor: str = "unknown",
     title_override: Optional[str] = None,
     widget_factory: Optional[Callable[[int, str, dict, Any], Any]] = None,
+    *,
+    insert_into_layout: bool = True,
+    thumbnail_loader=None,
 ) -> DownloadTask:
     """Create the task, register its widget, store it, and enqueue it."""
+    if tasks.get(task_id) is not None:
+        raise ValueError(f'Duplicate task ID: {task_id}')
     registration = build_task_registration_plan(
         task_id,
         url,
@@ -78,9 +84,11 @@ def register_download_task(
         task_widgets,
         connect_signals,
         widget_factory,
+        insert_into_layout=insert_into_layout,
+        thumbnail_loader=thumbnail_loader,
     )
 
-    tasks.append(registration.task)
+    tasks.add(registration.task)
     execution_settings = build_workspace_execution_settings(
         registration.task,
         registration.settings,

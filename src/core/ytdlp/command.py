@@ -94,8 +94,11 @@ def build_command(
     args.append("--continue")
     args.append("--fragment-retries")
     args.append(YTDLP_RETRIES)
-    args.append("--")
-    args.append(url)
+    if options.get("load_info_filename"):
+        args.extend(["--load-info-json", options["load_info_filename"]])
+    else:
+        args.append("--")
+        args.append(url)
 
     return args
 

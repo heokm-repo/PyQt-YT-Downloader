@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, Sequence
+from gui.dialogs.main_window_messages import duplicate_overwrite_message
 
 from gui.tasks.duplicate_check_target import (
     DuplicateCheckTarget,
@@ -56,20 +57,20 @@ def review_single_video_duplicate(
     if not duplicate_target:
         return SingleVideoDuplicateDecision(False)
 
-    is_duplicate, message, duplicate_task = duplicate_checker.is_duplicate(
+    result = duplicate_checker.check(
         duplicate_target.extractor,
         duplicate_target.video_id,
         -1,
         list(tasks),
         duplicate_target.target_format,
     )
-    if not is_duplicate:
+    if not result.is_duplicate:
         return SingleVideoDuplicateDecision(False)
 
     if confirm_duplicate is None:
-        return SingleVideoDuplicateDecision(True, duplicate_task)
+        return SingleVideoDuplicateDecision(True, result.duplicate_task)
 
     return SingleVideoDuplicateDecision(
-        not confirm_duplicate(message),
-        duplicate_task,
+        not confirm_duplicate(duplicate_overwrite_message(result)),
+        result.duplicate_task,
     )

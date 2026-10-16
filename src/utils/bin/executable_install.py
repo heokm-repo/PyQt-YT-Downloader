@@ -46,6 +46,10 @@ def download_and_install_executable_binary(
         remove_if_exists(temp_path)
         return False
 
+    if check_cancel and check_cancel():
+        remove_if_exists(temp_path)
+        return False
+
     install_downloaded_binary(
         temp_path,
         final_path,

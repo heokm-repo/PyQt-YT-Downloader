@@ -22,10 +22,6 @@ import os
 import sys
 
 SUPPORTED_PLATFORM = 'win32'
-UNSUPPORTED_PLATFORM_MESSAGE = (
-    "YTDownloader is supported on Windows only. "
-    "Please run this version on Windows 10 or later."
-)
 
 
 def is_supported_platform(platform_name=None):
@@ -145,30 +141,34 @@ def create_application(argv):
     return app
 
 
-def run_startup_flow():
+def run_startup_flow(initial_settings=None):
     """Run binary initialization and self-update startup flows."""
     from startup.app_update import run_app_update_flow
     from startup.binary_flow import run_startup_binary_flow
+    from utils.settings_store import load_settings
 
     try:
-        app_update_info = run_startup_binary_flow(
+        settings = initial_settings if initial_settings is not None else load_settings()
+        result = run_startup_binary_flow(
             QDialog.Accepted,
             show_error_message,
             log,
+            initial_settings=settings,
         )
         run_app_update_flow(
-            app_update_info,
+            result.app_update_info,
             QDialog.Accepted,
             QApplication,
             show_error_message,
             log,
         )
+        return load_settings() if result.settings_changed else settings
     except Exception as exc:
         log.error(f"Binary initialization error: {exc}", exc_info=True)
         show_error_message(
             STR.TITLE_INIT_FAIL,
             STR.ERR_INIT_GENERIC,
-            f"오류: {str(exc)}",
+            STR.ERR_UNEXPECTED_FMT.format(error=exc),
         )
         sys.exit(1)
 
@@ -192,7 +192,7 @@ def create_main_window(initial_settings=None):
         show_error_message(
             STR.TITLE_ERROR,
             STR.ERR_START_FAIL,
-            f"오류: {str(exc)}",
+            STR.ERR_UNEXPECTED_FMT.format(error=exc),
         )
         log.error(f"윈도우 생성 오류: {exc}", exc_info=True)
         sys.exit(1)
@@ -202,7 +202,7 @@ def main():
     """Application entry point."""
     try:
         if not is_supported_platform():
-            print(f"[Unsupported Platform] {UNSUPPORTED_PLATFORM_MESSAGE}")
+            print(f"[{STR.TITLE_ERROR}] {STR.ERR_UNSUPPORTED_PLATFORM}")
             sys.exit(1)
 
         configure_startup_paths()
@@ -224,10 +224,7 @@ def main():
 
         settings = load_settings()
         apply_application_theme(settings.get(KEY_THEME, DEFAULT_THEME))
-        run_startup_flow()
-
-        settings = load_settings()
-        apply_application_theme(settings.get(KEY_THEME, DEFAULT_THEME))
+        settings = run_startup_flow(settings)
         window = create_main_window(settings)
         window.show()
         sys.exit(app.exec_())
@@ -236,7 +233,7 @@ def main():
         show_error_message(
             STR.TITLE_FATAL,
             STR.ERR_FATAL,
-            f"오류: {str(exc)}",
+            STR.ERR_UNEXPECTED_FMT.format(error=exc),
         )
         sys.exit(1)
 

@@ -31,7 +31,7 @@ class ContextMenuBuilder:
         menu = QMenu(self.parent)
         menu.setStyleSheet(styles.TASK_CONTEXT_MENU_STYLE)
         count = len(selected_tasks)
-        suffix = f" ({count}개)" if count > 1 else ""
+        suffix = f" ({count})" if count > 1 else ""
         visibility = build_context_menu_visibility(
             selected_tasks,
             getattr(self.parent, 'tasks', None),

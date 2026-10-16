@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from unittest.mock import Mock, patch
 
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -55,6 +56,28 @@ class ThemeTests(unittest.TestCase):
             palette.color(QPalette.HighlightedText),
             QColor(colors.COLOR_ON_ACCENT),
         )
+
+    def test_repeated_theme_reuses_stylesheet_objects(self):
+        styles.apply_theme(THEME_DARK)
+        first = styles.CENTRAL_WIDGET_STYLE
+        styles.apply_theme(THEME_DARK)
+        self.assertIs(styles.CENTRAL_WIDGET_STYLE, first)
+        styles.apply_theme(THEME_LIGHT)
+        self.assertIsNot(styles.CENTRAL_WIDGET_STYLE, first)
+
+    def test_cached_qss_still_applies_palette_to_new_application(self):
+        # Exercise the pre-QApplication call followed by two application lifetimes.
+        with patch('gui.theme.QApplication') as application:
+            application.instance.return_value = None
+            apply_application_theme(THEME_DARK)
+            first_style = styles.CENTRAL_WIDGET_STYLE
+            for app in (Mock(), Mock()):
+                application.instance.return_value = app
+                apply_application_theme(THEME_DARK)
+                app.setPalette.assert_called_once()
+                palette = app.setPalette.call_args.args[0]
+                self.assertEqual(palette.color(QPalette.Window), QColor(colors.COLOR_SURFACE))
+                self.assertIs(styles.CENTRAL_WIDGET_STYLE, first_style)
 
 
 if __name__ == "__main__":

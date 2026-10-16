@@ -16,7 +16,7 @@ from gui.settings.settings_form_data import (
 )
 from gui.settings.settings_format_options import build_format_combo_entries, normalize_format_selection
 from gui.settings.settings_checkbox import SettingsCheckBox
-from gui.widgets.button_sizing import set_text_button_minimum_width
+from gui.widgets.buttons import create_button
 from resources import colors, styles
 from resources.styles import (
     SETTINGS_FONT_FAMILY,
@@ -93,13 +93,12 @@ class SettingsStepper(QWidget):
         return super().eventFilter(watched, event)
 
     def _create_step_button(self, icon_name: str, delta: int) -> QPushButton:
-        button = QPushButton()
+        button = create_button(
+            lambda: self.setValue(self._value + delta),
+            fixed_size=(self._button_size, self._button_size),
+            icon_name=icon_name, icon_color=colors.COLOR_ICON_DEFAULT,
+            icon_size=(self._icon_size, self._icon_size))
         button.setObjectName("SettingsStepperButton")
-        button.setFixedSize(self._button_size, self._button_size)
-        button.setCursor(Qt.PointingHandCursor)
-        button.setIcon(qta.icon(icon_name, color=colors.COLOR_ICON_DEFAULT))
-        button.setIconSize(QSize(self._icon_size, self._icon_size))
-        button.clicked.connect(lambda: self.setValue(self._value + delta))
         return button
 
     def minimum(self) -> int:
@@ -186,20 +185,12 @@ def create_settings_button(
     minimum_width_padding: int | None = None,
 ) -> QPushButton:
     """Create a styled settings button from a button spec."""
-    button = QPushButton(spec.label)
-    button.setFont(QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE))
-    button.setCursor(Qt.PointingHandCursor)
-    button.setDefault(False)
-    button.setAutoDefault(False)
-    if fixed_size:
-        button.setFixedSize(*fixed_size)
-    if fixed_height is not None:
-        button.setFixedHeight(fixed_height)
-    if minimum_width_padding is not None:
-        set_text_button_minimum_width(button, minimum_width_padding)
-    button.setStyleSheet(style_by_key[spec.style_key])
-    button.clicked.connect(callback_by_action[spec.action])
-    return button
+    return create_button(
+        callback_by_action[spec.action], text=spec.label,
+        font=QFont(SETTINGS_FONT_FAMILY, SETTINGS_SECTION_FONT_SIZE),
+        fixed_size=fixed_size, fixed_height=fixed_height,
+        text_padding=minimum_width_padding, style=style_by_key[spec.style_key],
+        auto_default=False)
 
 
 def create_language_combo(language_code: str | None) -> QComboBox:

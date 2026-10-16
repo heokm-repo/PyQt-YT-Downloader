@@ -11,6 +11,7 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from core.download.metadata_mapper import build_metadata_result, estimate_media_sizes, selected_download_streams, selected_audio_bitrate
+from locales.strings import STR
 
 
 class MetadataMapperTests(unittest.TestCase):
@@ -37,8 +38,8 @@ class MetadataMapperTests(unittest.TestCase):
             is_playlist=True,
         )
 
-        self.assertEqual(metadata["title"], "PlayList")
-        self.assertEqual(metadata["uploader"], "Unknown")
+        self.assertEqual(metadata["title"], STR.DEFAULT_PLAYLIST_TITLE)
+        self.assertEqual(metadata["uploader"], STR.DEFAULT_UPLOADER)
         self.assertTrue(metadata["is_playlist"])
         self.assertEqual(metadata["video_count"], 2)
         self.assertEqual(metadata["extractor"], "youtube")

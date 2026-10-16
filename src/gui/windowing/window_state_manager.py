@@ -1,37 +1,12 @@
 """Utilities for saving and restoring multi-window state under the window_states settings key."""
-import os
-import json
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect
 
-from utils.utils import get_user_data_path
+from utils.settings_store import read_settings_values, update_settings
 from utils.logger import log
 
-_SETTINGS_FILE = 'settings.json'
 _WINDOW_STATES_KEY = 'window_states'
-
-
-def _load_all_settings() -> dict:
-    """Read the full settings.json file as a dictionary."""
-    path = os.path.join(get_user_data_path(), _SETTINGS_FILE)
-    try:
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception as e:
-        log.error(f"설정 파일 로드 실패: {e}", exc_info=True)
-    return {}
-
-
-def _save_all_settings(data: dict):
-    """Save the full settings.json file."""
-    path = os.path.join(get_user_data_path(), _SETTINGS_FILE)
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error(f"설정 파일 저장 실패: {e}", exc_info=True)
+_UNSET_STATE = object()
 
 
 def _is_visible_on_any_screen(rect: QRect) -> bool:
@@ -78,17 +53,12 @@ def save_window_state(window_name: str, window):
         'maximized': is_maximized
     }
 
-    all_settings = _load_all_settings()
-    if _WINDOW_STATES_KEY not in all_settings:
-        all_settings[_WINDOW_STATES_KEY] = {}
-
-    all_settings[_WINDOW_STATES_KEY][window_name] = state
-    _save_all_settings(all_settings)
+    update_settings({_WINDOW_STATES_KEY: {window_name: state}})
 
     log.debug(f"Window state saved: {window_name} = {state}")
 
 
-def load_window_state(window_name: str) -> dict | None:
+def load_window_state(window_name: str, settings: dict | None = None) -> dict | None:
     """
     Load a saved window state from settings.json.
     
@@ -98,12 +68,14 @@ def load_window_state(window_name: str) -> dict | None:
     Returns:
         A dict with x, y, width, height, and maximized, or None if no state was saved.
     """
-    all_settings = _load_all_settings()
+    all_settings = read_settings_values() if settings is None else settings
     states = all_settings.get(_WINDOW_STATES_KEY, {})
-    return states.get(window_name)
+    state = states.get(window_name) if isinstance(states, dict) else None
+    return state if isinstance(state, dict) else None
 
 
-def restore_window_state(window_name: str, window, default_width: int, default_height: int):
+def restore_window_state(window_name: str, window, default_width: int, default_height: int,
+                         *, state=_UNSET_STATE):
     """
     Apply a saved window state with safe restore behavior.
     
@@ -118,7 +90,8 @@ def restore_window_state(window_name: str, window, default_width: int, default_h
     Returns:
         True when saved state was restored, False when defaults were used.
     """
-    state = load_window_state(window_name)
+    if state is _UNSET_STATE:
+        state = load_window_state(window_name)
 
     if state is None:
         # No saved state: center with the default size.

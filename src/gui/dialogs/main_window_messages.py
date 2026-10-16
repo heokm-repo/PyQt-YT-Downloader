@@ -1,6 +1,22 @@
 """Message dialog helpers for main-window workflows."""
 
 from gui.dialogs.messages import ask_custom_question, ask_question, show_info, show_warning
+from constants import TaskStatus
+from data.duplicate_checker import DuplicateResult
+from locales.strings import STR
+
+
+def duplicate_overwrite_message(result: DuplicateResult) -> str:
+    """Render duplicate facts with the current language and existing wording."""
+    message = STR.MSG_DUP_ALREADY_DONE.format(format=result.target_format)
+    if result.duplicate_task is not None:
+        status = {
+            TaskStatus.WAITING: STR.STATUS_WAITING_DOTS,
+            TaskStatus.DOWNLOADING: STR.STATUS_DOWNLOADING_DOTS,
+            TaskStatus.PAUSED: STR.STATUS_PAUSED,
+        }.get(result.queue_status, STR.STATUS_IN_PROGRESS)
+        message += STR.MSG_DUP_IN_QUEUE.format(status=status)
+    return message + STR.MSG_DUP_ASK_OVERWRITE
 
 
 def playlist_error_text(error_msg: str, fallback_message: str) -> str:

@@ -15,14 +15,21 @@ class StartupCheckResult:
     error_message: str | None = None
 
 
-def load_startup_language(logger: Any) -> None:
+@dataclass(frozen=True)
+class StartupFlowResult:
+    app_update_info: tuple[bool, str | None, str | None, str | None]
+    settings_changed: bool = False
+
+
+def load_startup_language(logger: Any, settings: dict | None = None) -> None:
     """Load saved settings early so startup dialogs use the selected language."""
     try:
         from utils.settings_store import load_settings
         from constants import KEY_LANGUAGE, change_language
         from locales import DEFAULT_LANGUAGE
 
-        settings = load_settings()
+        if settings is None:
+            settings = load_settings()
         language = settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
         change_language(language)
         logger.info(f"Loaded language early: {language}")
@@ -70,8 +77,9 @@ def run_initial_binary_install(
     show_error_message: Callable[[str, str, str], None],
     logger: Any,
     binary_names: tuple[str, ...] | None = None,
-    setup_dialog_factory: Callable[[], Any] | None = None,
+    setup_dialog_factory: Callable[..., Any] | None = None,
     progress_dialog_factory: Callable[..., Any] | None = None,
+    initial_settings: dict | None = None,
 ) -> None:
     """Run first-launch setup and required binary download."""
     if setup_dialog_factory is None:
@@ -83,7 +91,8 @@ def run_initial_binary_install(
 
         progress_dialog_factory = DownloadProgressDialog
 
-    setup_dialog = setup_dialog_factory()
+    setup_dialog = (setup_dialog_factory() if initial_settings is None
+                    else setup_dialog_factory(initial_settings=initial_settings))
     if setup_dialog.exec_() != accepted_result:
         raise SystemExit(0) from None
 
@@ -185,15 +194,17 @@ def run_startup_binary_flow(
     accepted_result: int,
     show_error_message: Callable[[str, str, str], None],
     logger: Any,
-) -> tuple[bool, str | None, str | None, str | None]:
+    initial_settings: dict | None = None,
+) -> StartupFlowResult:
     """Run startup language, external binary checks, and binary updates."""
     from utils.bin.manager import (
         check_binary_presence,
         missing_binary_downloads,
     )
 
-    load_startup_language(logger)
+    load_startup_language(logger, initial_settings)
     startup_result = run_startup_checks()
+    settings_changed = False
 
     presence = check_binary_presence()
     if all(presence.values()):
@@ -222,6 +233,8 @@ def run_startup_binary_flow(
                 show_error_message,
                 logger,
                 binary_names=binary_names,
+                initial_settings=initial_settings,
             )
+            settings_changed = True
 
-    return startup_result.app_update_info
+    return StartupFlowResult(startup_result.app_update_info, settings_changed)

@@ -10,8 +10,9 @@ import os
 import re
 import subprocess
 import threading
+import time
 from json import JSONDecodeError, loads
-from queue import Empty, Queue
+from queue import Empty
 from typing import Callable, Dict, List, Optional, Tuple
 
 from constants import (
@@ -28,8 +29,11 @@ from constants import (
 from core.ytdlp.command import build_command
 from core.ytdlp.info_command import build_extract_info_command
 from core.ytdlp.info_parser import parse_info_output
+from core.ytdlp.info_process import communicate_cancellable
 from core.ytdlp.process_watchdog import ProcessWatchdog
+from core.ytdlp.output_reader import StdoutReader, StderrCapture
 from core.ytdlp.progress import parse_progress
+from locales.strings import STR
 from utils.logger import log
 from utils.url_security import redact_url_for_log, redact_urls_in_text
 
@@ -55,7 +59,9 @@ class YtDlpWrapper:
         self.ffmpeg_path = ffmpeg_path
         self.current_process: Optional[subprocess.Popen] = None
         self.final_output_path: Optional[str] = None
+        self.final_output_paths: list[str] = []
         self._process_kill_lock = threading.Lock()
+        self._stdout_reader = None
 
         self.destination_pattern = re.compile(
             r'\[(?:download|ExtractAudio|VideoConvertor|VideoRemuxer|ffmpeg)\]'
@@ -69,7 +75,7 @@ class YtDlpWrapper:
             return subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         return 0
 
-    def _start_download_process(self, args: List[str]) -> subprocess.Popen:
+    def _start_download_process(self, args: List[str], cwd=None) -> subprocess.Popen:
         process = subprocess.Popen(
             args,
             stdout=subprocess.PIPE,
@@ -79,6 +85,7 @@ class YtDlpWrapper:
             errors='replace',
             creationflags=self._download_creation_flags(),
             env=_ytdlp_environment(),
+            **({"cwd": cwd} if cwd else {}),
         )
         self.current_process = process
         return process
@@ -124,7 +131,7 @@ class YtDlpWrapper:
             except (OSError, subprocess.SubprocessError) as exc:
                 log.debug(f"Process termination cleanup failed: {exc}")
             finally:
-                if self.current_process is process:
+                if self.current_process is process and process and process.poll() is not None:
                     self.current_process = None
 
     def _drain_stderr(
@@ -141,6 +148,8 @@ class YtDlpWrapper:
                     output_list.append(line)
         except (OSError, ValueError) as exc:
             log.debug(f"stderr drain stopped: {exc}")
+            if isinstance(output_list, StderrCapture):
+                output_list.error = exc
 
     def _start_stderr_drain(
         self,
@@ -151,6 +160,7 @@ class YtDlpWrapper:
         thread = threading.Thread(
             target=self._drain_stderr,
             args=(process, output_list, activity_hook),
+            name='yt-dlp-stderr-reader',
             daemon=True,
         )
         thread.start()
@@ -238,26 +248,10 @@ class YtDlpWrapper:
     ) -> bool:
         current_file = None
         last_progress: dict = {}
-        stdout_queue: Queue[tuple[str, object | None]] = Queue()
-
-        def read_stdout() -> None:
-            try:
-                for raw_line in iter(process.stdout.readline, ''):
-                    if raw_line:
-                        if process_watchdog:
-                            process_watchdog.notify_activity()
-                        stdout_queue.put(("line", raw_line))
-            except (OSError, ValueError) as exc:
-                stdout_queue.put(("error", exc))
-            finally:
-                stdout_queue.put(("eof", None))
-
-        stdout_thread = threading.Thread(
-            target=read_stdout,
-            name="yt-dlp-stdout-reader",
-            daemon=True,
-        )
-        stdout_thread.start()
+        reader = StdoutReader(process.stdout, process_watchdog.notify_activity if process_watchdog else None)
+        self._stdout_reader = reader
+        stdout_queue = reader.queue
+        reader.start()
 
         try:
             while True:
@@ -283,7 +277,7 @@ class YtDlpWrapper:
                 if item_type == "error":
                     if isinstance(item, BaseException):
                         raise item
-                    raise RuntimeError("yt-dlp stdout reader failed")
+                    raise RuntimeError(STR.ERR_PROCESS_STDOUT_FMT.format(name="yt-dlp"))
                 if item_type == "eof":
                     if process_watchdog:
                         if process_watchdog.check_stop_requested():
@@ -296,6 +290,9 @@ class YtDlpWrapper:
                 line = raw_line.strip()
                 if line.startswith(YTDLP_FINAL_PATH_MARKER):
                     self.final_output_path = line[len(YTDLP_FINAL_PATH_MARKER):]
+                    if not hasattr(self, 'final_output_paths'):
+                        self.final_output_paths = []
+                    self.final_output_paths.append(self.final_output_path)
                     if process_watchdog:
                         process_watchdog.watch_output_path(self.final_output_path)
                     log.info(f"Final output path: {self.final_output_path}")
@@ -325,7 +322,7 @@ class YtDlpWrapper:
             self._kill_process(process)
             raise hook_error
         finally:
-            self._join_thread(stdout_thread, PROCESS_MONITOR_INTERVAL_SEC)
+            reader.close(PROCESS_MONITOR_INTERVAL_SEC)
 
         return False
 
@@ -353,7 +350,7 @@ class YtDlpWrapper:
 
         if process_watchdog.stop_requested.is_set():
             return False, MSG_PAUSED_BY_USER
-        return False, "Download timeout"
+        return False, STR.ERR_DOWNLOAD_TIMEOUT
 
     def _wait_for_download_result(
         self,
@@ -384,7 +381,12 @@ class YtDlpWrapper:
             return watchdog_result
 
         self.current_process = None
-        self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
+        # Full stderr is part of the error contract. Never seek a spool while
+        # its drain thread is still writing, even after the process has exited.
+        if isinstance(stderr_thread, threading.Thread):
+            stderr_thread.join()
+        else:
+            self._join_thread(stderr_thread, PROCESS_TERMINATE_WAIT_SEC)
         return self._result_from_process_exit(process, stderr_output)
 
     def _result_from_process_exit(
@@ -392,12 +394,14 @@ class YtDlpWrapper:
         process: subprocess.Popen,
         stderr_output: list[str],
     ) -> Tuple[bool, str]:
+        if isinstance(stderr_output, StderrCapture) and stderr_output.error is not None:
+            return False, STR.ERR_PROCESS_STDERR_FMT.format(name="yt-dlp", error=stderr_output.error)
         stderr = ''.join(stderr_output).strip()
         if stderr:
             log.warning(f"yt-dlp stderr: {redact_urls_in_text(stderr)}")
 
         if process.returncode != 0:
-            error_msg = f"yt-dlp exited with code {process.returncode}"
+            error_msg = STR.ERR_PROCESS_EXIT_FMT.format(name="yt-dlp", code=process.returncode)
             if stderr:
                 error_msg += f": {redact_urls_in_text(stderr)}"
             log.error(error_msg)
@@ -429,9 +433,11 @@ class YtDlpWrapper:
             (success, error message)
         """
         process = None
-        stderr_output: list[str] = []
+        stderr_output = StderrCapture()
+        stderr_thread = None
         process_watchdog: ProcessWatchdog | None = None
         self.final_output_path = None
+        self.final_output_paths = []
 
         try:
             args = self._build_command(url, options, is_resume)
@@ -479,22 +485,39 @@ class YtDlpWrapper:
             )
         except subprocess.SubprocessError as exc:
             self._kill_process(process)
-            error_msg = f"Subprocess error: {exc}"
+            error_msg = STR.ERR_SUBPROCESS_FMT.format(error=exc)
             log.error(error_msg)
             return False, error_msg
         except Exception as exc:
             self._kill_process(process)
-            error_msg = f"Unexpected error: {exc}"
+            error_msg = STR.ERR_UNEXPECTED_FMT.format(error=exc)
             log.error(error_msg)
             return False, error_msg
         finally:
+            # A failed kill must not turn into an abandoned child. Keep this
+            # worker alive and retry; GUI shutdown waits asynchronously.
+            if process is not None and hasattr(process, 'poll'):
+                while process.poll() is None:
+                    self._kill_process(process)
+                    if process.poll() is None:
+                        time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
             if process_watchdog:
                 process_watchdog.close(THREAD_JOIN_SHORT_TIMEOUT_SEC)
+            if self._stdout_reader:
+                self._stdout_reader.close(None)
+                self._stdout_reader = None
+            if isinstance(stderr_thread, threading.Thread):
+                stderr_thread.join()
+                process.stderr.close()
+                stderr_output.close()
+            else:
+                stderr_output.close()
 
     def extract_info(
         self,
         url: str,
         options: Optional[Dict] = None,
+        stop_check: Callable[[], bool] | None = None,
     ) -> Tuple[Optional[Dict], bool]:
         """
         Extract metadata through the managed external yt-dlp executable.
@@ -508,20 +531,41 @@ class YtDlpWrapper:
         """
         try:
             args = build_extract_info_command(self.ytdlp_path, url, options)
+            cwd = (options or {}).get("working_directory")
 
             logged_args = [redact_url_for_log(arg) if arg == url else arg for arg in args]
             log.info(f"Extracting info: {' '.join(logged_args)}")
 
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                encoding=DEFAULT_ENCODING,
-                errors='replace',
-                timeout=YTDLP_TIMEOUT,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
-                env=_ytdlp_environment(),
-            )
+            if stop_check is not None:
+                if stop_check():
+                    return None, False
+                process = self._start_download_process(args, **({"cwd": cwd} if cwd else {}))
+                try:
+                    output = communicate_cancellable(process, stop_check, YTDLP_TIMEOUT, self._kill_process)
+                    if output is None:
+                        return None, False
+                    result = subprocess.CompletedProcess(args, process.returncode, *output)
+                finally:
+                    while process.poll() is None:
+                        self._kill_process(process)
+                        if process.poll() is None:
+                            time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
+                    for stream in (process.stdout, process.stderr):
+                        stream.close()
+                    if process.poll() is not None:
+                        self.current_process = None
+            else:
+                result = subprocess.run(
+                    args,
+                    capture_output=True,
+                    text=True,
+                    encoding=DEFAULT_ENCODING,
+                    errors='replace',
+                    timeout=YTDLP_TIMEOUT,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                    env=_ytdlp_environment(),
+                    **({"cwd": cwd} if cwd else {}),
+                )
 
             if result.returncode != 0:
                 log.error(f"extract_info failed: {redact_urls_in_text(result.stderr)}")

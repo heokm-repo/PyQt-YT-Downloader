@@ -11,6 +11,8 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from gui.tasks.duplicate_check_target import DuplicateCheckTarget
+from data.duplicate_checker import DuplicateResult
+from locales.strings import STR
 from gui.tasks.single_video_download import (
     build_single_video_download_plan,
     review_single_video_duplicate,
@@ -23,7 +25,7 @@ class FakeDuplicateChecker:
         self.duplicate_task = duplicate_task
         self.calls = []
 
-    def is_duplicate(self, extractor, video_id, task_id, tasks, target_format):
+    def check(self, extractor, video_id, task_id, tasks, target_format):
         self.calls.append(
             {
                 "extractor": extractor,
@@ -33,9 +35,9 @@ class FakeDuplicateChecker:
                 "target_format": target_format,
             }
         )
-        return (
+        return DuplicateResult(
             self.return_is_duplicate,
-            "Duplicate message",
+            target_format,
             self.duplicate_task,
         )
 
@@ -99,7 +101,7 @@ class SingleVideoDownloadTests(unittest.TestCase):
             ).cancelled
         )
 
-        self.assertEqual(confirmations, ["Duplicate message"])
+        self.assertEqual(confirmations, [STR.MSG_DUP_ALREADY_DONE.format(format="mp4") + STR.MSG_DUP_ASK_OVERWRITE])
         self.assertEqual(
             checker.calls,
             [

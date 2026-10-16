@@ -10,3 +10,5 @@ class DownloadResult:
     success: bool
     message: str
     final_path: str = ""
+    final_paths: tuple[str, ...] = ()
+    items: tuple[dict, ...] = ()

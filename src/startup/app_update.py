@@ -1,6 +1,7 @@
 """Application self-update startup flow."""
 from __future__ import annotations
 
+import time
 from typing import Any, Callable
 
 from locales.strings import STR
@@ -33,7 +34,7 @@ def prompt_for_app_update(
 
 def download_app_update(
     download_url: str,
-    download_update: Callable[[str, Callable[[int], None], str | None], str | None],
+    download_update: Callable[..., str | None],
     application: Any,
     logger: Any,
     progress_dialog_factory: Callable[..., Any] | None = None,
@@ -60,9 +61,22 @@ def download_app_update(
         if progress.was_cancelled():
             raise RuntimeError("Cancelled by user")
 
+    last_event_poll = None
+
+    def check_cancel() -> bool:
+        nonlocal last_event_poll
+        now = time.monotonic()
+        if last_event_poll is None or now - last_event_poll >= 0.05:
+            last_event_poll = now
+            process_events()
+        return progress.was_cancelled()
+
     try:
         try:
-            result = download_update(download_url, update_progress, expected_digest)
+            result = download_update(
+                download_url, update_progress, expected_digest,
+                check_cancel=check_cancel,
+            )
             if result:
                 progress.mark_installing()
                 process_events()

@@ -349,7 +349,8 @@ class FinalizationPipelineTests(unittest.TestCase):
                 )
 
             self.assertFalse(result.success)
-            self.assertIn("WebM codecs", result.error)
+            from locales.strings import STR
+            self.assertEqual(result.error, STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="WebM"))
             self.assertTrue(source.exists())
             self.assertEqual(list(downloads.iterdir()), [])
 

@@ -1,10 +1,35 @@
 from . import get_string
+from .runtime_strings import RuntimeStrings
 
-class Strings:
+class Strings(RuntimeStrings):
     """
     Singleton class for managing UI strings dynamically.
     @property is used to reflect language changes immediately.
     """
+    @property
+    def STATUS_COMPLETED_COUNT(self):
+        return get_string('STATUS_COMPLETED_COUNT', 'Completed [ {done} / {total} ]')
+
+    @property
+    def STATUS_FAILED_COUNT_FMT(self):
+        return get_string('STATUS_FAILED_COUNT_FMT', 'Failed [ {done} / {total} ] : {message}')
+
+    @property
+    def ERR_MEDIA_FINALIZATION_FMT(self):
+        return get_string('ERR_MEDIA_FINALIZATION_FMT', 'Media finalization failed: {error}')
+
+    @property
+    def MSG_NO_MEDIA(self):
+        return get_string('MSG_NO_MEDIA', 'No downloadable videos')
+
+    @property
+    def ERR_MEDIA_UNKNOWN(self):
+        return get_string('ERR_MEDIA_UNKNOWN', 'Media type or downloadable formats could not be verified')
+
+    @property
+    def ERR_NO_AUDIO_STREAM(self):
+        return get_string('ERR_NO_AUDIO_STREAM', 'The source has no audio stream; an audio-only file cannot be saved')
+
 
     # =========================================================================
     # 1. Common / Global

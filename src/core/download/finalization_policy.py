@@ -17,6 +17,7 @@ from constants import (
 from core.download.media_probe import MediaProbeResult
 from core.download.audio_encoding_policy import build_audio_codec_args
 from core.download.webm_encoding import is_webm_video_codec
+from locales.strings import STR
 
 
 @dataclass(frozen=True)
@@ -50,8 +51,10 @@ def build_finalization_plan(
     """Return selective copy/encode decisions for a single FFmpeg pass."""
     target_format = target_output_format(settings)
     compatibility = bool(settings.get(KEY_UNIVERSAL_COMPATIBILITY))
-    normalize = bool(settings.get("normalize_audio"))
+    normalize = bool(settings.get("normalize_audio")) and probe.has_audio is not False
     audio_only = target_format in AUDIO_FORMATS
+    if audio_only and probe.has_audio is False:
+        raise ValueError(STR.ERR_NO_AUDIO_STREAM)
     quality = (
         DEFAULT_AUDIO_QUALITY
         if target_format == "wav"
@@ -82,7 +85,7 @@ def build_finalization_plan(
     else:
         video_args = ("-c:v", "copy")
 
-    audio_args = build_audio_codec_args(
+    audio_args = ("-c:a", "copy") if probe.has_audio is False else build_audio_codec_args(
         target_format,
         quality,
         settings,
@@ -93,7 +96,7 @@ def build_finalization_plan(
     audio_filter = None
     if normalize:
         if probe.audio_sample_rate is None:
-            raise ValueError("Input audio sample rate could not be determined")
+            raise ValueError(STR.ERR_AUDIO_SAMPLE_RATE)
         audio_filter = f"{LOUDNORM_FILTER},aresample={probe.audio_sample_rate}"
 
     video_requires_encode = (

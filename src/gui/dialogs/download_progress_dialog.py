@@ -6,6 +6,7 @@ from gui.dialogs.progress_dialog_base import ProgressDialogBase
 from constants import DOWNLOAD_DIALOG_AUTO_CLOSE_MS
 from locales.strings import STR
 from utils.logger import log
+from utils.download_progress import ProgressReporter
 
 
 class DownloadWorker(QThread):
@@ -34,8 +35,20 @@ class DownloadWorker(QThread):
     def run(self):
         """Run the download workflow."""
         try:
+            reporters = {}
+
             def progress_callback(binary_name, downloaded, total):
-                self.progress.emit(binary_name, downloaded, total)
+                if self.is_cancelled:
+                    return
+                if binary_name not in reporters:
+                    reporters[binary_name] = ProgressReporter(
+                        lambda current, size, name=binary_name: self.progress.emit(
+                            name, current, size
+                        )
+                    )
+                reporters[binary_name].update(
+                    downloaded, total, force=total > 0 and downloaded == total
+                )
 
             if self.update_mode:
                 from utils.bin.manager import update_binaries
@@ -52,6 +65,9 @@ class DownloadWorker(QThread):
                     binary_names=self.binary_names,
                 )
 
+            if not self.is_cancelled:
+                for reporter in reporters.values():
+                    reporter.finish()
             self.finished.emit(False if self.is_cancelled else success)
 
         except Exception as e:

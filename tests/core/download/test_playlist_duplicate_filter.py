@@ -19,8 +19,9 @@ class FakeHistoryManager:
     def __init__(self, downloaded):
         self.downloaded = set(downloaded)
 
-    def is_downloaded(self, extractor, video_id, target_format):
-        return (extractor, video_id, target_format) in self.downloaded
+    def find_downloaded_ids(self, extractor, video_ids, target_format):
+        return {video_id for video_id in video_ids
+                if (extractor, video_id, target_format) in self.downloaded}
 
 
 class PlaylistDuplicateFilterTests(unittest.TestCase):

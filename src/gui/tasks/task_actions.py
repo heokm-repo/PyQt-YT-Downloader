@@ -1,5 +1,6 @@
 """Actions for individual tasks, including pause, resume, retry, and file operations."""
 import os
+from contextlib import nullcontext
 from typing import Optional, List, TYPE_CHECKING
 
 from utils.logger import log
@@ -19,6 +20,7 @@ from gui.tasks.task_bulk_action_plan import (
     folders_to_open_for_selected,
 )
 from gui.tasks.task_file_delete import DeleteFileStatus, delete_output_file
+from gui.tasks.download_completion import task_output_paths
 from gui.tasks.task_file_open import (
     OpenFileStatus,
     OpenFolderStatus,
@@ -43,8 +45,9 @@ if TYPE_CHECKING:
 class TaskActions:
     """Handle task-related actions through the main window reference."""
     
-    def __init__(self, main_window):
+    def __init__(self, main_window, batch_updates=nullcontext):
         self.main_window = main_window
+        self.batch_updates = batch_updates
     
     # --- Helper Methods ---
     
@@ -174,7 +177,7 @@ class TaskActions:
         if not should_continue_retry_after_duplicate_check(
             plan.duplicate_target,
             task_id,
-            self.main_window.tasks[:],
+            tuple(self.main_window.tasks),
             self.main_window.history_manager,
             self.main_window,
         ):
@@ -243,7 +246,13 @@ class TaskActions:
         ):
             return
 
-        result = delete_output_file(task.output_path)
+        for path in task_output_paths(task) or ['']:
+            if not self._delete_one_output(task_id, path):
+                return
+        self.main_window.remove_task_from_list(task_id)
+
+    def _delete_one_output(self, task_id, path):
+        result = delete_output_file(path)
         if result.status == DeleteFileStatus.PERMISSION_ERROR:
             error_text = str(result.error) if result.error else result.file_path
             self._show_warning(
@@ -253,7 +262,7 @@ class TaskActions:
             log.warning(
                 f"File delete failed due to permission (task_id={task_id}): {error_text}"
             )
-            return
+            return False
         elif result.status == DeleteFileStatus.ERROR:
             error_text = str(result.error) if result.error else result.file_path
             self._show_warning(
@@ -264,42 +273,45 @@ class TaskActions:
                 f"File delete failed (task_id={task_id}): {error_text}",
                 exc_info=result.exc_info,
             )
-            return
+            return False
         elif result.status == DeleteFileStatus.NOT_FILE:
-            return
+            return False
         elif result.status == DeleteFileStatus.MISSING:
             log.debug(f"File already missing: {result.output_path}")
 
-        self.main_window.remove_task_from_list(task_id)
+        return True
 
     # --- Bulk Actions For Selected Tasks ---
 
     def pause_selected(self, selected_ids: List[int]) -> None:
         """Pause selected pausable tasks."""
-        for task_id in selected_task_ids_matching(
-            selected_ids,
-            self.main_window.tasks,
-            lambda task: is_pausable_status(task.status),
-        ):
-            self.pause_task(task_id)
+        with self.batch_updates():
+            for task_id in selected_task_ids_matching(
+                selected_ids,
+                self.main_window.tasks,
+                lambda task: is_pausable_status(task.status),
+            ):
+                self.pause_task(task_id)
     
     def resume_selected(self, selected_ids: List[int]) -> None:
         """Resume selected paused tasks."""
-        for task_id in selected_task_ids_matching(
-            selected_ids,
-            self.main_window.tasks,
-            lambda task: is_resumable_status(task.status),
-        ):
-            self.resume_task(task_id)
+        with self.batch_updates():
+            for task_id in selected_task_ids_matching(
+                selected_ids,
+                self.main_window.tasks,
+                lambda task: is_resumable_status(task.status),
+            ):
+                self.resume_task(task_id)
     
     def retry_selected(self, selected_ids: List[int]) -> None:
         """Retry selected failed or finished tasks."""
-        for task_id in selected_task_ids_matching(
-            selected_ids,
-            self.main_window.tasks,
-            lambda task: is_retryable_status(task.status),
-        ):
-            self.retry_task(task_id)
+        with self.batch_updates():
+            for task_id in selected_task_ids_matching(
+                selected_ids,
+                self.main_window.tasks,
+                lambda task: is_retryable_status(task.status),
+            ):
+                self.retry_task(task_id)
     
     def open_folders_for_selected(self, selected_ids: List[int]) -> None:
         """Open folders for selected tasks."""
@@ -323,8 +335,9 @@ class TaskActions:
         ):
             return False
         
-        for task_id in plan.task_ids:
-            self.delete_file(task_id, confirm=False)
+        with self.batch_updates():
+            for task_id in plan.task_ids:
+                self.delete_file(task_id, confirm=False)
         
         return True
     
@@ -346,8 +359,9 @@ class TaskActions:
             ):
                 return False
         
-        for task_id in plan.task_ids:
-            self.main_window.remove_task_from_list(task_id)
+        with self.batch_updates():
+            for task_id in plan.task_ids:
+                self.main_window.remove_task_from_list(task_id)
         
         return True
 
@@ -364,7 +378,8 @@ class TaskActions:
             ):
                 return False
                 
-        for task_id in plan.task_ids:
-            self.main_window.remove_task_from_list(task_id)
+        with self.batch_updates():
+            for task_id in plan.task_ids:
+                self.main_window.remove_task_from_list(task_id)
             
         return True

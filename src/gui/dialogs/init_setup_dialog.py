@@ -18,7 +18,7 @@ from resources.styles import (
 class InitSetupDialog(BaseDialog):
     """Initial setup dialog shown on first launch, with language selection and required-component download guidance."""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, initial_settings=None):
         super().__init__(
             parent=parent, 
             title=STR.TITLE_INIT_SETUP, 
@@ -27,7 +27,7 @@ class InitSetupDialog(BaseDialog):
             show_divider=True
         )
         
-        self.settings = load_settings()
+        self.settings = dict(initial_settings) if initial_settings is not None else load_settings()
         saved_language = self.settings.get(KEY_LANGUAGE, DEFAULT_LANGUAGE)
         self.current_lang = (
             saved_language

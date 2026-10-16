@@ -122,7 +122,8 @@ class StartupBinaryFlowTests(unittest.TestCase):
                 logger=logger,
             )
 
-        self.assertEqual(result, startup_result.app_update_info)
+        self.assertEqual(result.app_update_info, startup_result.app_update_info)
+        self.assertFalse(result.settings_changed)
         update_prompt.assert_not_called()
         self.assertIn(
             "Startup update checks did not complete: offline",
@@ -239,7 +240,8 @@ class StartupBinaryFlowTests(unittest.TestCase):
                 logger=logger,
             )
 
-        self.assertEqual(result, startup_result.app_update_info)
+        self.assertEqual(result.app_update_info, startup_result.app_update_info)
+        self.assertFalse(result.settings_changed)
         repair.assert_called_once_with(("ffmpeg",), show_error, logger)
         initial_install.assert_not_called()
         update_prompt.assert_not_called()

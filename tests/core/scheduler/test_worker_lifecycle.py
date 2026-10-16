@@ -23,7 +23,7 @@ class FakeWorker:
     def isRunning(self):
         return self.running
 
-    def terminate(self):
+    def requestInterruption(self):
         self.terminated = True
 
     def wait(self, timeout):
@@ -47,7 +47,7 @@ class WorkerLifecycleTests(unittest.TestCase):
         self.assertFalse(worker.terminated)
         self.assertIsNone(worker.wait_timeout)
 
-    def test_stop_running_worker_terminates_and_waits(self):
+    def test_stop_running_worker_requests_interruption_and_waits(self):
         worker = FakeWorker(wait_result=True)
 
         result = stop_running_worker(worker, 1500)

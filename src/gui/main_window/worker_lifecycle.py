@@ -21,11 +21,11 @@ class WorkerStopResult:
 
 
 def stop_running_worker(worker: Any, wait_ms: int) -> WorkerStopResult:
-    """Terminate a running worker and report whether it stopped in time."""
+    """Request cooperative cancellation and report whether it stopped in time."""
     if not worker or not worker.isRunning():
         return WorkerStopResult(WorkerStopStatus.NOT_RUNNING)
 
-    worker.terminate()
+    worker.requestInterruption()
     if worker.wait(wait_ms):
         return WorkerStopResult(WorkerStopStatus.STOPPED)
 

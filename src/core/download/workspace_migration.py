@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from constants import DEFAULT_FORMAT
 from core.download.temp_workspace import task_temp_path, task_workspace_path
 from utils.logger import log
+from locales.strings import STR
 
 
 @dataclass(frozen=True)
@@ -73,11 +74,11 @@ def prepare_task_workspace(
 
     if target.is_symlink():
         raise WorkspaceMigrationError(
-            f"Task workspace cannot be a symbolic link: {target}"
+            STR.ERR_WORKSPACE_SYMLINK_FMT.format(path=target)
         )
     if target.exists() and not target.is_dir():
         raise WorkspaceMigrationError(
-            f"Task workspace is not a directory: {target}"
+            STR.ERR_WORKSPACE_DIRECTORY_FMT.format(path=target)
         )
 
     legacy_paths = (
@@ -96,7 +97,7 @@ def prepare_task_workspace(
             target_has_content = next(target.iterdir(), None) is not None
         except OSError as exc:
             raise WorkspaceMigrationError(
-                f"Could not inspect task workspace {target}: {exc}"
+                STR.ERR_WORKSPACE_INSPECT_FMT.format(path=target, error=exc)
             ) from exc
         if target_has_content:
             # A non-empty current workspace always takes precedence.
@@ -105,7 +106,7 @@ def prepare_task_workspace(
             target.rmdir()
         except OSError as exc:
             raise WorkspaceMigrationError(
-                f"Could not replace empty task workspace {target}: {exc}"
+                STR.ERR_WORKSPACE_REPLACE_FMT.format(path=target, error=exc)
             ) from exc
 
     if target.exists() or not migrate_legacy:
@@ -134,9 +135,9 @@ def prepare_task_workspace(
             )
 
     if available_sources:
-        detail = migration_errors[-1] if migration_errors else "unknown error"
+        detail = migration_errors[-1] if migration_errors else STR.ERR_UNKNOWN
         raise WorkspaceMigrationError(
-            f"Could not migrate legacy task workspace to {target}: {detail}"
+            STR.ERR_WORKSPACE_MIGRATE_FMT.format(path=target, error=detail)
         )
 
     target.mkdir(parents=True, exist_ok=True)

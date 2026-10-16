@@ -16,14 +16,15 @@ from constants import (
     APP_UPDATE_TEMP_FALLBACK_DIR,
     APP_VERSION,
     HTTP_API_TIMEOUT_SEC,
-    HTTP_DOWNLOAD_CHUNK_SIZE,
-    HTTP_DOWNLOAD_TIMEOUT_SEC,
     INNO_SETUP_INSTALL_ARGS,
     UPDATE_TEMP_FILENAME,
 )
+from utils.download_progress import ProgressReporter
+from utils.download_stream import DownloadCancelled, transfer_to_file
 from utils.integrity import normalize_sha256_digest, verify_sha256
 from utils.logger import log
 from utils.url_security import redact_urls_in_text
+from locales.strings import STR
 
 
 GITHUB_API_URL = APP_RELEASE_API_URL
@@ -63,15 +64,17 @@ def _check_for_updates():
     """Return update information while preserving errors for strict callers."""
     log.info("Checking for app updates")
     response = requests.get(GITHUB_API_URL, timeout=HTTP_API_TIMEOUT_SEC)
-    response.raise_for_status()
-
-    release_data = response.json()
+    try:
+        response.raise_for_status()
+        release_data = response.json()
+    finally:
+        response.close()
     if not isinstance(release_data, dict):
-        raise AppUpdateCheckError("GitHub release response was not an object")
+        raise AppUpdateCheckError(STR.ERR_RELEASE_INVALID_FMT.format(name="GitHub"))
 
     latest_version = str(release_data.get("tag_name", "")).lstrip("v")
     if not latest_version:
-        raise AppUpdateCheckError("GitHub release did not contain a version")
+        raise AppUpdateCheckError(STR.ERR_RELEASE_VERSION_FMT.format(name="GitHub"))
 
     current_version = APP_VERSION.lstrip("v")
     log.info(f"Current version: {current_version}, latest version: {latest_version}")
@@ -82,14 +85,14 @@ def _check_for_updates():
     asset = _select_update_asset(release_data)
     if not asset:
         raise AppUpdateCheckError(
-            "GitHub release did not contain an installer executable"
+            STR.ERR_RELEASE_ASSET_FMT.format(name="GitHub")
         )
 
     download_url = asset.get("browser_download_url")
     expected_digest = asset.get("digest")
     if not download_url or not normalize_sha256_digest(expected_digest):
         raise AppUpdateCheckError(
-            "App update asset is missing its URL or trusted SHA-256 digest"
+            STR.ERR_RELEASE_TRUST_FMT.format(name="GitHub")
         )
 
     log.info(f"App update available: {latest_version}")
@@ -100,12 +103,8 @@ def _app_update_check_error(exc: Exception) -> AppUpdateCheckError:
     """Normalize low-level update failures for logs and user-visible status."""
     if isinstance(exc, AppUpdateCheckError):
         return exc
-    if isinstance(exc, requests.exceptions.RequestException):
-        prefix = "GitHub API request failed"
-    else:
-        prefix = "App update check failed"
     return AppUpdateCheckError(
-        f"{prefix}: {redact_urls_in_text(exc)}"
+        STR.ERR_RELEASE_CHECK_FMT.format(name="GitHub", error=redact_urls_in_text(exc))
     )
 
 
@@ -151,7 +150,9 @@ def _remove_downloaded_update(file_path: str | None) -> None:
         log.warning(f"Failed to remove untrusted update file: {exc}")
 
 
-def download_update(download_url, progress_callback=None, expected_digest=None):
+def download_update(
+    download_url, progress_callback=None, expected_digest=None, check_cancel=None,
+):
     """Download an installer and return its path only after SHA-256 verification."""
     temp_file_path = None
     try:
@@ -162,27 +163,21 @@ def download_update(download_url, progress_callback=None, expected_digest=None):
         log.info("Starting app update download")
         temp_file_path = os.path.join(update_temp_dir(), UPDATE_TEMP_FILENAME)
 
-        response = requests.get(
-            download_url,
-            stream=True,
-            timeout=HTTP_DOWNLOAD_TIMEOUT_SEC,
+        progress = ProgressReporter(progress_callback)
+        result = transfer_to_file(
+            download_url, temp_file_path,
+            lambda downloaded, total: progress.update(int(downloaded / total * 100)),
+            check_cancel,
         )
-        response.raise_for_status()
-
-        total_size = int(response.headers.get("content-length", 0))
-        downloaded = 0
-        with open(temp_file_path, "wb") as file_handle:
-            for chunk in response.iter_content(chunk_size=HTTP_DOWNLOAD_CHUNK_SIZE):
-                if not chunk:
-                    continue
-                file_handle.write(chunk)
-                downloaded += len(chunk)
-                if progress_callback and total_size > 0:
-                    progress_callback(int((downloaded / total_size) * 100))
+        if result.total > 0:
+            progress.update(int(result.downloaded / result.total * 100), force=True)
 
         if not verify_sha256(temp_file_path, expected_digest):
             _remove_downloaded_update(temp_file_path)
             return None
+
+        if check_cancel and check_cancel():
+            raise DownloadCancelled(started=True)
 
         log.info(f"App update downloaded and verified: {temp_file_path}")
         return temp_file_path

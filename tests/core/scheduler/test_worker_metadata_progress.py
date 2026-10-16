@@ -21,6 +21,43 @@ from core.workers import DownloadWorker
 
 
 class SchedulerWorkerControlTests(unittest.TestCase):
+    def test_batch_checkpoint_keeps_progress_until_next_video_starts(self):
+        snapshots = []
+        self.worker.metadata_fetched.connect(lambda task_id, meta: snapshots.append(meta))
+
+        def download(_url, _settings, _progress, **kwargs):
+            emit = kwargs['metadata_hook']
+            emit({'id': 'post', 'media_items': [{'state': 'pending'}]})
+            emit({'media_progress_reset': True, 'video_size': 100, 'audio_size': 0})
+            self.worker.download_progress[81]['video']['downloaded'] = 42
+            emit({'id': 'post', 'media_items': [{'state': 'completed'}]})
+            self.assertEqual(self.worker.download_progress[81]['video']['downloaded'], 42)
+            emit({'media_progress_reset': True, 'video_size': 50, 'audio_size': 0})
+            self.assertEqual(self.worker.download_progress[81]['video']['downloaded'], 0)
+            self.assertEqual(self.worker.download_progress[81]['video']['total'], 50)
+            self.worker.retire_flag = True
+            return DownloadResult(True, 'ok')
+
+        self._run_single_task(81, 'https://x.com/post', {}, {}, download)
+        self.assertEqual(len(snapshots), 2)
+        self.assertTrue(all(meta['id'] == 'post' for meta in snapshots))
+        self.assertTrue(all('media_progress_reset' not in meta for meta in snapshots))
+
+    def test_batch_metadata_updates_each_item_but_starts_one_task(self):
+        metadata_events, started = [], []
+        self.worker.metadata_fetched.connect(lambda task_id, meta: metadata_events.append(meta))
+        self.worker.task_started.connect(started.append)
+
+        def download(_url, _settings, _progress, **kwargs):
+            for state in ('pending', 'completed'):
+                kwargs['metadata_hook']({'id': 'post', 'media_items': [{'id': 'video', 'state': state}]})
+            self.worker.retire_flag = True
+            return DownloadResult(True, 'ok', 'video.mp4')
+
+        self._run_single_task(80, 'https://x.com/post', {'format': 'mp4'}, {}, download)
+        self.assertEqual([m['media_items'][0]['state'] for m in metadata_events], ['pending', 'completed'])
+        self.assertEqual(started, [80])
+
     def setUp(self):
         self.scheduler = DownloadScheduler()
         self.worker = DownloadWorker(

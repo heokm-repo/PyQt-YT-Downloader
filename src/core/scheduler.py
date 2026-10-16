@@ -2,7 +2,7 @@
 import threading
 import queue
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from core.workers import DownloadWorker
 from utils.logger import log
@@ -17,6 +17,7 @@ class DownloadScheduler(QObject):
     download_finished = pyqtSignal(bool, str, int, str)  # success flag, message, task_id, file path
     task_started = pyqtSignal(int)  # task_id
     metadata_fetched = pyqtSignal(int, dict)  # task_id, metadata
+    stopped = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,6 +32,8 @@ class DownloadScheduler(QObject):
 
         # Worker list.
         self.workers = []
+        self._shutdown_requested = False
+        self._shutdown_notified = False
 
         # Per-task pause flags protected by a lock.
         self.task_paused_flags = {}
@@ -46,6 +49,8 @@ class DownloadScheduler(QObject):
     def initialize(self, max_workers: int):
         """Initialize the scheduler and start workers."""
         self.stop_event.clear()
+        self._shutdown_requested = False
+        self._shutdown_notified = False
         self.adjust_worker_count(max_workers)
 
     def add_task(self, priority: int, task_id: int, url: str, settings: dict, metadata: dict = None, is_resume: bool = False):
@@ -144,7 +149,7 @@ class DownloadScheduler(QObject):
         When scaling up, create additional workers. When scaling down, ask excess workers to retire after their current task.
         """
         # Remove workers that already stopped.
-        self.workers = [w for w in self.workers if w.isRunning()]
+        self._reap_finished_workers()
 
         available_workers = [w for w in self.workers if not w.retire_flag]
         current_count = len(available_workers)
@@ -166,8 +171,9 @@ class DownloadScheduler(QObject):
                 worker.download_finished.connect(self._on_download_finished)
                 worker.task_started.connect(self.task_started)
                 worker.metadata_fetched.connect(self.metadata_fetched)
-                worker.start()
+                worker.finished.connect(self._on_worker_finished)
                 self.workers.append(worker)
+                worker.start()
 
         elif target_count < current_count:
             # Ask extra workers to retire after their current task.
@@ -178,26 +184,50 @@ class DownloadScheduler(QObject):
                 worker.retire_flag = True
 
     def _on_download_finished(self, success: bool, message: str, task_id: int, final_path: str):
-        """Relay a completed download signal after removing dead workers."""
-        # Remove dead threads.
-        self.workers = [w for w in self.workers if w.isRunning()]
-        # Relay the signal.
+        """A completed task does not imply that its QThread has finished."""
         self.download_finished.emit(success, message, task_id, final_path)
 
-    def shutdown(self):
-        """Shut down the scheduler and clean up all workers."""
-        # Send the global shutdown signal.
+    @pyqtSlot()
+    def _on_worker_finished(self):
+        """Runs on the scheduler's Qt thread, after the worker finishes."""
+        self._reap_finished_workers()
+
+    def _reap_finished_workers(self):
+        for worker in tuple(self.workers):
+            if not worker.isRunning():
+                self.workers.remove(worker)
+                worker.deleteLater()
+        if self._shutdown_requested and not self.workers and not self._shutdown_notified:
+            # No consumer can race this drain now. Includes unused wake markers.
+            while True:
+                try:
+                    self.download_queue.get_nowait()
+                except queue.Empty:
+                    break
+                self.download_queue.task_done()
+            with self._generations_lock:
+                self._pending_task_entries.clear()
+            self._shutdown_notified = True
+            self.stopped.emit()
+
+    def request_shutdown(self):
+        """Request stop once without blocking the GUI thread."""
+        if self._shutdown_requested:
+            return
+        self._shutdown_requested = True
         self.stop_event.set()
         self.pause_event.set()
-
-        # Send shutdown markers through the queue.
         for _ in self.workers:
             self.download_queue.put((SCHEDULER_PRIORITY_NORMAL, -1, None))
+        self._reap_finished_workers()
 
+    def shutdown(self):
+        """Bounded synchronous adapter for non-GUI callers."""
+        self.request_shutdown()
         # Give workers time to clean up.
         for worker in self.workers:
             if worker.isRunning():
                 worker.wait(WORKER_CLEANUP_WAIT_MS)
 
-        self.workers = [worker for worker in self.workers if worker.isRunning()]
+        self._reap_finished_workers()
         return not self.workers

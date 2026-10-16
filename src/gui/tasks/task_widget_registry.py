@@ -18,10 +18,13 @@ def register_task_widget(
     task_layout: Any,
     task_widgets: MutableMapping[int, Any],
     connect_signals: Callable[[Any], None],
+    *,
+    insert_into_layout: bool = True,
 ) -> None:
     """Wire a task widget and insert it at the top of the task list."""
     connect_signals(task_widget)
-    task_layout.insertWidget(0, task_widget)
+    if insert_into_layout:
+        task_layout.insertWidget(0, task_widget)
     task_widgets[task_id] = task_widget
 
 
@@ -35,6 +38,9 @@ def create_registered_task_widget(
     task_widgets: MutableMapping[int, Any],
     connect_signals: Callable[[Any], None],
     widget_factory: Optional[Callable[[int, str, dict, Any], Any]] = None,
+    *,
+    insert_into_layout: bool = True,
+    thumbnail_loader=None,
 ) -> Any:
     """Create a TaskWidget, apply display overrides, and register it."""
     if widget_factory is None:
@@ -42,7 +48,8 @@ def create_registered_task_widget(
 
         widget_factory = TaskWidget
 
-    task_widget = widget_factory(task_id, url, settings, parent)
+    kwargs = {'thumbnail_loader': thumbnail_loader} if thumbnail_loader is not None else {}
+    task_widget = widget_factory(task_id, url, settings, parent, **kwargs)
     apply_task_title_override(task_widget, settings, title_override)
     register_task_widget(
         task_widget,
@@ -50,5 +57,6 @@ def create_registered_task_widget(
         task_layout,
         task_widgets,
         connect_signals,
+        insert_into_layout=insert_into_layout,
     )
     return task_widget

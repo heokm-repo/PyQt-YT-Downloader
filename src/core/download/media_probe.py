@@ -24,6 +24,8 @@ class MediaProbeResult:
     audio_codec: str | None = None
     video_codec: str | None = None
     video_pixel_format: str | None = None
+    # None means inspection failed/unknown; False is confirmed absence.
+    has_audio: bool | None = None
 
 
 def _creation_flags() -> int:
@@ -95,11 +97,13 @@ def _probe_with_ffprobe(input_path: str, ffprobe_path: str) -> MediaProbeResult 
     audio_codec = None
     video_codec = None
     video_pixel_format = None
+    has_audio = False
     for stream in streams:
         if not isinstance(stream, dict):
             continue
         stream_type = str(stream.get("codec_type") or "").lower()
         if stream_type == "audio":
+            has_audio = True
             if audio_sample_rate is None:
                 audio_sample_rate = _positive_int(stream.get("sample_rate"))
             if audio_bit_rate is None:
@@ -116,6 +120,7 @@ def _probe_with_ffprobe(input_path: str, ffprobe_path: str) -> MediaProbeResult 
         audio_codec=audio_codec,
         video_codec=video_codec,
         video_pixel_format=video_pixel_format,
+        has_audio=has_audio,
     )
 
 

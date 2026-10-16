@@ -63,6 +63,9 @@ def download_and_install_ffmpeg_zip(
         if not verify_sha256(temp_zip_path, expected_digest):
             return False
 
+        if check_cancel and check_cancel():
+            return False
+
         ffmpeg_path = os.path.join(bin_path, ffmpeg_name)
         ffprobe_path = os.path.join(bin_path, ffprobe_name)
         log.info(f"Extracting FFmpeg tools from {temp_zip_path}")

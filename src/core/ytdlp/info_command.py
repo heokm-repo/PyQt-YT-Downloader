@@ -28,6 +28,10 @@ def build_extract_info_command(
     ]
 
     if options:
+        if options.get("ignore_no_formats_error"):
+            args.append("--ignore-no-formats-error")
+        if options.get("write_pages"):
+            args.append("--write-pages")
         if options.get("extract_flat") is True:
             args.append("--flat-playlist")
 

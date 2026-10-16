@@ -158,6 +158,8 @@ class SelectionManager:
         """Remove a task_id from the selection without changing widget state."""
         if task_id in self.selected_task_ids:
             self.selected_task_ids.remove(task_id)
+        if self.last_clicked_task_id == task_id:
+            self.last_clicked_task_id = None
     
     def is_selected(self, task_id: int) -> bool:
         """Return whether a task_id is selected."""

@@ -59,7 +59,9 @@ def _build_base_options(
     # Isolate concurrent downloads while keeping resume paths deterministic.
     identity = temp_identity or {}
     workspace_id = identity.get("workspace_id")
-    if is_workspace_id(workspace_id):
+    if settings and settings.get('_media_info_filename') and settings.get('_media_workspace'):
+        temp_path = settings['_media_workspace']
+    elif is_workspace_id(workspace_id):
         preparation = prepare_task_workspace(
             save_path,
             str(workspace_id),

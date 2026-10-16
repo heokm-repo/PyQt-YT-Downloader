@@ -13,6 +13,8 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from gui.tasks.duplicate_check_target import DuplicateCheckTarget
+from data.duplicate_checker import DuplicateResult
+from locales.strings import STR
 from gui.tasks.task_retry_plan import (
     build_retry_task_plan,
     should_continue_retry_after_duplicate_check,
@@ -39,7 +41,7 @@ def duplicate_checker_factory(is_duplicate, calls):
         def __init__(self, history_manager):
             self.history_manager = history_manager
 
-        def is_duplicate(self, extractor, video_id, task_id, tasks, target_format):
+        def check(self, extractor, video_id, task_id, tasks, target_format):
             calls.append(
                 {
                     "extractor": extractor,
@@ -50,7 +52,7 @@ def duplicate_checker_factory(is_duplicate, calls):
                     "history_manager": self.history_manager,
                 }
             )
-            return is_duplicate, "Duplicate message", None
+            return DuplicateResult(is_duplicate, target_format)
 
     return FakeDuplicateChecker
 
@@ -113,7 +115,7 @@ class TaskRetryPlanTests(unittest.TestCase):
 
         self.assertFalse(should_continue)
         self.assertEqual(history.removed, [])
-        self.assertEqual(confirmations, ["Duplicate message"])
+        self.assertEqual(confirmations, [STR.MSG_DUP_ALREADY_DONE.format(format="mp4") + STR.MSG_DUP_ASK_OVERWRITE])
         self.assertEqual(calls[0]["task_id"], 7)
         self.assertEqual(calls[0]["tasks"], ["task"])
         self.assertIs(calls[0]["history_manager"], history)

@@ -14,6 +14,7 @@ from core.download.finalization_command import build_finalization_command
 from core.download.finalization_policy import build_finalization_plan
 from core.download.finalization_verification import verify_finalized_output
 from core.download.media_probe import probe_media_file
+from locales.strings import STR
 from utils.logger import log
 
 
@@ -35,9 +36,9 @@ def finalize_and_commit_download(
 ) -> FinalizationResult:
     """Finalize inside workspace, then move the only completed file into downloads."""
     if not input_path or not os.path.isfile(input_path):
-        return FinalizationResult(False, input_path, "Workspace output was not found")
+        return FinalizationResult(False, input_path, STR.ERR_WORKSPACE_OUTPUT_MISSING)
     if not ffmpeg_path or not os.path.isfile(ffmpeg_path):
-        return FinalizationResult(False, input_path, "FFmpeg executable was not found")
+        return FinalizationResult(False, input_path, STR.ERR_FFMPEG_MISSING)
 
     input_probe = probe_media_file(input_path, ffmpeg_path)
     try:
@@ -66,7 +67,7 @@ def finalize_and_commit_download(
                 command,
                 stop_check=stop_check,
                 timeout_sec=FFMPEG_NORMALIZE_TIMEOUT_SEC,
-                timeout_error="Media finalization timed out",
+                timeout_error=STR.ERR_FINALIZATION_TIMEOUT,
             )
             cleanup_allowed = execution.process_stopped
             if execution.paused:

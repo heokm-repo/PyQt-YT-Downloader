@@ -46,6 +46,15 @@ class FakeProcess:
 
 
 class YtDlpWrapperLifecycleTests(unittest.TestCase):
+    def test_keeps_all_final_paths_for_multiple_outputs(self):
+        wrapper = YtDlpWrapper('yt-dlp.exe')
+        process = FakeProcess([
+            '__YTDLP_FINAL_PATH__:C:/Downloads/first.mp4\n',
+            '__YTDLP_FINAL_PATH__:C:/Downloads/second.mp4\n',
+        ])
+        wrapper._run_stdout_progress_loop(process, lambda _: None, None)
+        self.assertEqual(wrapper.final_output_paths, ['C:/Downloads/first.mp4', 'C:/Downloads/second.mp4'])
+
     def test_ytdlp_environment_disables_plugin_loading(self):
         self.assertEqual(_ytdlp_environment()["YTDLP_NO_PLUGINS"], "1")
         self.assertEqual(_ytdlp_environment()["PYTHONIOENCODING"], "utf-8")

@@ -33,8 +33,10 @@ class PlaylistAnalysisWorker(QThread):
     
     def run(self) -> None:
         """Extract video IDs from a playlist."""
-        video_ids, success, error_msg, entry_count = download_handler.extract_playlist_video_ids(self.url)
-        self.analysis_finished.emit(self.url, video_ids, success, error_msg, entry_count)
+        video_ids, success, error_msg, entry_count = download_handler.extract_playlist_video_ids(
+            self.url, stop_check=self.isInterruptionRequested)
+        if not self.isInterruptionRequested():
+            self.analysis_finished.emit(self.url, video_ids, success, error_msg, entry_count)
 
 
 class DownloadWorker(QThread):
@@ -70,9 +72,7 @@ class DownloadWorker(QThread):
         Parse a queue entry into (task_id, url, settings, metadata, is_resume, generation).
         Return None for the scheduler shutdown marker.
         """
-        task_data, should_mark_done = parse_task_wrapper(task_wrapper)
-        if should_mark_done:
-            self.download_queue.task_done()
+        task_data, _ = parse_task_wrapper(task_wrapper)
         return task_data
 
     def _should_skip_task(self, task_id: int, generation: int) -> bool:
@@ -81,17 +81,14 @@ class DownloadWorker(QThread):
         if scheduler and hasattr(scheduler, 'is_current_generation'):
             if not scheduler.is_current_generation(task_id, generation):
                 log.info(f"Skipping stale queued task (task_id={task_id}, generation={generation})")
-                self.download_queue.task_done()
                 return True
 
         if scheduler and hasattr(scheduler, 'is_task_cancelled'):
             if scheduler.is_task_cancelled(task_id):
-                self.download_queue.task_done()
                 return True
 
         if scheduler and hasattr(scheduler, 'is_task_paused'):
             if scheduler.is_task_paused(task_id):
-                self.download_queue.task_done()
                 return True
         return False
 
@@ -107,21 +104,10 @@ class DownloadWorker(QThread):
         task_id = self.current_task_id
         generation = self.current_generation
         scheduler = self.parent()
-        if (
-            scheduler
-            and generation is not None
-            and hasattr(scheduler, "release_task")
-        ):
-            scheduler.release_task(task_id, generation)
         self.current_task_id = -1
         self.current_generation = None
-
-    def _finish_current_queue_entry(self) -> None:
-        """Mark a claimed queue entry done and release worker ownership."""
-        try:
-            self.download_queue.task_done()
-        finally:
-            self._release_current_claim()
+        if scheduler and generation is not None and hasattr(scheduler, "release_task"):
+            scheduler.release_task(task_id, generation)
 
     def _stop_check(self) -> bool:
         """Quickly check stop and pause state for each stdout line."""
@@ -181,141 +167,116 @@ class DownloadWorker(QThread):
     # ============================================================
         
     def run(self) -> None:
-        """Process download tasks from the queue sequentially."""
-        while not self.stop_event.is_set():
-            if self.retire_flag:
-                break
-
+        """Account for every dequeued entry once, releasing only our claim."""
+        while not self.stop_event.is_set() and not self.retire_flag:
             if not self.pause_event.wait(timeout=QUEUE_TIMEOUT_SEC):
                 continue
-            
             if self.stop_event.is_set() or self.retire_flag:
                 break
-
-            task_wrapper = None
             try:
                 task_wrapper = self.download_queue.get(timeout=QUEUE_TIMEOUT_SEC)
-                
+            except queue.Empty:
+                continue
+            try:
                 task_data = self._extract_task_data(task_wrapper)
                 if task_data is None:
                     break
-                
-                task_id, url, current_settings, metadata, is_resume, generation = task_data
-
+                task_id, url, settings, metadata, is_resume, generation = task_data
                 if self._should_skip_task(task_id, generation):
                     continue
                 if not self._claim_task(task_id, generation):
-                    log.info(
-                        "Skipping unclaimable queued task "
-                        "(task_id=%s, generation=%s)",
-                        task_id,
-                        generation,
-                    )
-                    self.download_queue.task_done()
                     continue
-                
                 self.current_task_id = task_id
                 self.current_generation = generation
+                try:
+                    self._execute_task(task_id, url, settings, metadata, is_resume)
+                finally:
+                    self.download_progress.pop(task_id, None)
+                    self.last_update_times.pop(task_id, None)
+                    self._release_current_claim()
+            except Exception as exc:
+                self._handle_unexpected_error(exc, task_wrapper)
+            finally:
+                self.download_queue.task_done()
 
+    def _execute_task(self, task_id, url, current_settings, metadata, is_resume):
+        """Run one claimed task; queue and progress lifetime belongs to run()."""
+        self._init_progress_tracking(task_id, metadata)
+
+        task_started = False
+        metadata_received = False
+
+        def mark_task_started() -> None:
+            nonlocal task_started
+            if not task_started:
+                self.task_started.emit(task_id)
+                task_started = True
+
+        def handle_metadata(fetched_metadata: Dict) -> None:
+            nonlocal metadata, metadata_received
+            if not fetched_metadata:
+                return
+            reset_streams = bool(fetched_metadata.get('media_progress_reset'))
+            if metadata_received and 'media_items' not in fetched_metadata and not reset_streams:
+                return
+            first_metadata = not metadata_received
+            fetched_metadata = {k: v for k, v in fetched_metadata.items() if k != 'media_progress_reset'}
+            metadata_received = True
+            metadata = {**metadata, **fetched_metadata}
+            selected_audio_bitrate = fetched_metadata.get("audio_bitrate")
+            if selected_audio_bitrate:
+                execution_settings["_selected_audio_bitrate"] = (
+                    selected_audio_bitrate
+                )
+            if first_metadata or reset_streams:
                 self._init_progress_tracking(task_id, metadata)
+            # Stream-only estimates belong to worker progress tracking; the UI
+            # receives the next durable item snapshot, not an identical card.
+            if not reset_streams:
+                self.metadata_fetched.emit(task_id, metadata)
+            mark_task_started()
 
-                task_started = False
-                metadata_received = False
+        def handle_progress(progress: Dict[str, Any]) -> None:
+            # Normally before_dl metadata arrives first. Keep progress
+            # functional if yt-dlp omits or cannot parse that output.
+            mark_task_started()
+            self._progress_hook(progress)
 
-                def mark_task_started() -> None:
-                    nonlocal task_started
-                    if not task_started:
-                        self.task_started.emit(task_id)
-                        task_started = True
+        execution_settings = dict(current_settings)
+        legacy_identity = execution_settings.get(
+            LEGACY_WORKSPACE_SETTING
+        )
+        execution_settings["_temp_identity"] = {
+            "id": metadata.get("id"),
+            "extractor": metadata.get("extractor", "unknown"),
+            "workspace_id": execution_settings.get(
+                WORKSPACE_ID_SETTING
+            ),
+            "legacy_workspace": isinstance(legacy_identity, dict),
+            "legacy_identity": legacy_identity,
+        }
+        result = download_handler.download_video_with_result(
+            url,
+            execution_settings,
+            handle_progress,
+            is_resume=is_resume,
+            stop_check=self._stop_check,
+            metadata_hook=handle_metadata,
+        )
+        success = result.success
+        message = result.message
+        final_path = result.final_path
 
-                def handle_metadata(fetched_metadata: Dict) -> None:
-                    nonlocal metadata, metadata_received
-                    if metadata_received or not fetched_metadata:
-                        return
-                    metadata_received = True
-                    metadata = {**metadata, **fetched_metadata}
-                    selected_audio_bitrate = fetched_metadata.get("audio_bitrate")
-                    if selected_audio_bitrate:
-                        execution_settings["_selected_audio_bitrate"] = (
-                            selected_audio_bitrate
-                        )
-                    self._init_progress_tracking(task_id, metadata)
-                    self.metadata_fetched.emit(task_id, metadata)
-                    mark_task_started()
-
-                def handle_progress(progress: Dict[str, Any]) -> None:
-                    # Normally before_dl metadata arrives first. Keep progress
-                    # functional if yt-dlp omits or cannot parse that output.
-                    mark_task_started()
-                    self._progress_hook(progress)
-
-                execution_settings = dict(current_settings)
-                legacy_identity = execution_settings.get(
-                    LEGACY_WORKSPACE_SETTING
-                )
-                execution_settings["_temp_identity"] = {
-                    "id": metadata.get("id"),
-                    "extractor": metadata.get("extractor", "unknown"),
-                    "workspace_id": execution_settings.get(
-                        WORKSPACE_ID_SETTING
-                    ),
-                    "legacy_workspace": isinstance(legacy_identity, dict),
-                    "legacy_identity": legacy_identity,
-                }
-                result = download_handler.download_video_with_result(
-                    url,
-                    execution_settings,
-                    handle_progress,
-                    is_resume=is_resume,
-                    stop_check=self._stop_check,
-                    metadata_hook=handle_metadata,
-                )
-                success = result.success
-                message = result.message
-                final_path = result.final_path
-                
-                if not success and MSG_PAUSED_BY_USER in str(message):
-                    self.download_finished.emit(
-                        False,
-                        STR.STATUS_PAUSED,
-                        task_id,
-                        final_path,
-                    )
-                    self._finish_current_queue_entry()
-                    continue
-
-                if task_id in self.download_progress:
-                    del self.download_progress[task_id]
-                
-                self.download_finished.emit(success, message, task_id, final_path)
-                self._finish_current_queue_entry()
-                
-                if self.retire_flag:
-                    break
-                
-            except queue.Empty:
-                continue
-            except Exception as e:
-                self._handle_unexpected_error(e, task_wrapper)
+        if not success and MSG_PAUSED_BY_USER in str(message):
+            message = STR.STATUS_PAUSED
+        self.download_finished.emit(success, message, task_id, final_path)
 
     def _handle_unexpected_error(self, e: Exception, task_wrapper: Any) -> None:
-        """Handle unexpected errors."""
-        error_task_id = -1
-        if task_wrapper is not None:
-            try:
-                if isinstance(task_wrapper, tuple) and len(task_wrapper) == 7:
-                    error_task_id = task_wrapper[2]
-                if (
-                    self.current_generation is not None
-                    and error_task_id == self.current_task_id
-                ):
-                    self._release_current_claim()
-                self.download_queue.task_done()
-            except (IndexError, TypeError, ValueError) as cleanup_error:
-                log.debug(f"Failed to mark errored queue entry done: {cleanup_error}")
+        """Report failure; the run-loop finally owns all resource cleanup."""
+        error_task_id = task_wrapper[2] if isinstance(task_wrapper, tuple) and len(task_wrapper) == 7 else -1
         error_msg = str(e)
         log.error(f"다운로드 오류 (task_id={error_task_id}): {error_msg}", exc_info=True)
-        self.download_finished.emit(False, f"오류: {error_msg}", error_task_id, "")
+        self.download_finished.emit(False, STR.ERR_UNEXPECTED_FMT.format(error=error_msg), error_task_id, "")
 
     def _progress_hook(self, d: Dict[str, Any]) -> None:
         """Progress hook that works with concurrent_fragment_downloads."""

@@ -5,6 +5,7 @@ from __future__ import annotations
 from core.download.finalization_policy import FinalizationPlan
 from core.download.media_probe import MediaProbeResult
 from core.download.webm_encoding import is_webm_audio_codec, is_webm_video_codec
+from locales.strings import STR
 
 
 def verify_finalized_output(
@@ -17,7 +18,7 @@ def verify_finalized_output(
     output_video = output_probe.video_codec
 
     if plan.audio_only and output_audio is None:
-        return "Final audio stream could not be verified"
+        return STR.ERR_FINAL_AUDIO_VERIFY
 
     if plan.target_format == "webm":
         audio_was_lost = (
@@ -32,38 +33,38 @@ def verify_finalized_output(
             or audio_was_lost
             or incompatible_audio
         ):
-            return "Final WebM codecs could not be verified"
+            return STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="WebM")
 
     if not plan.audio_only and output_video is None:
-        return "Final video stream could not be verified"
+        return STR.ERR_FINAL_VIDEO_VERIFY
 
     if plan.target_format == "m4a" and (
         output_video is not None or output_audio != "aac"
     ):
-        return "Final M4A streams could not be verified"
+        return STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="M4A")
 
     if plan.target_format == "mp3" and output_audio != "mp3":
-        return "Final MP3 codec could not be verified"
+        return STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="MP3")
 
     if plan.target_format == "wav" and output_audio != "pcm_s16le":
-        return "Final WAV codec could not be verified"
+        return STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="WAV")
 
     if plan.target_format == "mp4":
         if output_audio not in {None, "aac"}:
-            return "Final MP4 streams could not be verified"
+            return STR.ERR_FINAL_FORMAT_VERIFY_FMT.format(format="MP4")
         if plan.compatibility and (
             output_video != "h264"
             or output_probe.video_pixel_format != "yuv420p"
         ):
-            return "Final MP4 video compatibility could not be verified"
+            return STR.ERR_FINAL_COMPAT_VERIFY
 
     if source_probe.audio_codec is not None and output_audio is None:
-        return "Final audio stream was lost"
+        return STR.ERR_FINAL_AUDIO_LOST
 
     if plan.audio_filter:
         if output_probe.audio_sample_rate is None:
-            return "Final audio sample rate could not be verified"
+            return STR.ERR_FINAL_SAMPLE_RATE_VERIFY
         if output_probe.audio_sample_rate != source_probe.audio_sample_rate:
-            return "Final audio sample rate did not match the source"
+            return STR.ERR_FINAL_SAMPLE_RATE_MISMATCH
 
     return None

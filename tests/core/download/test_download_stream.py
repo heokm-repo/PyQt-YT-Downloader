@@ -21,6 +21,9 @@ class FakeResponse:
         self.chunks = chunks
         self.headers = {"content-length": str(total_size)}
 
+    def close(self):
+        self.closed = True
+
     def raise_for_status(self):
         return None
 

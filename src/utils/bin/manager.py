@@ -1,6 +1,7 @@
 """Managed binary helpers for yt-dlp.exe, FFmpeg tools, and qjs.exe."""
 from typing import Callable, Dict, Mapping, Optional, Sequence, Tuple
 from utils.logger import log
+from locales.strings import STR
 from utils.bin.release_info import ffmpeg_release_info, quickjs_release_info, ytdlp_release_info
 from utils.bin.executable_install import download_and_install_executable_binary
 from utils.bin.ffmpeg_download import download_and_install_ffmpeg_zip
@@ -127,7 +128,7 @@ def _check_ytdlp_release(
         YTDLP_API_URL,
         'yt-dlp',
         lambda data: ytdlp_release_info(data, YTDLP_BINARY),
-        "yt-dlp.exe not found in release assets",
+        STR.ERR_RELEASE_ASSET_FMT.format(name=YTDLP_BINARY),
     )
 
 
@@ -138,7 +139,7 @@ def _check_ffmpeg_release(
         FFMPEG_API_URL,
         'ffmpeg',
         lambda data: ffmpeg_release_info(data, FFMPEG_ZIP_NAME_WIN),
-        f"ffmpeg asset ({FFMPEG_ZIP_NAME_WIN}) not found in release",
+        STR.ERR_RELEASE_ASSET_FMT.format(name=FFMPEG_ZIP_NAME_WIN),
     )
 
 
@@ -206,7 +207,7 @@ def _check_quickjs_release(
         QUICKJS_API_URL,
         'QuickJS',
         lambda data: quickjs_release_info(data, QUICKJS_ASSET_NAME),
-        f"QuickJS asset ({QUICKJS_ASSET_NAME}) not found in release",
+        STR.ERR_RELEASE_ASSET_FMT.format(name=QUICKJS_ASSET_NAME),
     )
 
 

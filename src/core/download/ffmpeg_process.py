@@ -15,6 +15,8 @@ from constants import (
     PROCESS_TERMINATE_WAIT_SEC,
 )
 from utils.logger import log
+from core.download.error_tail import LastErrorLine
+from locales.strings import STR
 
 
 @dataclass(frozen=True)
@@ -25,7 +27,7 @@ class FfmpegExecutionResult:
     process_stopped: bool = True
 
 
-def _drain_stderr(stream: Any, output: list[str]) -> None:
+def _drain_stderr(stream: Any, output: LastErrorLine) -> None:
     try:
         for line in iter(stream.readline, ""):
             if line:
@@ -60,7 +62,7 @@ def run_ffmpeg_command(
     """Run FFmpeg while honoring cancellation and a bounded processing timeout."""
     process = None
     stderr_thread = None
-    stderr_output: list[str] = []
+    stderr_output = LastErrorLine()
     started_at = time.monotonic()
 
     try:
@@ -79,6 +81,7 @@ def run_ffmpeg_command(
         stderr_thread = threading.Thread(
             target=_drain_stderr,
             args=(process.stderr, stderr_output),
+            name='ffmpeg-stderr-reader',
             daemon=True,
         )
         stderr_thread.start()
@@ -89,7 +92,7 @@ def run_ffmpeg_command(
                 if not process_stopped:
                     return FfmpegExecutionResult(
                         False,
-                        "FFmpeg could not be stopped after cancellation",
+                        STR.ERR_PROCESS_STOP_FMT.format(name="FFmpeg"),
                         process_stopped=False,
                     )
                 return FfmpegExecutionResult(False, paused=True)
@@ -103,13 +106,8 @@ def run_ffmpeg_command(
             time.sleep(PROCESS_MONITOR_INTERVAL_SEC)
 
         stderr_thread.join(timeout=1)
-        stderr = "".join(stderr_output).strip()
         if process.returncode != 0:
-            error = (
-                stderr.splitlines()[-1]
-                if stderr
-                else f"FFmpeg exited with code {process.returncode}"
-            )
+            error = stderr_output.value or STR.ERR_PROCESS_EXIT_FMT.format(name="FFmpeg", code=process.returncode)
             return FfmpegExecutionResult(False, error)
         return FfmpegExecutionResult(True)
     except Exception as exc:
@@ -122,3 +120,5 @@ def run_ffmpeg_command(
     finally:
         if stderr_thread:
             stderr_thread.join(timeout=1)
+            if not stderr_thread.is_alive() and process.stderr:
+                process.stderr.close()

@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
-from utils.utils import get_user_data_path
+from utils.app_paths import get_user_data_path
 from utils.url_security import redact_urls_in_text
 from constants import LOG_FILE_NAME, LOGGER_NAME
 

@@ -18,8 +18,8 @@ def hide_task_list_if_empty(task_widgets: Mapping[int, object], scroll_area, emp
     if task_widgets:
         return False
 
-    empty_label.show()
     scroll_area.hide()
+    empty_label.show()
     return True
 
 

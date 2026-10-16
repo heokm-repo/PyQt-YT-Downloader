@@ -7,10 +7,14 @@ class MetadataTask(Protocol):
     video_id: str | None
     extractor: str
     meta: MutableMapping[str, Any]
+    output_path: str
 
 
 def apply_metadata_to_task(task: MetadataTask, metadata: MutableMapping[str, Any]) -> None:
     task.meta = metadata
+    if 'media_items' in metadata:
+        paths = metadata.get('output_paths') or []
+        task.output_path = paths[0] if paths else ''
 
     video_id = metadata.get("id")
     extractor = metadata.get("extractor", "unknown")

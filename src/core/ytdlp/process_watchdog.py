@@ -51,6 +51,7 @@ class ProcessWatchdog:
         self._closed = threading.Event()
         self._activity_condition = threading.Condition()
         self._last_activity = time.monotonic()
+        self._last_output_activity = self._last_activity
         self._file_poll_interval = min(
             1.0,
             max(self._poll_interval, self._inactivity_timeout / 4),
@@ -94,10 +95,12 @@ class ProcessWatchdog:
             self._threads.append(stop_thread)
             stop_thread.start()
 
-    def notify_activity(self) -> None:
+    def notify_activity(self, *, from_output: bool = True) -> None:
         """Reset the inactivity deadline after receiving process output."""
         with self._activity_condition:
             self._last_activity = time.monotonic()
+            if from_output:
+                self._last_output_activity = self._last_activity
             self._activity_condition.notify_all()
 
     def watch_output_path(self, output_path: str) -> None:
@@ -283,7 +286,7 @@ class ProcessWatchdog:
                     changed = True
 
         if changed:
-            self.notify_activity()
+            self.notify_activity(from_output=False)
         return changed
 
     def _poll_directory_activity(self) -> bool:
@@ -304,12 +307,21 @@ class ProcessWatchdog:
                     changed = True
 
         if changed:
-            self.notify_activity()
+            self.notify_activity(from_output=False)
         return changed
 
     def _watch_output_files(self) -> None:
         while not self._closed.wait(self._file_poll_interval):
-            self._poll_file_activity()
+            self._poll_output_activity()
+
+    def _poll_output_activity(self) -> None:
+        self._poll_file_activity()
+        with self._activity_condition:
+            recent_output = time.monotonic() - self._last_output_activity < self._file_poll_interval
+        # Known paths remain cheap to check. A whole-tree scan cannot add an
+        # inactivity signal while stdout/stderr already confirms activity.
+        # Quiet merges resume full scans on the very next quiet polling tick.
+        if not recent_output:
             self._poll_directory_activity()
 
     def _watch_inactivity(self) -> None:

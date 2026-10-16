@@ -103,7 +103,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
              patch.object(download_runner, "_build_all_options", return_value={"built": True}) as build_options, \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://www.youtube.com/watch?v=abc123&list=playlist456",
                 {"format": "mp4"},
                 lambda *_: None,
@@ -139,7 +139,7 @@ class DownloadRunnerTests(unittest.TestCase):
                  return_value=finalized,
              ) as finalize, \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://example.invalid/video",
                 {"format": "webm"},
                 lambda *_: None,
@@ -166,7 +166,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
              patch.object(download_runner, "_build_all_options", return_value={}), \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://example.invalid/video",
                 {"format": "webm"},
                 lambda *_: None,
@@ -176,7 +176,7 @@ class DownloadRunnerTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(
             result.message,
-            download_runner.OUTPUT_PATH_VERIFICATION_ERROR,
+            download_runner.STR.ERR_OUTPUT_PATH_VERIFY,
         )
         self.assertEqual(result.final_path, "")
 
@@ -207,7 +207,7 @@ class DownloadRunnerTests(unittest.TestCase):
              patch.object(download_runner, "get_download_folder", return_value="C:/Downloads"), \
              patch.object(download_runner, "_build_all_options", return_value={}), \
              patch.object(download_runner, "YtDlpWrapper", FakeDownloadWrapper):
-            result = download_runner.download_video_with_result(
+            result = download_runner.download_single_video_with_result(
                 "https://www.youtube.com/watch?v=abc123&list=playlist456",
                 {"format": "mp4"},
                 lambda *_: None,

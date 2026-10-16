@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
 )
 
 from gui.widgets.toggle_button import ToggleButton
+from gui.widgets.buttons import create_button
 from resources import colors, styles
 from resources.styles import (
     DOWNLOAD_BUTTON_FONT_FAMILY,
@@ -309,17 +310,14 @@ def create_title_bar_button(
     color: str | None = None,
 ) -> QPushButton:
     """Create a fixed-size icon button for the custom title bar."""
-    button = TitleBarButton()
+    button = create_button(callback, button_class=TitleBarButton,
+                           fixed_size=(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE), style=style)
     set_button_icon(
         button,
         icon_name,
         color=color,
         hover_color=colors.COLOR_TITLE_BAR_HOVER_ICON,
     )
-    button.setFixedSize(TITLE_BAR_BUTTON_SIZE, TITLE_BAR_BUTTON_SIZE)
-    button.setCursor(Qt.PointingHandCursor)
-    button.clicked.connect(callback)
-    button.setStyleSheet(style)
     return button
 
 
@@ -395,32 +393,19 @@ def create_url_input(placeholder: str, on_return_pressed: Callable) -> QLineEdit
 
 def create_download_button(text: str, on_clicked: Callable) -> QPushButton:
     """Create the primary download button."""
-    button = QPushButton(text)
-    button.setFixedHeight(DOWNLOAD_BUTTON_HEIGHT)
-    button.setMinimumWidth(MIN_DOWNLOAD_BUTTON_WIDTH)
-    button.setFont(
-        QFont(DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE, QFont.Bold)
-    )
-    button.setCursor(Qt.PointingHandCursor)
-    button.clicked.connect(on_clicked)
-    button.setStyleSheet(styles.DOWNLOAD_BUTTON_STYLE)
-    return button
+    return create_button(
+        on_clicked, text=text, fixed_height=DOWNLOAD_BUTTON_HEIGHT,
+        minimum_width=MIN_DOWNLOAD_BUTTON_WIDTH,
+        font=QFont(DOWNLOAD_BUTTON_FONT_FAMILY, DOWNLOAD_BUTTON_FONT_SIZE, QFont.Bold),
+        style=styles.DOWNLOAD_BUTTON_STYLE)
 
 
 def create_settings_button(on_clicked: Callable) -> QPushButton:
     """Create the settings icon button."""
-    button = QPushButton()
-    set_button_icon(
-        button,
-        "mdi.cog",
-        color=colors.COLOR_ICON_DEFAULT,
-        icon_size=(26, 26),
-    )
-    button.setFixedSize(SETTINGS_BUTTON_SIZE, SETTINGS_BUTTON_SIZE)
-    button.setCursor(Qt.PointingHandCursor)
-    button.clicked.connect(on_clicked)
-    button.setStyleSheet(styles.SETTINGS_BUTTON_STYLE)
-    return button
+    return create_button(
+        on_clicked, fixed_size=(SETTINGS_BUTTON_SIZE, SETTINGS_BUTTON_SIZE),
+        icon_name="mdi.cog", icon_color=colors.COLOR_ICON_DEFAULT, icon_size=(26, 26),
+        style=styles.SETTINGS_BUTTON_STYLE)
 
 
 def create_url_input_section(

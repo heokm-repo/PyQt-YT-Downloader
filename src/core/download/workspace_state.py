@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from utils.logger import log
+from locales.strings import STR
 
 
 READY_MARKER_FILENAME = ".source_ready.json"
@@ -55,7 +56,7 @@ def write_ready_source(
     workspace_path = Path(workspace)
     source = Path(source_path)
     if not _path_inside_workspace(source, workspace_path):
-        raise ValueError("Ready source is outside the task workspace")
+        raise ValueError(STR.ERR_READY_SOURCE_OUTSIDE)
 
     relative_source = source.resolve(strict=True).relative_to(
         workspace_path.resolve(strict=True)

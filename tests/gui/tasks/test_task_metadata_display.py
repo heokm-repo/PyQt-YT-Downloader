@@ -11,11 +11,10 @@ if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
 from gui.tasks.task_metadata_display import (
-    DEFAULT_TITLE,
-    DEFAULT_UPLOADER,
     build_task_metadata_display,
     format_task_title,
 )
+from locales.strings import STR
 
 
 class TaskMetadataDisplayTests(unittest.TestCase):
@@ -45,8 +44,8 @@ class TaskMetadataDisplayTests(unittest.TestCase):
     def test_build_task_metadata_display_uses_defaults(self):
         display = build_task_metadata_display({}, {"format": "mp4"})
 
-        self.assertEqual(display.title_text, f"[MP4] {DEFAULT_TITLE}")
-        self.assertEqual(display.uploader_text, DEFAULT_UPLOADER)
+        self.assertEqual(display.title_text, f"[MP4] {STR.DEFAULT_VIDEO_TITLE}")
+        self.assertEqual(display.uploader_text, STR.DEFAULT_UPLOADER)
         self.assertIsNone(display.file_size_text)
         self.assertIsNone(display.thumbnail_url)
 

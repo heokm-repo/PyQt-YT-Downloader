@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from constants import DEFAULT_PLAYLIST_TITLE, DEFAULT_UPLOADER, DEFAULT_VIDEO_TITLE
+from locales.strings import STR
 
 
 def build_metadata_result(info: Mapping[str, Any], clean_url: str, is_playlist: bool) -> dict[str, Any]:
@@ -11,8 +11,8 @@ def build_metadata_result(info: Mapping[str, Any], clean_url: str, is_playlist: 
 
     if is_playlist or info.get("_type") == "playlist":
         return {
-            "title": info.get("title", DEFAULT_PLAYLIST_TITLE),
-            "uploader": info.get("uploader", DEFAULT_UPLOADER),
+            "title": info.get("title", STR.DEFAULT_PLAYLIST_TITLE),
+            "uploader": info.get("uploader", STR.DEFAULT_UPLOADER),
             "is_playlist": True,
             "video_count": len(info.get("entries", [])),
             "extractor": extractor,
@@ -27,8 +27,8 @@ def build_metadata_result(info: Mapping[str, Any], clean_url: str, is_playlist: 
     video_size, audio_size = estimate_media_sizes(video_info)
 
     result = {
-        "title": video_info.get("title", DEFAULT_VIDEO_TITLE),
-        "uploader": video_info.get("uploader", video_info.get("channel", DEFAULT_UPLOADER)),
+        "title": video_info.get("title", STR.DEFAULT_VIDEO_TITLE),
+        "uploader": video_info.get("uploader", video_info.get("channel", STR.DEFAULT_UPLOADER)),
         "duration": video_info.get("duration", 0),
         "thumbnail": video_info.get("thumbnail"),
         "id": video_info.get("id"),

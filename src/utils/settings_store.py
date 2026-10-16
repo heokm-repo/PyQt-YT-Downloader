@@ -17,9 +17,6 @@ from constants import (
     DEFAULT_VIDEO_QUALITY,
     DOWNLOAD_FOLDER_NAME,
     DOWNLOAD_FOLDER_WRITE_TEST_PREFIX,
-    ERR_DOWNLOAD_FOLDER_EMPTY,
-    ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY,
-    ERR_DOWNLOAD_FOLDER_PROTECTED,
     FALLBACK_DOWNLOAD_FOLDER_NAME,
     LEGACY_SAVE_PATH_KEY,
     SETTINGS_FILENAME,
@@ -41,8 +38,10 @@ from constants import (
     THEME_OPTIONS,
 )
 from locales import DEFAULT_LANGUAGE
+from locales.strings import STR
 from utils.logger import log
-from utils.utils import get_base_path, get_user_data_path
+from utils.app_paths import get_base_path, get_user_data_path
+from utils.json_store import read_json, write_json_atomic
 
 
 @dataclass(frozen=True)
@@ -50,6 +49,7 @@ class DownloadFolderFallbackNotice:
     original_path: str
     fallback_path: str
     reason: str
+    reason_key: str | None = None
 
 
 _pending_download_folder_notice: DownloadFolderFallbackNotice | None = None
@@ -103,20 +103,13 @@ def get_download_folder(settings: dict[str, Any]) -> str:
 
 def load_settings() -> dict[str, Any]:
     settings = default_settings()
-    path = settings_file_path()
     migrated_legacy_path = False
 
-    try:
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                loaded_settings = json.load(f)
-            if isinstance(loaded_settings, dict):
-                if KEY_DOWNLOAD_FOLDER not in loaded_settings and loaded_settings.get(LEGACY_SAVE_PATH_KEY):
-                    loaded_settings[KEY_DOWNLOAD_FOLDER] = loaded_settings[LEGACY_SAVE_PATH_KEY]
-                    migrated_legacy_path = True
-                settings.update(loaded_settings)
-    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as e:
-        log.error(f"Settings load failed: {e}", exc_info=True)
+    loaded_settings = read_settings_values()
+    if KEY_DOWNLOAD_FOLDER not in loaded_settings and loaded_settings.get(LEGACY_SAVE_PATH_KEY):
+        loaded_settings[KEY_DOWNLOAD_FOLDER] = loaded_settings[LEGACY_SAVE_PATH_KEY]
+        migrated_legacy_path = True
+    settings.update(loaded_settings)
 
     changed = _normalize_download_folder(settings)
     theme_changed = _normalize_theme(settings)
@@ -132,8 +125,45 @@ def save_settings(settings: dict[str, Any]) -> dict[str, Any]:
     _normalize_download_folder(settings)
     _normalize_theme(settings)
     settings.pop(LEGACY_SAVE_PATH_KEY, None)
+    current = read_settings_values()
+    # Window geometry belongs to the window-state writer, not a stale settings form.
+    states = current.get('window_states', settings.get('window_states'))
+    current.update(settings)
+    current.pop(LEGACY_SAVE_PATH_KEY, None)
+    if states is not None:
+        current['window_states'] = states
+    settings.update(current)
     _write_settings_file(settings)
     return settings
+
+
+def read_settings_values() -> dict[str, Any]:
+    """Read persisted keys without folder probes, normalization or UI notices."""
+    try:
+        values = read_json(settings_file_path())
+        return values if isinstance(values, dict) else {}
+    except FileNotFoundError:
+        return {}
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as e:
+        log.error(f"Settings load failed: {e}", exc_info=True)
+        return {}
+
+
+def update_settings(changes: dict[str, Any]) -> None:
+    """Merge persisted keys; window-state patches update only named windows.
+
+    These UI-thread updates avoid repeating download-folder validation. Atomic
+    replacement protects the file, but is not a cross-process transaction.
+    """
+    current = read_settings_values()
+    updates = dict(changes)
+    if 'window_states' in updates:
+        states = current.get('window_states', {})
+        states = dict(states) if isinstance(states, dict) else {}
+        states.update(updates.pop('window_states'))
+        current['window_states'] = states
+    current.update(updates)
+    _write_settings_file(current)
 
 
 def _normalize_theme(settings: dict[str, Any]) -> bool:
@@ -146,10 +176,7 @@ def _normalize_theme(settings: dict[str, Any]) -> bool:
 
 def _write_settings_file(settings: dict[str, Any]) -> None:
     try:
-        path = settings_file_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(settings, f, ensure_ascii=False, indent=2)
+        write_json_atomic(settings_file_path(), settings)
     except (OSError, TypeError) as e:
         log.error(f"Settings save failed: {e}", exc_info=True)
 
@@ -173,10 +200,17 @@ def _normalize_download_folder(settings: dict[str, Any]) -> bool:
 
 def _set_download_folder_notice(original_path: str, fallback_path: str, reason: str) -> None:
     global _pending_download_folder_notice
+    # Settings load before the startup language is applied. Resolve these known
+    # reasons again when the notice is displayed; keep OS diagnostics verbatim.
+    reason_key = next((key for key in (
+        'ERR_DOWNLOAD_FOLDER_PROTECTED', 'ERR_DOWNLOAD_FOLDER_EMPTY',
+        'ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY',
+    ) if getattr(STR, key) == reason), None)
     _pending_download_folder_notice = DownloadFolderFallbackNotice(
         original_path=original_path,
         fallback_path=fallback_path,
         reason=reason,
+        reason_key=reason_key,
     )
     log.warning(
         "Download folder changed to fallback: %s -> %s (%s)",
@@ -197,7 +231,7 @@ def _protected_windows_folder_reason(path: str) -> str | None:
     normalized_path = os.path.normcase(os.path.normpath(os.path.abspath(path)))
     for root in protected_roots:
         if normalized_path == root or normalized_path.startswith(root + os.sep):
-            return ERR_DOWNLOAD_FOLDER_PROTECTED
+            return STR.ERR_DOWNLOAD_FOLDER_PROTECTED
 
     return None
 
@@ -217,9 +251,9 @@ def _windows_protected_roots() -> set[str]:
 
 def _ensure_writable_folder(path: str) -> tuple[bool, str]:
     if not isinstance(path, str) or "\x00" in path:
-        return False, ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
+        return False, STR.ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
     if not path:
-        return False, ERR_DOWNLOAD_FOLDER_EMPTY
+        return False, STR.ERR_DOWNLOAD_FOLDER_EMPTY
 
     protected_reason = _protected_windows_folder_reason(path)
     if protected_reason:
@@ -228,7 +262,7 @@ def _ensure_writable_folder(path: str) -> tuple[bool, str]:
     try:
         os.makedirs(path, exist_ok=True)
         if not os.path.isdir(path):
-            return False, ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
+            return False, STR.ERR_DOWNLOAD_FOLDER_NOT_DIRECTORY
 
         fd, temp_path = tempfile.mkstemp(prefix=DOWNLOAD_FOLDER_WRITE_TEST_PREFIX, dir=path)
         os.close(fd)
