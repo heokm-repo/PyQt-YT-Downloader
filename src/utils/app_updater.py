@@ -96,7 +96,7 @@ def _check_for_updates():
         )
 
     log.info(f"App update available: {latest_version}")
-    return True, latest_version, download_url, expected_digest
+    return True, f"v{latest_version}", download_url, expected_digest
 
 
 def _app_update_check_error(exc: Exception) -> AppUpdateCheckError:

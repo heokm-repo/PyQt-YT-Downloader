@@ -57,7 +57,7 @@ class AppUpdaterIntegrityTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            (True, "9.9.9", "https://example.test/setup.exe", digest),
+            (True, "v9.9.9", "https://example.test/setup.exe", digest),
         )
 
     def test_download_update_returns_only_verified_installer(self):
